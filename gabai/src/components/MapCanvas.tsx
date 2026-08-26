@@ -105,57 +105,8 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const mapRef = useRef<any>(null)
   const initialCentered = useRef(false)
 
-  const lightStyle: any = {
-    version: 8,
-    sources: {
-      'carto-voyager': {
-        type: 'raster',
-        tiles: [
-          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-          'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        ],
-        tileSize: 256,
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      },
-    },
-    layers: [
-      {
-        id: 'carto-voyager-layer',
-        type: 'raster',
-        source: 'carto-voyager',
-        minzoom: 0,
-        maxzoom: 20,
-      },
-    ],
-  }
-
-  const darkStyle: any = {
-    version: 8,
-    sources: {
-      'carto-dark': {
-        type: 'raster',
-        tiles: [
-          'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-          'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-          'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-          'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        ],
-        tileSize: 256,
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      },
-    },
-    layers: [
-      {
-        id: 'carto-dark-layer',
-        type: 'raster',
-        source: 'carto-dark',
-        minzoom: 0,
-        maxzoom: 20,
-      },
-    ],
-  }
+  const lightStyle = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json'
+  const darkStyle = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
 
   const userLat = userLocation.lat
   const userLng = userLocation.lng
@@ -278,6 +229,35 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       }}
     >
       <NavigationControl position={navPosition} />
+
+      {/* ── 3D Buildings Fill-Extrusion Layer ── */}
+      <Layer
+        id="3d-buildings"
+        source="carto"
+        source-layer="building"
+        type="fill-extrusion"
+        minzoom={13}
+        paint={{
+          'fill-extrusion-color': darkMode ? '#334155' : '#cbd5e1',
+          'fill-extrusion-height': [
+            'case',
+            ['has', 'render_height'],
+            ['get', 'render_height'],
+            ['has', 'height'],
+            ['get', 'height'],
+            ['has', 'levels'],
+            ['*', ['get', 'levels'], 3.5],
+            16,
+          ],
+          'fill-extrusion-base': [
+            'case',
+            ['has', 'render_min_height'],
+            ['get', 'render_min_height'],
+            0,
+          ],
+          'fill-extrusion-opacity': 0.85,
+        }}
+      />
 
       {/* ── PAGASA Doppler Weather Radar Layer ── */}
       {showRadar && radarPrecipitationGeoJSON && (
