@@ -432,6 +432,40 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
     }
   }
 
+  const handleStartNavigation = () => {
+    closeModal()
+    setIs3D(true)
+    setShow3DBuildings(true)
+    setIsDrivingHUDActive(true)
+
+    let initialBearing = -15
+    const activeRoute = routes?.[selectedRoute]
+    const coords = activeRoute?.geoJSON?.geometry?.coordinates
+    if (Array.isArray(coords) && coords.length > 1) {
+      const [lng1, lat1] = coords[0]
+      const [lng2, lat2] = coords[Math.min(3, coords.length - 1)]
+      const y = Math.sin(((lng2 - lng1) * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180)
+      const x =
+        Math.cos((lat1 * Math.PI) / 180) * Math.sin((lat2 * Math.PI) / 180) -
+        Math.sin((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.cos(((lng2 - lng1) * Math.PI) / 180)
+      const angle = (Math.atan2(y, x) * 180) / Math.PI
+      initialBearing = (angle + 360) % 360
+    }
+
+    mapCanvasRef.current?.startNavigationPerspective(
+      userLocation.lat,
+      userLocation.lng,
+      initialBearing
+    )
+  }
+
+  const handleExitNavigation = () => {
+    setIsDrivingHUDActive(false)
+    mapCanvasRef.current?.exitNavigationPerspective()
+  }
+
   return (
     <div className="fixed inset-0 overflow-hidden bg-slate-100 dark:bg-slate-900 select-none flex flex-col">
       {/* ── Active Fullscreen Driving HUD ───────────────────── */}
@@ -440,7 +474,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           route={routes[selectedRoute]}
           destinationName={destination?.name || 'Safe Evacuation Center'}
           nearbyHazards={hazards}
-          onExit={() => setIsDrivingHUDActive(false)}
+          onExit={handleExitNavigation}
         />
       )}
 
@@ -1238,11 +1272,8 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
               {/* Start Driving Navigation HUD */}
               <button
-                onClick={() => {
-                  closeModal()
-                  setIsDrivingHUDActive(true)
-                }}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg text-sm"
+                onClick={handleStartNavigation}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg text-sm cursor-pointer"
               >
                 <Navigation className="w-4 h-4" />
                 <span>Start Turn-by-Turn Safe Navigation</span>

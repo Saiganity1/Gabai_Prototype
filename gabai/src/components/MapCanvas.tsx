@@ -40,6 +40,8 @@ export interface MapCanvasHandle {
   flyToCoords: (lat: number, lng: number, zoom?: number) => void
   set3DMode: (is3D: boolean) => void
   toggle3D: () => void
+  startNavigationPerspective: (originLat: number, originLng: number, targetBearing?: number) => void
+  exitNavigationPerspective: () => void
 }
 
 interface Props {
@@ -220,6 +222,25 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         pitch: nextPitch,
         bearing: nextPitch > 0 ? -15 : 0,
         duration: 600,
+      })
+    },
+    startNavigationPerspective: (originLat: number, originLng: number, targetBearing = -15) => {
+      mapRef.current?.flyTo({
+        center: [originLng, originLat],
+        zoom: 17.2,
+        pitch: 62,
+        bearing: targetBearing,
+        duration: 1800,
+        essential: true,
+      })
+    },
+    exitNavigationPerspective: () => {
+      mapRef.current?.flyTo({
+        zoom: 14,
+        pitch: 0,
+        bearing: 0,
+        duration: 1200,
+        essential: true,
       })
     },
   }))
