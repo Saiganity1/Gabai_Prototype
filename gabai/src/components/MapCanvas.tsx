@@ -74,6 +74,8 @@ function createGeoCircle(center: [number, number], radiusMeters: number, points 
   }
 }
 
+const MAPTILER_KEY = 'nTk681BgoYKH6JYBCUgo'
+
 const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   {
     darkMode,
@@ -96,54 +98,8 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const mapRef = useRef<any>(null)
   const initialCentered = useRef(false)
 
-  const lightStyle: any = {
-    version: 8,
-    sources: {
-      'osm-standard': {
-        type: 'raster',
-        tiles: [
-          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-        ],
-        tileSize: 256,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      },
-    },
-    layers: [
-      {
-        id: 'osm-standard-layer',
-        type: 'raster',
-        source: 'osm-standard',
-        minzoom: 0,
-        maxzoom: 19,
-      },
-    ],
-  }
-
-  const darkStyle: any = {
-    version: 8,
-    sources: {
-      'carto-dark': {
-        type: 'raster',
-        tiles: [
-          'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-          'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-          'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-          'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        ],
-        tileSize: 256,
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      },
-    },
-    layers: [
-      {
-        id: 'carto-dark-layer',
-        type: 'raster',
-        source: 'carto-dark',
-        minzoom: 0,
-        maxzoom: 20,
-      },
-    ],
-  }
+  const lightStyle = `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
+  const darkStyle = `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${MAPTILER_KEY}`
 
   const userLat = userLocation.lat
   const userLng = userLocation.lng
@@ -266,6 +222,35 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       }}
     >
       <NavigationControl position={navPosition} />
+
+      {/* ── True 3D Extruded Buildings Layer ── */}
+      <Layer
+        id="maptiler-3d-buildings"
+        source="maptiler_planet"
+        source-layer="building"
+        type="fill-extrusion"
+        minzoom={13}
+        paint={{
+          'fill-extrusion-color': darkMode ? '#334155' : '#cbd5e1',
+          'fill-extrusion-height': [
+            'case',
+            ['has', 'render_height'],
+            ['get', 'render_height'],
+            ['has', 'height'],
+            ['get', 'height'],
+            ['has', 'levels'],
+            ['*', ['get', 'levels'], 3.8],
+            18,
+          ],
+          'fill-extrusion-base': [
+            'case',
+            ['has', 'render_min_height'],
+            ['get', 'render_min_height'],
+            0,
+          ],
+          'fill-extrusion-opacity': 0.85,
+        }}
+      />
 
       {/* ── PAGASA Doppler Weather Radar Layer ── */}
       {showRadar && radarPrecipitationGeoJSON && (
