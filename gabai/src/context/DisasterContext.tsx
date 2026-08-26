@@ -361,19 +361,21 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLastActionMessage(`📢 Report submitted and broadcast to GABAI Live Map!`)
 
       // Sync via REST
-      fetch(`${API_BASE_URL}/reports`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type,
-          desc: newReport.desc,
-          lat: reportLat,
-          lng: reportLng,
-          severity,
-          citizen: citizenName,
-          locationName: userLoc.locationName,
-        }),
-      }).catch((err) => console.log('REST sync skipped:', err))
+      if (API_BASE_URL) {
+        fetch(`${API_BASE_URL}/reports`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type,
+            desc: newReport.desc,
+            lat: reportLat,
+            lng: reportLng,
+            severity,
+            citizen: citizenName,
+            locationName: userLoc.locationName,
+          }),
+        }).catch((err) => console.log('REST sync skipped:', err))
+      }
 
       // Emit over WebSockets
       if (socketRef.current?.connected) {
@@ -406,7 +408,9 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       )
       setLastActionMessage('✅ Report verified and published to official alert channels.')
 
-      fetch(`${API_BASE_URL}/reports/${reportId}/verify`, { method: 'PATCH' }).catch(() => {})
+      if (API_BASE_URL) {
+        fetch(`${API_BASE_URL}/reports/${reportId}/verify`, { method: 'PATCH' }).catch(() => {})
+      }
       if (socketRef.current?.connected) {
         socketRef.current.emit('report:verify', { reportId })
       }
@@ -420,7 +424,9 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     )
     setLastActionMessage('❌ Report rejected by LGU Dispatch.')
 
-    fetch(`${API_BASE_URL}/reports/${reportId}/reject`, { method: 'PATCH' }).catch(() => {})
+    if (API_BASE_URL) {
+      fetch(`${API_BASE_URL}/reports/${reportId}/reject`, { method: 'PATCH' }).catch(() => {})
+    }
   }, [])
 
   const resolveReport = useCallback(async (reportId: number | string) => {
@@ -429,7 +435,9 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     )
     setLastActionMessage('🏁 Incident resolved and marked cleared.')
 
-    fetch(`${API_BASE_URL}/reports/${reportId}/resolve`, { method: 'PATCH' }).catch(() => {})
+    if (API_BASE_URL) {
+      fetch(`${API_BASE_URL}/reports/${reportId}/resolve`, { method: 'PATCH' }).catch(() => {})
+    }
   }, [])
 
   // ── Dynamic Safe Routes Engine with Real-World Road Network Routing ──

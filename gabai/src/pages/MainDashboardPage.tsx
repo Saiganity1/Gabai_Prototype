@@ -3,7 +3,7 @@ import {
   Search, Sun, Moon, Mic, MicOff, Layers, Locate,
   ChevronUp, ChevronDown, X, Shield, Navigation,
   MapPin, TriangleAlert, Users,
-  PhoneCall, Clock, ChevronRight, Loader2, Sparkles,
+  PhoneCall, CheckCircle, Clock, ChevronRight, Loader2, Sparkles,
   Camera, Upload, Zap, CloudRain, Radio
 } from 'lucide-react'
 import MapCanvas, { Hazard, MapCanvasHandle } from '../components/MapCanvas'
