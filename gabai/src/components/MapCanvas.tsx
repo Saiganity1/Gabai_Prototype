@@ -848,21 +848,20 @@ function interpolateSegment(
         </Marker>
       )}
 
-      {/* ── Road Flood Endpoint & Center Badges ── */}
+      {/* ── Road Flood Endpoint & Center Badges (Visible ONLY When Line is Tapped / Selected) ── */}
       {hazards
-        .filter((h) => h.isRoadSegment && h.roadSegment && h.status !== 'Resolved')
+        .filter((h) => h.isRoadSegment && h.roadSegment && h.status !== 'Resolved' && selectedHazard?.id === h.id)
         .map((h) => {
           const seg = h.roadSegment!
           const isVerified = Boolean((h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified' || h.status?.includes('Verified'))
           const color = isVerified ? '#2563EB' : '#F97316'
-          const isSelected = selectedHazard?.id === h.id
 
           const midLat = (seg.from.lat + seg.to.lat) / 2
           const midLng = (seg.from.lng + seg.to.lng) / 2
 
           return (
             <div key={`road-flood-markers-${h.id}`}>
-              {/* Center Floating Passability Badge (Always Visible & Tap-Friendly) */}
+              {/* Center Floating Passability Badge (Appears only on tap) */}
               <Marker longitude={midLng} latitude={midLat} anchor="center">
                 <button
                   type="button"
@@ -870,9 +869,7 @@ function interpolateSegment(
                     e.stopPropagation()
                     onHazardClick(h)
                   }}
-                  className={`cursor-pointer focus:outline-none transition-transform hover:scale-110 active:scale-95 z-20 ${
-                    isSelected ? 'scale-110 ring-4 ring-cyan-400 rounded-full' : ''
-                  }`}
+                  className="cursor-pointer focus:outline-none transition-transform hover:scale-110 active:scale-95 z-30 scale-105 ring-4 ring-cyan-400 rounded-full anim-scale-up"
                 >
                   <div
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-white text-white text-[10px] font-black shadow-2xl"
@@ -893,44 +890,39 @@ function interpolateSegment(
                 </button>
               </Marker>
 
-              {/* Point A and B Markers when Selected */}
-              {isSelected && (
-                <>
-                  {/* Point A (From) */}
-                  <Marker longitude={seg.from.lng} latitude={seg.from.lat} anchor="center">
-                    <div className="flex flex-col items-center pointer-events-none anim-scale-up z-20">
-                      <div
-                        className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-1 whitespace-nowrap bg-slate-900 border border-white/30"
-                      >
-                        Start: {seg.from.name || 'Point A'}
-                      </div>
-                      <div
-                        className="w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-black shadow-lg"
-                        style={{ backgroundColor: color }}
-                      >
-                        A
-                      </div>
-                    </div>
-                  </Marker>
+              {/* Point A (From) */}
+              <Marker longitude={seg.from.lng} latitude={seg.from.lat} anchor="center">
+                <div className="flex flex-col items-center pointer-events-none anim-scale-up z-20">
+                  <div
+                    className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-1 whitespace-nowrap bg-slate-900 border border-white/30"
+                  >
+                    Start: {seg.from.name || 'Point A'}
+                  </div>
+                  <div
+                    className="w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-black shadow-lg"
+                    style={{ backgroundColor: color }}
+                  >
+                    A
+                  </div>
+                </div>
+              </Marker>
 
-                  {/* Point B (To) */}
-                  <Marker longitude={seg.to.lng} latitude={seg.to.lat} anchor="center">
-                    <div className="flex flex-col items-center pointer-events-none anim-scale-up z-20">
-                      <div
-                        className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-1 whitespace-nowrap bg-slate-900 border border-white/30"
-                      >
-                        End: {seg.to.name || 'Point B'}
-                      </div>
-                      <div
-                        className="w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-black shadow-lg"
-                        style={{ backgroundColor: color }}
-                      >
-                        B
-                      </div>
-                    </div>
-                  </Marker>
-                </>
-              )}
+              {/* Point B (To) */}
+              <Marker longitude={seg.to.lng} latitude={seg.to.lat} anchor="center">
+                <div className="flex flex-col items-center pointer-events-none anim-scale-up z-20">
+                  <div
+                    className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-1 whitespace-nowrap bg-slate-900 border border-white/30"
+                  >
+                    End: {seg.to.name || 'Point B'}
+                  </div>
+                  <div
+                    className="w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-black shadow-lg"
+                    style={{ backgroundColor: color }}
+                  >
+                    B
+                  </div>
+                </div>
+              </Marker>
             </div>
           )
         })}
