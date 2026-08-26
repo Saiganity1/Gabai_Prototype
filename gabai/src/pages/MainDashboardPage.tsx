@@ -99,6 +99,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const [showRoadLines, setShowRoadLines] = useState(true)
   const [showEvacCenters, setShowEvacCenters] = useState(true)
   const [layersOpen, setLayersOpen] = useState(false)
+  const [isAiAlertDismissed, setIsAiAlertDismissed] = useState(false)
   const mapCanvasRef = useRef<MapCanvasHandle>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -530,122 +531,124 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         </div>
       )}
 
-      {/* ── Top bar: Search + Status + Controls ─────────────── */}
-      <div className={`absolute left-0 right-0 z-10 px-3 pt-3 sm:px-4 sm:pt-4 flex flex-col gap-2 pointer-events-none ${appState === 'emergency' ? 'top-12' : 'top-0'}`}>
-        <div className="flex items-center gap-2 pointer-events-auto relative">
-          {/* Logo */}
-          <div className="w-10 h-10 rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-md shadow-sm flex items-center justify-center border border-slate-200/50 dark:border-slate-700/50 shrink-0">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-inner">
-              <Shield className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
+      {/* ── Top Floating Header Dock (Ultra-Clean & Unified) ── */}
+      <div className={`absolute left-0 right-0 z-10 px-3 pt-3 sm:px-5 sm:pt-4 flex flex-col gap-2 pointer-events-none ${appState === 'emergency' ? 'top-12' : 'top-0'}`}>
+        {/* Main Floating Capsule */}
+        <div className="flex items-center gap-2 pointer-events-auto max-w-4xl mx-auto w-full">
+          {/* Main Search & Actions Capsule */}
+          <div className="flex-1 flex items-center gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl p-1.5 shadow-xl border border-slate-200/70 dark:border-slate-800/80 transition-all">
+            {/* App Icon */}
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-md shadow-cyan-500/20 shrink-0 ml-1">
+              <Shield className="w-4 h-4 text-white" strokeWidth={2.5} />
             </div>
-          </div>
 
-          {/* Real-World Search bar */}
-          <div className="flex-1 relative">
-            <form
-              onSubmit={handleSearchSubmit}
-              className="flex items-center gap-2 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-xl shadow-sm border border-slate-200/50 dark:border-slate-700/50 px-3 py-2.5 transition-all focus-within:ring-2 focus-within:ring-cyan-500/50"
-            >
-              <Search className="w-4 h-4 text-slate-400 shrink-0" />
+            {/* Search Input */}
+            <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2 min-w-0 pr-1 relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search real hospitals, shelters, clinics, or streets..."
+                placeholder="Search streets, evacuation shelters, hospitals..."
                 onFocus={() => setSearchFocused(true)}
-                className="flex-1 bg-transparent text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none"
+                className="flex-1 bg-transparent text-xs font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none truncate"
               />
-              {isSearching && <Loader2 className="w-3.5 h-3.5 text-cyan-500 animate-spin" />}
+              {isSearching && <Loader2 className="w-3.5 h-3.5 text-cyan-500 animate-spin shrink-0" />}
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => { setSearchQuery(''); setSearchResults([]) }}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-3 h-3" />
                 </button>
               )}
             </form>
 
-            {/* Live Search Autocomplete Dropdown */}
-            {searchFocused && searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200/70 dark:border-slate-700/70 overflow-hidden z-50 anim-slide-up max-h-72 overflow-y-auto">
-                <div className="px-3 py-2 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700/50 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Real-World Locations & POIs
-                </div>
-                {searchResults.map((res, i) => (
-                  <button
-                    key={`${res.name}-${i}`}
-                    onMouseDown={() => handleSelectSearchResult(res)}
-                    className="w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b border-slate-100 dark:border-slate-700/40 last:border-0"
-                  >
-                    <span className="text-lg">{res.emoji || '📍'}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold text-slate-900 dark:text-white truncate">{res.name}</div>
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">{res.address}</div>
-                    </div>
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Quick 2D/3D Mode Switcher */}
+            <button
+              type="button"
+              onClick={toggle3DMode}
+              className={`px-2.5 py-1.5 rounded-xl font-extrabold text-[11px] flex items-center gap-1 transition-all shrink-0 cursor-pointer active:scale-95 ${
+                is3D
+                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+              }`}
+              title={is3D ? 'Current: 3D View (Click for 2D)' : 'Current: 2D Flat View (Click for 3D)'}
+            >
+              <span>{is3D ? '🧊 3D' : '🗺️ 2D'}</span>
+            </button>
+
+            {/* LGU Command Switch Button */}
+            <Link
+              to="/lgu"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 font-extrabold text-[11px] transition-all shrink-0 flex items-center gap-1"
+              title="Open Official LGU Emergency Operations Center"
+            >
+              <span>🏢</span>
+              <span>LGU</span>
+            </Link>
+
+            {/* Theme Toggle */}
+            <button
+              type="button"
+              onClick={toggleDark}
+              className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 transition-all shrink-0 mr-0.5 active:scale-95 cursor-pointer"
+              aria-label="Toggle theme"
+            >
+              {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            </button>
           </div>
-
-          {/* LGU Switch Shortcut */}
-          <Link
-            to="/lgu"
-            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-md shadow-sm border border-slate-200/50 dark:border-slate-700/50 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 transition-colors"
-          >
-            LGU
-          </Link>
-
-          {/* Theme toggle */}
-          <button
-            onClick={toggleDark}
-            className="w-10 h-10 rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-md shadow-sm border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-800 transition-all shrink-0 active:scale-95"
-            aria-label="Toggle theme"
-          >
-            {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
         </div>
 
-        {/* Live Location & Area status chip + panel toggle */}
-        <div className="flex items-center gap-2 pointer-events-auto flex-wrap">
-          {/* Location Badge */}
+        {/* Live Search Autocomplete Dropdown */}
+        {searchFocused && searchResults.length > 0 && (
+          <div className="max-w-4xl mx-auto w-full pointer-events-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden z-50 anim-slide-up max-h-72 overflow-y-auto">
+            <div className="px-3 py-2 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Locations & Landmarks
+            </div>
+            {searchResults.map((res, i) => (
+              <button
+                key={`${res.name}-${i}`}
+                onMouseDown={() => handleSelectSearchResult(res)}
+                className="w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors border-b border-slate-100 dark:border-slate-800/40 last:border-0"
+              >
+                <span className="text-lg">{res.emoji || '📍'}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white truncate">{res.name}</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">{res.address}</div>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* ── Sub-Bar: Clean Horizontal Filter & Layer Ribbon ── */}
+        <div className="flex items-center gap-1.5 pointer-events-auto max-w-4xl mx-auto w-full overflow-x-auto no-scrollbar py-0.5">
+          {/* Location Chip */}
           <button
             onClick={handleLocateMe}
-            className="flex items-center gap-1.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-full px-3 py-1.5 shadow-sm border border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors max-w-[220px]"
-            title="Click to center map on your GPS location"
+            className="flex items-center gap-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-full px-3 py-1.5 shadow-sm border border-slate-200/60 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shrink-0 cursor-pointer active:scale-95"
+            title="Center map on your location"
           >
             {isLocationLoading ? (
               <Loader2 className="w-3 h-3 text-cyan-500 animate-spin shrink-0" />
             ) : (
               <MapPin className="w-3 h-3 text-cyan-500 shrink-0" />
             )}
-            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
-              {locationName}
+            <span className="text-[11px] font-bold truncate max-w-[140px]">
+              {locationName.split(',')[0]}
             </span>
           </button>
 
-          <button
-            onClick={() => setPanelOpen((p) => !p)}
-            className="flex items-center gap-1.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-full px-3 py-1.5 shadow-sm border border-slate-200/50 dark:border-slate-700/50 hover:bg-white dark:hover:bg-slate-800 transition-all active:scale-95"
-          >
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
-              Hazards ({hazards.length})
-            </span>
-            {panelOpen ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
-          </button>
-        </div>
-
-        {/* ── Interactive Quick Map Filter Pills Bar ── */}
-        <div className="flex items-center gap-1.5 pointer-events-auto overflow-x-auto no-scrollbar py-0.5 max-w-full">
+          {/* Filter Pills */}
           <button
             onClick={() => setHazardFilter('all')}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer shrink-0 ${
               hazardFilter === 'all'
                 ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-slate-900/20 ring-2 ring-slate-400/30'
-                : 'bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50'
+                : 'bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-800 hover:bg-slate-50'
             }`}
           >
             <span>🏷️ All</span>
@@ -654,10 +657,10 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
           <button
             onClick={() => setHazardFilter('flood')}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer shrink-0 ${
               hazardFilter === 'flood'
                 ? 'bg-orange-500 text-white shadow-orange-500/25 ring-2 ring-orange-400/50'
-                : 'bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50'
+                : 'bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-800 hover:bg-slate-50'
             }`}
           >
             <span>🌊 Road Floods</span>
@@ -666,10 +669,10 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
           <button
             onClick={() => setHazardFilter('verified')}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer shrink-0 ${
               hazardFilter === 'verified'
                 ? 'bg-blue-600 text-white shadow-blue-600/25 ring-2 ring-blue-400/50'
-                : 'bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50'
+                : 'bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-800 hover:bg-slate-50'
             }`}
           >
             <span>🔵 Verified</span>
@@ -678,10 +681,10 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
           <button
             onClick={() => setHazardFilter('no_light')}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer shrink-0 ${
               hazardFilter === 'no_light'
                 ? 'bg-rose-600 text-white shadow-rose-600/25 ring-2 ring-rose-400/50'
-                : 'bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50'
+                : 'bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-800 hover:bg-slate-50'
             }`}
           >
             <span>🚫 No Light Cars</span>
@@ -690,10 +693,10 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
           <button
             onClick={() => setHazardFilter('closure')}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer shrink-0 ${
               hazardFilter === 'closure'
                 ? 'bg-amber-600 text-white shadow-amber-600/25 ring-2 ring-amber-400/50'
-                : 'bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50'
+                : 'bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-800 hover:bg-slate-50'
             }`}
           >
             <span>🚧 Closures</span>
@@ -702,7 +705,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
           <button
             onClick={() => setLayersOpen(true)}
-            className="px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5 bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 active:scale-95 cursor-pointer"
+            className="px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5 bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 cursor-pointer shrink-0"
             title="Map Layer Controls & 2D/3D Settings"
           >
             <Layers className="w-3.5 h-3.5 text-cyan-500" />
@@ -710,18 +713,25 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           </button>
         </div>
 
-        {/* AI Pattern Alert Pill */}
-        {aiPatternInsight && aiPatternInsight.severity === 'high' && (
-          <div className="pointer-events-auto bg-amber-500/90 dark:bg-amber-600/90 text-white backdrop-blur-md rounded-2xl p-2.5 px-3 shadow-lg flex items-center gap-2.5 max-w-lg anim-slide-down">
+        {/* ── Compact AI Warning Banner (Dismissible) ── */}
+        {!isAiAlertDismissed && aiPatternInsight && aiPatternInsight.severity === 'high' && (
+          <div className="pointer-events-auto bg-amber-500/95 dark:bg-amber-600/95 text-white backdrop-blur-md rounded-2xl p-2 px-3 shadow-lg flex items-center gap-2.5 max-w-4xl mx-auto w-full anim-slide-down">
             <Sparkles className="w-4 h-4 text-amber-100 shrink-0" />
-            <div className="flex-1 min-w-0 text-xs">
+            <div className="flex-1 min-w-0 text-xs truncate">
               <span className="font-bold">{aiPatternInsight.title}</span> — {aiPatternInsight.description}
             </div>
             <button
               onClick={() => setActiveModal('routes')}
-              className="text-[11px] bg-white text-slate-900 px-2 py-1 rounded-lg font-bold shrink-0 shadow-sm hover:bg-slate-100"
+              className="text-[11px] bg-white text-slate-900 px-2.5 py-1 rounded-xl font-bold shrink-0 shadow-sm hover:bg-slate-100 transition-colors"
             >
-              Avoid
+              Avoid Route
+            </button>
+            <button
+              onClick={() => setIsAiAlertDismissed(true)}
+              className="p-1 text-white/80 hover:text-white rounded-lg transition-colors"
+              title="Dismiss warning"
+            >
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         )}

@@ -260,6 +260,16 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
     setTimeout(() => setCopiedSitRep(false), 3000)
   }
 
+  const [is3D, setIs3D] = useState(false)
+
+  const toggle3DMode = () => {
+    setIs3D((prev) => {
+      const next = !prev
+      mapCanvasRef.current?.set3DMode(next)
+      return next
+    })
+  }
+
   return (
     <div className="relative h-screen w-full overflow-hidden bg-slate-950 font-sans text-slate-100 select-none">
       {/* Background Interactive Map */}
@@ -275,7 +285,14 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
           navPosition="top-right"
           userLocation={userLocation}
           hazards={hazards}
+          evacCenters={localShelters}
           showRadar={showRadar}
+          showRoadLines={true}
+          showDangerZones={true}
+          show3DBuildings={is3D}
+          showEvacCenters={true}
+          is3D={is3D}
+          onToggle3D={toggle3DMode}
         />
       </div>
 
