@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import {
   X, Shield,
   ArrowUp, ArrowRight, ArrowLeft,
-  Volume2, VolumeX, Play, Pause, Compass
+  Volume2, VolumeX, Play, Pause, Compass, Radio
 } from 'lucide-react'
 import { RouteInfo } from '../utils/routingEngine'
 import { Hazard } from './MapCanvas'
@@ -11,6 +11,7 @@ interface Props {
   route: RouteInfo
   destinationName: string
   nearbyHazards: Hazard[]
+  userSpeed?: number | null
   onExit: () => void
 }
 
@@ -22,75 +23,115 @@ interface Step {
   hazardNear?: string
 }
 
-export default function DrivingHUD({ route, destinationName, nearbyHazards: _nearbyHazards, onExit }: Props) {
+export default function DrivingHUD({
+  route,
+  destinationName,
+  nearbyHazards: _nearbyHazards,
+  userSpeed,
+  onExit,
+}: Props) {
   const [currentStepIdx, setCurrentStepIdx] = useState(0)
-  const [speed, setSpeed] = useState(42)
-  const [isSimulating, setIsSimulating] = useState(true)
+  const [isSimulating, setIsSimulating] = useState(false) // Default to real GPS speed
+  const [simulatedSpeed, setSimulatedSpeed] = useState(38)
   const [voiceMuted, setVoiceMuted] = useState(false)
+  const lastAnnouncedStepRef = useRef<number>(-1)
 
   // Real-world steps from OSRM road graph or fallback default steps
-  const defaultSteps: Step[] = [
-    {
-      instruction: 'Head North on Elevated Corridor',
-      distance: '350 m',
-      subtext: 'Bypassing low-lying flood zone safely',
-      icon: 'straight',
-      hazardNear: 'Flash flood reported 500m to your right · Route adjusted',
-    },
-    {
-      instruction: 'Turn Right onto MacArthur Highway',
-      distance: '1.2 km',
-      subtext: 'Highland elevated corridor clear of floodwaters',
-      icon: 'right',
-    },
-    {
-      instruction: 'Continue straight on Center Lane',
-      distance: '800 m',
-      subtext: 'Optimal flood-free trajectory',
-      icon: 'straight',
-    },
-    {
-      instruction: 'Turn Left toward Safe Zone Entrance',
-      distance: '200 m',
-      subtext: 'Destination is on your right',
-      icon: 'left',
-    },
-    {
-      instruction: 'Arrived at Safe Destination',
-      distance: '0 m',
-      subtext: 'You have safely reached your destination',
-      icon: 'straight',
-    },
-  ]
+  const defaultSteps: Step[] = useMemo(
+    () => [
+      {
+        instruction: 'Head North on Elevated Corridor',
+        distance: '350 m',
+        subtext: 'Bypassing low-lying flood zone safely',
+        icon: 'straight',
+        hazardNear: 'Flash flood reported 500m to your right · Route adjusted',
+      },
+      {
+        instruction: 'Turn Right onto MacArthur Highway',
+        distance: '1.2 km',
+        subtext: 'Highland elevated corridor clear of floodwaters',
+        icon: 'right',
+      },
+      {
+        instruction: 'Continue straight on Center Lane',
+        distance: '800 m',
+        subtext: 'Optimal flood-free trajectory',
+        icon: 'straight',
+      },
+      {
+        instruction: 'Turn Left toward Safe Zone Entrance',
+        distance: '200 m',
+        subtext: 'Destination is on your right',
+        icon: 'left',
+      },
+      {
+        instruction: 'Arrived at Safe Destination',
+        distance: '0 m',
+        subtext: 'You have safely reached your destination',
+        icon: 'straight',
+      },
+    ],
+    []
+  )
 
-  const steps: Step[] = (route.steps && route.steps.length > 0) ? route.steps : defaultSteps
-
+  const steps: Step[] = route.steps && route.steps.length > 0 ? route.steps : defaultSteps
   const currentStep = steps[currentStepIdx] || steps[0]
 
-  // Speak navigation instructions
-  const speakInstruction = (text: string) => {
+  // Compute displayed speed: Real GPS speed (m/s * 3.6 = km/h) or simulation
+  const displaySpeed = useMemo(() => {
+    if (isSimulating) {
+      return simulatedSpeed
+    }
+    if (typeof userSpeed === 'number' && !isNaN(userSpeed)) {
+      const kmh = Math.round(userSpeed * 3.6)
+      return kmh > 1 ? kmh : 0
+    }
+    return 0
+  }, [isSimulating, simulatedSpeed, userSpeed])
+
+  // Speak navigation instructions ONLY when arriving at a new step
+  const speakInstruction = (stepIdx: number, force = false) => {
     if (voiceMuted || !window.speechSynthesis) return
-    window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'en-PH'
-    utterance.rate = 1.05
-    window.speechSynthesis.speak(utterance)
+    if (!force && lastAnnouncedStepRef.current === stepIdx) return
+
+    lastAnnouncedStepRef.current = stepIdx
+    try {
+      window.speechSynthesis.cancel()
+      const step = steps[stepIdx] || currentStep
+      const textToSpeak = `${step.instruction}. Distance: ${step.distance}.`
+      const utterance = new SpeechSynthesisUtterance(textToSpeak)
+      utterance.lang = 'en-PH'
+      utterance.rate = 1.0
+      window.speechSynthesis.speak(utterance)
+    } catch {
+      // Ignore audio synthesis errors on unsupported browsers
+    }
   }
 
+  // Speak only once upon entering navigation or when currentStepIdx advances
   useEffect(() => {
-    speakInstruction(currentStep.instruction + '. ' + (currentStep.hazardNear || ''))
+    speakInstruction(currentStepIdx)
   }, [currentStepIdx, voiceMuted])
 
-  // Simulation speed & step advancement
+  // Cleanup speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel()
+      }
+    }
+  }, [])
+
+  // Smooth simulated drive loop (if simulation is toggled on by user)
   useEffect(() => {
     if (!isSimulating) return
     const timer = setInterval(() => {
-      setSpeed(Math.floor(38 + Math.random() * 10))
+      setSimulatedSpeed(Math.floor(34 + Math.random() * 8))
       setCurrentStepIdx((prev) => {
         if (prev < steps.length - 1) return prev + 1
         return prev
       })
-    }, 5500)
+    }, 6000)
     return () => clearInterval(timer)
   }, [isSimulating, steps.length])
 
@@ -119,13 +160,24 @@ export default function DrivingHUD({ route, destinationName, nearbyHazards: _nea
                 <span className="text-slate-300 truncate">{currentStep.subtext}</span>
               </div>
             </div>
-            <button
-              onClick={onExit}
-              className="p-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors shrink-0 active:scale-95"
-              title="Exit Safe Driving Navigation"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => speakInstruction(currentStepIdx, true)}
+                className="p-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-white transition-colors active:scale-95 cursor-pointer"
+                title="Speak Direction Now"
+              >
+                <Volume2 className="w-5 h-5" />
+              </button>
+              <button
+                type="button"
+                onClick={onExit}
+                className="p-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors active:scale-95 cursor-pointer"
+                title="Exit Safe Driving Navigation"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* Dynamic Hazard Bypass Alert */}
@@ -141,16 +193,25 @@ export default function DrivingHUD({ route, destinationName, nearbyHazards: _nea
         </div>
       </div>
 
-      {/* ── Middle Floating Side Widgets (Waze Style Speedometer & Compass) ── */}
+      {/* ── Middle Floating Side Widgets (Speedometer & Mode Badge) ── */}
       <div className="flex justify-between items-end w-full max-w-4xl mx-auto pointer-events-none px-2 mb-2">
-        {/* Waze-style floating speedometer in bottom-left */}
-        <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 rounded-2xl p-3 px-4 shadow-2xl flex flex-col items-center justify-center">
+        {/* Real Speedometer in bottom-left */}
+        <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 rounded-2xl p-3 px-4 shadow-2xl flex flex-col items-center justify-center min-w-[90px]">
           <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white leading-none">
-            {speed}
+            {displaySpeed}
           </div>
           <div className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mt-0.5">KM / H</div>
-          <div className="mt-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase">
-            SAFE SPEED
+          <div
+            className={`mt-1 text-[8px] font-black px-2 py-0.5 rounded-full uppercase flex items-center gap-1 border ${
+              isSimulating
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                : displaySpeed > 0
+                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                : 'bg-slate-700/40 text-slate-300 border-slate-600/40'
+            }`}
+          >
+            <Radio className="w-2.5 h-2.5 animate-pulse" />
+            <span>{isSimulating ? 'SIMULATED' : displaySpeed > 0 ? 'LIVE GPS' : 'STOPPED'}</span>
           </div>
         </div>
 
@@ -187,26 +248,36 @@ export default function DrivingHUD({ route, destinationName, nearbyHazards: _nea
         {/* Controls */}
         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-800">
           <button
+            type="button"
             onClick={() => setIsSimulating(!isSimulating)}
-            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors active:scale-95"
+            className={`flex-1 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors active:scale-95 cursor-pointer ${
+              isSimulating
+                ? 'bg-amber-600/30 text-amber-300 border border-amber-500/40'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+            }`}
           >
             {isSimulating ? <Pause className="w-3.5 h-3.5 text-amber-400" /> : <Play className="w-3.5 h-3.5 text-emerald-400" />}
-            <span>{isSimulating ? 'Pause Drive' : 'Resume Drive'}</span>
+            <span>{isSimulating ? 'Switch to Real GPS Speed' : 'Simulate Drive Test'}</span>
           </button>
 
           <button
-            onClick={() => setVoiceMuted(!voiceMuted)}
-            className={`p-2 rounded-xl border transition-colors ${
-              voiceMuted ? 'bg-red-500/20 border-red-500/40 text-red-400' : 'bg-slate-800 border-slate-700 text-slate-300'
+            type="button"
+            onClick={() => {
+              if (window.speechSynthesis) window.speechSynthesis.cancel()
+              setVoiceMuted(!voiceMuted)
+            }}
+            className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+              voiceMuted ? 'bg-red-500/20 border-red-500/40 text-red-400' : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
             }`}
-            title="Toggle Voice Guidance"
+            title="Toggle Voice Guidance Mute"
           >
             {voiceMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
 
           <button
+            type="button"
             onClick={onExit}
-            className="bg-red-600 hover:bg-red-500 text-white font-extrabold py-2 px-4 rounded-xl text-xs transition-all active:scale-95 shadow-md"
+            className="bg-red-600 hover:bg-red-500 text-white font-extrabold py-2 px-4 rounded-xl text-xs transition-all active:scale-95 shadow-md cursor-pointer"
           >
             End Navigation
           </button>

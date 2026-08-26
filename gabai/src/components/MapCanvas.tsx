@@ -393,91 +393,96 @@ function interpolateSegment(
   } | null>(null)
 
   const updateScreenLines = useCallback(() => {
-    if (!mapRef.current) return
-    const map = mapRef.current.getMap ? mapRef.current.getMap() : mapRef.current
-    if (!map || typeof map.project !== 'function') return
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+    }
+    rafRef.current = requestAnimationFrame(() => {
+      if (!mapRef.current) return
+      const map = mapRef.current.getMap ? mapRef.current.getMap() : mapRef.current
+      if (!map || typeof map.project !== 'function') return
 
-    // 1. Synchronize Road Flood Lines
-    if (showRoadLines) {
-      const roadHazards = hazards.filter(
-        (h) =>
-          h.isRoadSegment &&
-          h.roadSegment &&
-          h.roadSegment.from &&
-          h.roadSegment.to &&
-          typeof h.roadSegment.from.lng === 'number' &&
-          typeof h.roadSegment.from.lat === 'number' &&
-          typeof h.roadSegment.to.lng === 'number' &&
-          typeof h.roadSegment.to.lat === 'number' &&
-          h.status !== 'Resolved'
-      )
+      // 1. Synchronize Road Flood Lines
+      if (showRoadLines) {
+        const roadHazards = hazards.filter(
+          (h) =>
+            h.isRoadSegment &&
+            h.roadSegment &&
+            h.roadSegment.from &&
+            h.roadSegment.to &&
+            typeof h.roadSegment.from.lng === 'number' &&
+            typeof h.roadSegment.from.lat === 'number' &&
+            typeof h.roadSegment.to.lng === 'number' &&
+            typeof h.roadSegment.to.lat === 'number' &&
+            h.status !== 'Resolved'
+        )
 
-      const lines = roadHazards
-        .map((h) => {
-          const seg = h.roadSegment!
-          const isVerified = Boolean(
-            (h.verified && h.verified > 0) ||
-              h.isVerified ||
-              h.status === 'Verified' ||
-              h.status?.includes('Verified')
-          )
-          const color = isVerified ? '#2563EB' : '#F97316'
+        const lines = roadHazards
+          .map((h) => {
+            const seg = h.roadSegment!
+            const isVerified = Boolean(
+              (h.verified && h.verified > 0) ||
+                h.isVerified ||
+                h.status === 'Verified' ||
+                h.status?.includes('Verified')
+            )
+            const color = isVerified ? '#2563EB' : '#F97316'
 
-          const rawCoords: [number, number][] =
-            seg.path && seg.path.length > 1
-              ? seg.path
-              : interpolateSegment([seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat], 25)
+            const rawCoords: [number, number][] =
+              seg.path && seg.path.length > 1
+                ? seg.path
+                : interpolateSegment([seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat], 25)
 
+            try {
+              const projected = rawCoords.map(([lng, lat]) => {
+                const p = map.project([lng, lat])
+                return `${p.x.toFixed(1)},${p.y.toFixed(1)}`
+              })
+              return {
+                id: h.id,
+                points: projected.join(' '),
+                color,
+              }
+            } catch {
+              return null
+            }
+          })
+          .filter(Boolean) as Array<{
+          id: string | number
+          points: string
+          color: string
+        }>
+
+        setScreenLines(lines)
+      } else {
+        setScreenLines((prev) => (prev.length > 0 ? [] : prev))
+      }
+
+      // 2. Synchronize Active Driving / Safe Navigation Route Line
+      if (showRoutes && routes) {
+        const activeKey = (selectedRoute || 'safe') as 'safe' | 'balanced' | 'fast'
+        const activeRoute = routes[activeKey]
+        const coords = activeRoute?.geoJSON?.geometry?.coordinates
+        if (Array.isArray(coords) && coords.length > 1) {
           try {
-            const projected = rawCoords.map(([lng, lat]) => {
+            const projected = coords.map(([lng, lat]: [number, number]) => {
               const p = map.project([lng, lat])
               return `${p.x.toFixed(1)},${p.y.toFixed(1)}`
             })
-            return {
-              id: h.id,
+            setScreenRouteLine({
               points: projected.join(' '),
-              color,
-            }
+              color: activeKey === 'fast' ? '#EF4444' : activeKey === 'balanced' ? '#F59E0B' : '#10B981',
+            })
           } catch {
-            return null
+            setScreenRouteLine(null)
           }
-        })
-        .filter(Boolean) as Array<{
-        id: string | number
-        points: string
-        color: string
-      }>
-
-      setScreenLines(lines)
-    } else {
-      if (screenLines.length > 0) setScreenLines([])
-    }
-
-    // 2. Synchronize Active Driving / Safe Navigation Route Line
-    if (showRoutes && routes) {
-      const activeKey = (selectedRoute || 'safe') as 'safe' | 'balanced' | 'fast'
-      const activeRoute = routes[activeKey]
-      const coords = activeRoute?.geoJSON?.geometry?.coordinates
-      if (Array.isArray(coords) && coords.length > 1) {
-        try {
-          const projected = coords.map(([lng, lat]: [number, number]) => {
-            const p = map.project([lng, lat])
-            return `${p.x.toFixed(1)},${p.y.toFixed(1)}`
-          })
-          setScreenRouteLine({
-            points: projected.join(' '),
-            color: activeKey === 'fast' ? '#EF4444' : activeKey === 'balanced' ? '#F59E0B' : '#10B981',
-          })
-        } catch {
+        } else {
           setScreenRouteLine(null)
         }
       } else {
         setScreenRouteLine(null)
       }
-    } else {
-      setScreenRouteLine(null)
-    }
-  }, [hazards, showRoadLines, screenLines.length, showRoutes, routes, selectedRoute])
+    })
+  }, [hazards, showRoadLines, showRoutes, routes, selectedRoute])
 
   useEffect(() => {
     updateScreenLines()
@@ -622,7 +627,6 @@ function interpolateSegment(
         onZoomEnd={updateScreenLines}
         onPitchEnd={updateScreenLines}
         onRotateEnd={updateScreenLines}
-        onRender={updateScreenLines}
         onLoad={updateScreenLines}
         onClick={(e) => {
           if (!e.lngLat) return

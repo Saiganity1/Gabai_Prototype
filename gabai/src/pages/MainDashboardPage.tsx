@@ -474,6 +474,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           route={routes[selectedRoute]}
           destinationName={destination?.name || 'Safe Evacuation Center'}
           nearbyHazards={hazards}
+          userSpeed={userLocation.speed}
           onExit={handleExitNavigation}
         />
       )}
