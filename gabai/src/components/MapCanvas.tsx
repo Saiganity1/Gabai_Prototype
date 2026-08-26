@@ -130,8 +130,51 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const initialCentered = useRef(false)
   const rafRef = useRef<number | null>(null)
 
-  const lightStyle = `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
-  const darkStyle = `https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${MAPTILER_KEY}`
+  const lightStyle: any = {
+    version: 8,
+    sources: {
+      'maptiler-voyager': {
+        type: 'raster',
+        tiles: [
+          `https://api.maptiler.com/maps/voyager/256/{z}/{x}/{y}@2x.png?key=${MAPTILER_KEY}`,
+        ],
+        tileSize: 256,
+        attribution: '&copy; MapTiler &copy; OpenStreetMap contributors',
+      },
+    },
+    layers: [
+      {
+        id: 'maptiler-voyager-layer',
+        type: 'raster',
+        source: 'maptiler-voyager',
+        minzoom: 0,
+        maxzoom: 22,
+      },
+    ],
+  }
+
+  const darkStyle: any = {
+    version: 8,
+    sources: {
+      'maptiler-dark': {
+        type: 'raster',
+        tiles: [
+          `https://api.maptiler.com/maps/streets-v2-dark/256/{z}/{x}/{y}@2x.png?key=${MAPTILER_KEY}`,
+        ],
+        tileSize: 256,
+        attribution: '&copy; MapTiler &copy; OpenStreetMap contributors',
+      },
+    },
+    layers: [
+      {
+        id: 'maptiler-dark-layer',
+        type: 'raster',
+        source: 'maptiler-dark',
+        minzoom: 0,
+        maxzoom: 22,
+      },
+    ],
+  }
 
   const userLat = userLocation?.lat ?? 14.5995
   const userLng = userLocation?.lng ?? 120.9842
