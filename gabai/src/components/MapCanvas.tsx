@@ -104,8 +104,57 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const mapRef = useRef<any>(null)
   const initialCentered = useRef(false)
 
-  const lightStyle = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json'
-  const darkStyle = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
+  const lightStyle: any = {
+    version: 8,
+    sources: {
+      'carto-voyager': {
+        type: 'raster',
+        tiles: [
+          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+          'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+        ],
+        tileSize: 256,
+        attribution: '&copy; CARTO &copy; OpenStreetMap',
+      },
+    },
+    layers: [
+      {
+        id: 'carto-voyager-layer',
+        type: 'raster',
+        source: 'carto-voyager',
+        minzoom: 0,
+        maxzoom: 20,
+      },
+    ],
+  }
+
+  const darkStyle: any = {
+    version: 8,
+    sources: {
+      'carto-dark': {
+        type: 'raster',
+        tiles: [
+          'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+          'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+          'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+          'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+        ],
+        tileSize: 256,
+        attribution: '&copy; CARTO &copy; OpenStreetMap',
+      },
+    },
+    layers: [
+      {
+        id: 'carto-dark-layer',
+        type: 'raster',
+        source: 'carto-dark',
+        minzoom: 0,
+        maxzoom: 20,
+      },
+    ],
+  }
 
   const userLat = userLocation.lat
   const userLng = userLocation.lng
@@ -227,21 +276,6 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       }}
     >
       <NavigationControl position={navPosition} />
-
-      {/* 3D Buildings Layer */}
-      <Layer
-        id="3d-buildings"
-        source="carto"
-        source-layer="building"
-        type="fill-extrusion"
-        minzoom={12}
-        paint={{
-          'fill-extrusion-color': darkMode ? '#334155' : '#e2e8f0',
-          'fill-extrusion-height': ['get', 'render_height'],
-          'fill-extrusion-base': ['get', 'render_min_height'],
-          'fill-extrusion-opacity': 0.85,
-        }}
-      />
 
       {/* ── PAGASA Doppler Weather Radar Layer ── */}
       {showRadar && radarPrecipitationGeoJSON && (
