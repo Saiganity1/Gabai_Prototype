@@ -460,6 +460,47 @@ function interpolateSegment(
         </div>
       )}
 
+      {/* ── Direct Visual SVG Road Flood Connector (Always Crisp & Visible) ── */}
+      {showRoadLines && screenLines.length > 0 && (
+        <svg className="absolute inset-0 pointer-events-none z-10 w-full h-full overflow-visible">
+          {screenLines.map((line) => (
+            <g key={`svg-road-line-${line.id}`}>
+              {/* Outer Glow */}
+              <polyline
+                points={line.points}
+                fill="none"
+                stroke={line.color}
+                strokeWidth="16"
+                strokeOpacity="0.45"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {/* Main Solid Line */}
+              <polyline
+                points={line.points}
+                fill="none"
+                stroke={line.color}
+                strokeWidth="7"
+                strokeOpacity="1"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {/* Center White Stripes */}
+              <polyline
+                points={line.points}
+                fill="none"
+                stroke="#FFFFFF"
+                strokeWidth="2.2"
+                strokeDasharray="6,6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeOpacity="0.95"
+              />
+            </g>
+          ))}
+        </svg>
+      )}
+
       <Map
         ref={mapRef}
         mapLib={maplibregl}
@@ -476,6 +517,10 @@ function interpolateSegment(
         maxBounds={[[114.0, 4.0], [127.0, 22.0]]}
         minZoom={5}
         onMove={updateScreenLines}
+        onMoveEnd={updateScreenLines}
+        onZoomEnd={updateScreenLines}
+        onPitchEnd={updateScreenLines}
+        onRotateEnd={updateScreenLines}
         onRender={updateScreenLines}
         onLoad={updateScreenLines}
         onClick={(e) => {
