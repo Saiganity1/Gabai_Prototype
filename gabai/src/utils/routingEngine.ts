@@ -341,7 +341,10 @@ export async function fetchAccurateRealWorldRoutes(
       const perpLng = latDiff / len
 
       // Multi-lateral search offsets (both left & right diversion corridors)
-      const offsetScales = [-0.008, 0.008, -0.015, 0.015, -0.025, 0.025, -0.038, 0.038, -0.055, 0.055, -0.075, 0.075]
+      // We scale the offsets based on the trip distance to avoid extreme V-shaped detours on short trips
+      const scaleFactor = Math.min(1, len * 20) // For a 5km trip (len ~0.045), scale is ~0.9
+      const baseOffsets = [-0.004, 0.004, -0.008, 0.008, -0.012, 0.012, -0.018, 0.018, -0.025, 0.025, -0.035, 0.035]
+      const offsetScales = baseOffsets.map(off => off * scaleFactor)
 
       const detourPromises = offsetScales.map(async (off) => {
         try {
