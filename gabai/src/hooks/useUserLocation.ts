@@ -16,11 +16,11 @@ export interface UserLocationState {
   error: string | null
 }
 
-// Fallback default coordinates (Province of Pampanga / Central Luzon)
+// Fallback default coordinates (Manila - Original Prototype)
 export const DEFAULT_LOCATION: UserCoordinates = {
-  lat: 15.0345,
-  lng: 120.6865,
-  accuracy: 25,
+  lat: 14.5995,
+  lng: 120.9842,
+  accuracy: 35,
 }
 
 export function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -47,8 +47,8 @@ export function formatDistance(distKm: number): string {
 export function useUserLocation() {
   const [location, setLocation] = useState<UserLocationState>({
     coords: DEFAULT_LOCATION,
-    locationName: 'Pampanga, Central Luzon',
-    isLoading: true,
+    locationName: 'Tondo, Manila',
+    isLoading: false,
     isLive: false,
     error: null,
   })
