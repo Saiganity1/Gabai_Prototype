@@ -421,10 +421,20 @@ export async function fetchAccurateRealWorldRoutes(
       geometry: safeRouteObj.geometry,
     }
 
+    // Select the best clean alternative for the Eco-Safe Balanced route
+    const balancedCandidate = strictlyCleanRoutes[1] || strictlyCleanRoutes[0] || {
+      route: altRoute,
+      distanceKm: altRoute.distance / 1000,
+      durationMin: Math.max(1, Math.round(altRoute.duration / 60)),
+    }
+
     const balancedGeoJSON = {
       type: 'Feature' as const,
-      geometry: altRoute.geometry,
+      geometry: balancedCandidate.route.geometry,
     }
+    const balancedDistKm = balancedCandidate.distanceKm
+    const balancedDurationMin = balancedCandidate.durationMin
+
     // Fuel efficiency calculations (Based on 14.5 km/L cruising on bypass vs 9.5 km/L idling in flooded traffic)
     const fastFuelLiters = parseFloat((directDistKm / 9.8).toFixed(2))
     const ecoFuelLiters = parseFloat((balancedDistKm / 14.8).toFixed(2))
@@ -445,7 +455,7 @@ export async function fetchAccurateRealWorldRoutes(
           : hasHazardOnDirect
           ? `⚠️ Passes near flood zone · Drive with caution`
           : `100% Real Asphalt Road Trajectory · Optimal fast route`,
-        risk: zeroFloodRoutes.length > 0 ? 'low' : hasHazardOnDirect ? 'medium' : 'low',
+        risk: strictlyCleanRoutes.length > 0 ? 'low' : hasHazardOnDirect ? 'medium' : 'low',
         geoJSON: safeGeoJSON,
         distanceKm: safeDistanceKm,
         fuelEstLiters: safeFuelLiters,
