@@ -34,15 +34,86 @@ export function createRouteGeoJSON(coords: [number, number][]) {
   }
 }
 
+function distToSegmentSquared(p: [number, number], v: [number, number], w: [number, number]): number {
+  const l2 = (v[0] - w[0]) ** 2 + (v[1] - w[1]) ** 2
+  if (l2 === 0) return (p[0] - v[0]) ** 2 + (p[1] - v[1]) ** 2
+  let t = ((p[0] - v[0]) * (w[0] - v[0]) + (p[1] - v[1]) * (w[1] - v[1])) / l2
+  t = Math.max(0, Math.min(1, t))
+  return (p[0] - (v[0] + t * (w[0] - v[0]))) ** 2 + (p[1] - (v[1] + t * (w[1] - v[1]))) ** 2
+}
+
+/**
+ * Calculates the shortest distance (in km) from a point [lat, lng] to an entire polyline route
+ */
+export function getMinDistanceToPolylineKm(lat: number, lng: number, coords: [number, number][]): number {
+  if (!coords || coords.length === 0) return 999
+  if (coords.length === 1) return calculateDistanceKm(lat, lng, coords[0][1], coords[0][0])
+
+  let minD2 = Infinity
+  for (let i = 0; i < coords.length - 1; i++) {
+    const d2 = distToSegmentSquared([lng, lat], coords[i], coords[i + 1])
+    if (d2 < minD2) minD2 = d2
+  }
+  return Math.sqrt(minD2) * 111.32
+}
+
+/**
+ * Checks if a route polyline intersects or comes within unsafe proximity of any active flood hazard
+ */
+export function routeIntersectsHazards(coords: [number, number][], hazards: Hazard[], safeBufferKm = 0.38): {
+  isUnsafe: boolean
+  minHazardDistanceKm: number
+  blockingHazards: Hazard[]
+} {
+  const activeHazards = hazards.filter((h) => h.status !== 'Resolved')
+  if (activeHazards.length === 0 || !coords || coords.length < 2) {
+    return { isUnsafe: false, minHazardDistanceKm: 999, blockingHazards: [] }
+  }
+
+  let minDistance = 999
+  const blocking: Hazard[] = []
+
+  for (const h of activeHazards) {
+    let d = 999
+    if (h.isRoadSegment && h.roadSegment && h.roadSegment.from && h.roadSegment.to) {
+      const segCoords =
+        h.roadSegment.path && h.roadSegment.path.length > 1
+          ? h.roadSegment.path
+          : [
+              [h.roadSegment.from.lng, h.roadSegment.from.lat],
+              [h.roadSegment.to.lng, h.roadSegment.to.lat],
+            ]
+
+      for (const [sLng, sLat] of segCoords) {
+        const segDist = getMinDistanceToPolylineKm(sLat, sLng, coords)
+        if (segDist < d) d = segDist
+      }
+    } else {
+      d = getMinDistanceToPolylineKm(h.lat, h.lng, coords)
+    }
+
+    const hazardThresholdKm = ((h.radius || 120) / 1000) + safeBufferKm
+    if (d < minDistance) minDistance = d
+    if (d <= hazardThresholdKm) {
+      blocking.push(h)
+    }
+  }
+
+  return {
+    isUnsafe: blocking.length > 0,
+    minHazardDistanceKm: minDistance,
+    blockingHazards: blocking,
+  }
+}
+
 /**
  * Checks if a point [lat, lng] is within danger radius of any active flood hazard
  */
 export function isNearHazard(lat: number, lng: number, hazards: Hazard[], bufferKm = 0.35): boolean {
   return hazards.some((h) => {
     if (!h || typeof h.lat !== 'number' || typeof h.lng !== 'number') return false
-    if (h.status === 'Resolved') return false // Skip resolved hazards
+    if (h.status === 'Resolved') return false
 
-    // Check road flood line corridor proximity
     if (h.isRoadSegment && h.roadSegment && h.roadSegment.from && h.roadSegment.to) {
       const seg = h.roadSegment
       const coords =
@@ -59,7 +130,6 @@ export function isNearHazard(lat: number, lng: number, hazards: Hazard[], buffer
       })
     }
 
-    // Check circular danger pin radius
     const d = calculateDistanceKm(lat, lng, h.lat, h.lng)
     const hazardRadiusKm = (h.radius || 120) / 1000
     return d <= hazardRadiusKm + bufferKm
@@ -220,44 +290,27 @@ export async function fetchAccurateRealWorldRoutes(
     const directSteps = parseSteps(primaryRoute, false)
     const primaryCoords: [number, number][] = primaryRoute.geometry?.coordinates || []
 
-    // Check if the primary direct route intersects any active flood hazards
-    const intersectingHazards = activeHazards.filter((h) => {
-      if (h.isRoadSegment && h.roadSegment && h.roadSegment.from && h.roadSegment.to) {
-        const seg = h.roadSegment
-        const coords =
-          seg.path && seg.path.length > 1
-            ? seg.path
-            : [
-                [seg.from.lng, seg.from.lat],
-                [seg.to.lng, seg.to.lat],
-              ]
-        return coords.some(([cLng, cLat]) =>
-          primaryCoords.some(([rLng, rLat]) => calculateDistanceKm(rLat, rLng, cLat, cLng) < 0.35)
-        )
-      }
-      return primaryCoords.some(([rLng, rLat]) => calculateDistanceKm(rLat, rLng, h.lat, h.lng) < ((h.radius || 120) / 1000 + 0.3))
-    })
-
-    const hasHazardOnDirect = intersectingHazards.length > 0
+    // 1. Evaluate Direct Route against all active hazards using full polyline line-segment geometry
+    const directHazardCheck = routeIntersectsHazards(primaryCoords, activeHazards, 0.38)
+    const hasHazardOnDirect = directHazardCheck.isUnsafe
 
     // 2. Multi-Candidate AI Route Optimizer: Gather all candidate road trajectories
     const candidateBypasses: Array<{
       route: any
       distanceKm: number
       durationMin: number
-      hazardExposure: number
+      isSafeAndDry: boolean
+      minHazardDistKm: number
       isDetour: boolean
     }> = []
 
     // Add direct primary route
-    const primaryExposure = primaryCoords.filter(([lng, lat]) =>
-      isNearHazard(lat, lng, activeHazards, 0.3)
-    ).length
     candidateBypasses.push({
       route: primaryRoute,
       distanceKm: directDistKm,
       durationMin: directDurationMin,
-      hazardExposure: primaryExposure,
+      isSafeAndDry: !hasHazardOnDirect,
+      minHazardDistKm: directHazardCheck.minHazardDistanceKm,
       isDetour: false,
     })
 
@@ -265,26 +318,28 @@ export async function fetchAccurateRealWorldRoutes(
     for (let i = 1; i < allOsrmRoutes.length; i++) {
       const r = allOsrmRoutes[i]
       const coords = r.geometry?.coordinates || []
-      const exposure = coords.filter(([lng, lat]) => isNearHazard(lat, lng, activeHazards, 0.3)).length
+      const altCheck = routeIntersectsHazards(coords, activeHazards, 0.38)
       candidateBypasses.push({
         route: r,
         distanceKm: r.distance / 1000,
         durationMin: Math.max(1, Math.round(r.duration / 60)),
-        hazardExposure: exposure,
+        isSafeAndDry: !altCheck.isUnsafe,
+        minHazardDistKm: altCheck.minHazardDistanceKm,
         isDetour: false,
       })
     }
 
-    // If direct route or alternatives have flood hazards, query multi-lateral road-snapped bypasses
+    // If direct route or default alternatives have flood hazards, query multi-lateral road-snapped bypass corridors
     if (hasHazardOnDirect && activeHazards.length > 0) {
-      const blockingHazard = intersectingHazards[0] || activeHazards[0]
+      const blockingHazard = directHazardCheck.blockingHazards[0] || activeHazards[0]
       const latDiff = destLat - originLat
       const lngDiff = destLng - originLng
       const len = Math.hypot(latDiff, lngDiff) || 1
       const perpLat = -lngDiff / len
       const perpLng = latDiff / len
 
-      const offsetScales = [-0.012, 0.012, -0.018, 0.018, -0.025, 0.025, -0.035, 0.035]
+      // Comprehensive search radii (500m to 3.5km perpendicular offsets)
+      const offsetScales = [-0.015, 0.015, -0.025, 0.025, -0.038, 0.038, -0.055, 0.055, -0.075, 0.075]
 
       for (const off of offsetScales) {
         try {
@@ -311,15 +366,15 @@ export async function fetchAccurateRealWorldRoutes(
             const candidateRoute = detourData.routes[0]
             const candidateCoords: [number, number][] = candidateRoute.geometry?.coordinates || []
 
-            const hazardExposure = candidateCoords.filter(([lng, lat]) =>
-              isNearHazard(lat, lng, activeHazards, 0.28)
-            ).length
+            // Strictly check entire detour polyline against all active flood hazard buffers
+            const detourHazardCheck = routeIntersectsHazards(candidateCoords, activeHazards, 0.38)
 
             candidateBypasses.push({
               route: candidateRoute,
               distanceKm: candidateRoute.distance / 1000,
               durationMin: Math.max(1, Math.round(candidateRoute.duration / 60)),
-              hazardExposure,
+              isSafeAndDry: !detourHazardCheck.isUnsafe,
+              minHazardDistKm: detourHazardCheck.minHazardDistanceKm,
               isDetour: true,
             })
           }
@@ -329,8 +384,8 @@ export async function fetchAccurateRealWorldRoutes(
       }
     }
 
-    // 3. AI Decision Engine: Filter 100% FLOOD-FREE routes and sort by FASTEST travel time
-    const zeroFloodRoutes = candidateBypasses.filter((c) => c.hazardExposure === 0)
+    // 3. AI Decision Engine: Filter ONLY 100% SAFE & DRY routes and sort by FASTEST travel time
+    const strictlyCleanRoutes = candidateBypasses.filter((c) => c.isSafeAndDry)
 
     let safeRouteObj = primaryRoute
     let safeSteps = directSteps
@@ -338,10 +393,10 @@ export async function fetchAccurateRealWorldRoutes(
     let safeDurationMin = directDurationMin
     let isDetourActive = false
 
-    if (zeroFloodRoutes.length > 0) {
+    if (strictlyCleanRoutes.length > 0) {
       // Sort strictly by FASTEST travel duration, then shortest distance
-      zeroFloodRoutes.sort((a, b) => a.durationMin - b.durationMin || a.distanceKm - b.distanceKm)
-      const optimal = zeroFloodRoutes[0]
+      strictlyCleanRoutes.sort((a, b) => a.durationMin - b.durationMin || a.distanceKm - b.distanceKm)
+      const optimal = strictlyCleanRoutes[0]
 
       safeRouteObj = optimal.route
       safeDistanceKm = optimal.distanceKm
@@ -349,8 +404,8 @@ export async function fetchAccurateRealWorldRoutes(
       safeSteps = parseSteps(optimal.route, optimal.isDetour)
       isDetourActive = optimal.isDetour
     } else if (candidateBypasses.length > 0) {
-      // If all routes have some flood, pick the one with MINIMUM exposure
-      candidateBypasses.sort((a, b) => a.hazardExposure - b.hazardExposure || a.durationMin - b.durationMin)
+      // If all routes have some flood, pick the one with MAXIMUM distance from floodwater
+      candidateBypasses.sort((a, b) => b.minHazardDistKm - a.minHazardDistKm || a.durationMin - b.durationMin)
       const bestAvailable = candidateBypasses[0]
 
       safeRouteObj = bestAvailable.route
