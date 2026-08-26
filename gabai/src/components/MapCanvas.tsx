@@ -130,51 +130,8 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const initialCentered = useRef(false)
   const rafRef = useRef<number | null>(null)
 
-  const lightStyle: any = {
-    version: 8,
-    sources: {
-      'maptiler-voyager': {
-        type: 'raster',
-        tiles: [
-          `https://api.maptiler.com/maps/voyager/256/{z}/{x}/{y}@2x.png?key=${MAPTILER_KEY}`,
-        ],
-        tileSize: 256,
-        attribution: '&copy; <a href="https://www.maptiler.com/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      },
-    },
-    layers: [
-      {
-        id: 'maptiler-voyager-layer',
-        type: 'raster',
-        source: 'maptiler-voyager',
-        minzoom: 0,
-        maxzoom: 22,
-      },
-    ],
-  }
-
-  const darkStyle: any = {
-    version: 8,
-    sources: {
-      'maptiler-dark': {
-        type: 'raster',
-        tiles: [
-          `https://api.maptiler.com/maps/streets-v2-dark/256/{z}/{x}/{y}@2x.png?key=${MAPTILER_KEY}`,
-        ],
-        tileSize: 256,
-        attribution: '&copy; <a href="https://www.maptiler.com/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      },
-    },
-    layers: [
-      {
-        id: 'maptiler-dark-layer',
-        type: 'raster',
-        source: 'maptiler-dark',
-        minzoom: 0,
-        maxzoom: 22,
-      },
-    ],
-  }
+  const lightStyle = `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
+  const darkStyle = `https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${MAPTILER_KEY}`
 
   const userLat = userLocation?.lat ?? 14.5995
   const userLng = userLocation?.lng ?? 120.9842
@@ -353,88 +310,7 @@ function interpolateSegment(
     }
   }, [showRadar, userLng, userLat])
 
-  const [screenLines, setScreenLines] = useState<
-    Array<{
-      id: string | number
-      points: string
-      color: string
-    }>
-  >([])
 
-  const updateScreenLines = useCallback(() => {
-    if (!showRoadLines) {
-      if (screenLines.length > 0) setScreenLines([])
-      return
-    }
-
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current)
-    }
-
-    rafRef.current = requestAnimationFrame(() => {
-      if (!mapRef.current) return
-      const map = mapRef.current.getMap ? mapRef.current.getMap() : mapRef.current
-      if (!map || typeof map.project !== 'function') return
-
-      const roadHazards = hazards.filter(
-        (h) =>
-          h.isRoadSegment &&
-          h.roadSegment &&
-          h.roadSegment.from &&
-          h.roadSegment.to &&
-          typeof h.roadSegment.from.lng === 'number' &&
-          typeof h.roadSegment.from.lat === 'number' &&
-          typeof h.roadSegment.to.lng === 'number' &&
-          typeof h.roadSegment.to.lat === 'number' &&
-          h.status !== 'Resolved'
-      )
-
-      const lines = roadHazards
-        .map((h) => {
-          const seg = h.roadSegment!
-          const isVerified = Boolean(
-            (h.verified && h.verified > 0) ||
-              h.isVerified ||
-              h.status === 'Verified' ||
-              h.status?.includes('Verified')
-          )
-          const color = isVerified ? '#2563EB' : '#F97316'
-
-          const rawCoords: [number, number][] =
-            seg.path && seg.path.length > 1
-              ? seg.path
-              : interpolateSegment([seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat], 25)
-
-          try {
-            const projected = rawCoords.map(([lng, lat]) => {
-              const p = map.project([lng, lat])
-              return `${p.x.toFixed(1)},${p.y.toFixed(1)}`
-            })
-            return {
-              id: h.id,
-              points: projected.join(' '),
-              color,
-            }
-          } catch {
-            return null
-          }
-        })
-        .filter(Boolean) as Array<{
-        id: string | number
-        points: string
-        color: string
-      }>
-
-      setScreenLines(lines)
-    })
-  }, [hazards, showRoadLines, screenLines.length])
-
-  useEffect(() => {
-    updateScreenLines()
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    }
-  }, [hazards, showRoadLines, updateScreenLines])
 
   return (
     <div className="relative w-full h-full overflow-hidden">
@@ -457,47 +333,6 @@ function interpolateSegment(
         </div>
       )}
 
-      {/* ── Direct Visual SVG Road Flood Connector (Always Crisp & Visible) ── */}
-      {showRoadLines && screenLines.length > 0 && (
-        <svg className="absolute inset-0 pointer-events-none z-10 w-full h-full overflow-visible">
-          {screenLines.map((line) => (
-            <g key={`svg-road-line-${line.id}`}>
-              {/* Outer Glow */}
-              <polyline
-                points={line.points}
-                fill="none"
-                stroke={line.color}
-                strokeWidth="16"
-                strokeOpacity="0.45"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {/* Main Solid Line */}
-              <polyline
-                points={line.points}
-                fill="none"
-                stroke={line.color}
-                strokeWidth="7"
-                strokeOpacity="1"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {/* Center White Stripes */}
-              <polyline
-                points={line.points}
-                fill="none"
-                stroke="#FFFFFF"
-                strokeWidth="2.2"
-                strokeDasharray="6,6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeOpacity="0.95"
-              />
-            </g>
-          ))}
-        </svg>
-      )}
-
       <Map
         ref={mapRef}
         mapLib={maplibregl}
@@ -513,13 +348,6 @@ function interpolateSegment(
         mapStyle={darkMode ? darkStyle : lightStyle}
         maxBounds={[[114.0, 4.0], [127.0, 22.0]]}
         minZoom={5}
-        onMove={updateScreenLines}
-        onMoveEnd={updateScreenLines}
-        onZoomEnd={updateScreenLines}
-        onPitchEnd={updateScreenLines}
-        onRotateEnd={updateScreenLines}
-        onRender={updateScreenLines}
-        onLoad={updateScreenLines}
         onClick={(e) => {
           if (onMapClick && e.lngLat) {
             onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng })
@@ -553,10 +381,9 @@ function interpolateSegment(
           type="vector"
           tiles={[`https://api.maptiler.com/tiles/v3/{z}/{x}/{y}.pbf?key=${MAPTILER_KEY}`]}
           minzoom={13}
-          maxzoom={20}
         >
           <Layer
-            id="3d-buildings"
+            id="3d-buildings-extrusion"
             source-layer="building"
             type="fill-extrusion"
             minzoom={13}
@@ -592,17 +419,17 @@ function interpolateSegment(
             type="fill"
             paint={{
               'fill-color': ['get', 'color'],
-              'fill-opacity': 0.08,
+              'fill-opacity': 0.28,
             }}
           />
           <Layer
-            id="pagasa-radar-line"
+            id="pagasa-radar-outline"
             type="line"
             paint={{
               'line-color': ['get', 'color'],
               'line-width': 1.5,
+              'line-opacity': 0.7,
               'line-dasharray': [3, 2],
-              'line-opacity': 0.4,
             }}
           />
         </Source>
@@ -631,10 +458,10 @@ function interpolateSegment(
         </Source>
       )}
 
-      {/* ── Unified GPU-Accelerated Road Flood Vector Line Layer ── */}
+      {/* ── Unified GPU-Accelerated Road Flood Vector Line Layer (100% Locked to Road) ── */}
       {showRoadLines && (
         <Source id="road-flood-vector-source" type="geojson" data={roadFloodLinesGeoJSON}>
-          {/* 1. Outer Neon Glow Base */}
+          {/* 1. Outer Soft Glow Base */}
           <Layer
             id="road-flood-outer-glow"
             type="line"
@@ -644,11 +471,26 @@ function interpolateSegment(
             }}
             paint={{
               'line-color': ['get', 'color'],
-              'line-width': ['case', ['get', 'isSelected'], 22, 16],
-              'line-opacity': 0.65,
+              'line-width': ['case', ['get', 'isSelected'], 20, 14],
+              'line-blur': 3,
+              'line-opacity': 0.45,
             }}
           />
-          {/* 2. Main High-Contrast Road Flood Line */}
+          {/* 2. Road Border Shadow Outline */}
+          <Layer
+            id="road-flood-border-outline"
+            type="line"
+            layout={{
+              'line-cap': 'round',
+              'line-join': 'round',
+            }}
+            paint={{
+              'line-color': '#0F172A',
+              'line-width': ['case', ['get', 'isSelected'], 10, 7.5],
+              'line-opacity': 0.75,
+            }}
+          />
+          {/* 3. Main Vibrant Solid Core Line */}
           <Layer
             id="road-flood-solid-core"
             type="line"
@@ -658,11 +500,11 @@ function interpolateSegment(
             }}
             paint={{
               'line-color': ['get', 'color'],
-              'line-width': ['case', ['get', 'isSelected'], 10, 7],
+              'line-width': ['case', ['get', 'isSelected'], 7.5, 5.5],
               'line-opacity': 1.0,
             }}
           />
-          {/* 3. High-Visibility White Center Striping */}
+          {/* 4. White Center Dashed Striping */}
           <Layer
             id="road-flood-white-stripe"
             type="line"
@@ -672,8 +514,8 @@ function interpolateSegment(
             }}
             paint={{
               'line-color': '#FFFFFF',
-              'line-width': 2.5,
-              'line-dasharray': [2, 2],
+              'line-width': 1.8,
+              'line-dasharray': [2, 2.5],
               'line-opacity': 0.95,
             }}
           />
