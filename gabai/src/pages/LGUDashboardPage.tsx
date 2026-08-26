@@ -589,6 +589,46 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                           </span>
                         </div>
 
+                        {/* Road Flood Line & Passability Specific Badge in LGU Triage */}
+                        {report.isRoadSegment && report.roadSegment && (
+                          <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800 my-2 space-y-1.5 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-cyan-400 flex items-center gap-1">
+                                🛣️ Road Stretch: {report.roadSegment.roadName || 'Road Segment'}
+                              </span>
+                              <span
+                                className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                                  isVerified ? 'bg-blue-600 text-white' : 'bg-amber-500 text-white'
+                                }`}
+                              >
+                                {isVerified ? '🔵 Verified Blue Line' : '🟠 Pending Orange Line'}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                              <div className="bg-slate-950 p-1.5 rounded-lg text-slate-300 truncate">
+                                A: {report.roadSegment.from.name || 'Start Pin'}
+                              </div>
+                              <div className="bg-slate-950 p-1.5 rounded-lg text-slate-300 truncate">
+                                B: {report.roadSegment.to.name || 'End Pin'}
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] pt-0.5">
+                              <span className="font-bold text-amber-400">
+                                {report.passability === 'not_passable_all'
+                                  ? '⛔ Closed to All Vehicles'
+                                  : report.passability === 'all_passable'
+                                  ? '🟢 Passable to All Vehicles'
+                                  : '🚫 Not Passable to Light Vehicles'}
+                              </span>
+                              {report.waterDepth && (
+                                <span className="font-semibold text-cyan-300 text-[10px]">
+                                  🌊 {report.waterDepth}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
                         <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/70 text-xs text-slate-300 leading-relaxed my-2">
                           "{report.desc}"
                         </div>
@@ -605,7 +645,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                                 className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 rounded-xl text-xs flex items-center justify-center gap-1 transition-all shadow-md active:scale-95"
                               >
                                 <CheckCircle className="w-3.5 h-3.5" />
-                                <span>Verify & Publish</span>
+                                <span>{report.isRoadSegment ? 'Verify Road Flood (Turns Blue)' : 'Verify & Publish'}</span>
                               </button>
                               <button
                                 onClick={(e) => {

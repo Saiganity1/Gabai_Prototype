@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
-import { Hazard } from '../components/MapCanvas'
+import { Hazard, RoadSegment, PassabilityType } from '../components/MapCanvas'
 import { useUserLocation, UserCoordinates } from '../hooks/useUserLocation'
 import { getContextualHazards, getContextualEvacCenters } from '../utils/geoHazards'
 import { generateDynamicRoutes, fetchAccurateRealWorldRoutes, RouteInfo } from '../utils/routingEngine'
@@ -25,6 +25,10 @@ export interface CitizenReport {
   time: string
   status: 'pending' | 'verified' | 'rejected' | 'resolved'
   locationName?: string
+  isRoadSegment?: boolean
+  roadSegment?: RoadSegment
+  passability?: PassabilityType
+  waterDepth?: string
 }
 
 export interface AIPatternInsight {
@@ -53,6 +57,10 @@ interface DisasterContextType {
     lng?: number
     severity?: 'low' | 'medium' | 'high'
     citizenName?: string
+    isRoadSegment?: boolean
+    roadSegment?: RoadSegment
+    passability?: PassabilityType
+    waterDepth?: string
   }) => { report: CitizenReport; hazard: Hazard }
   verifyReport: (reportId: number | string) => Promise<void>
   rejectReport: (reportId: number | string) => Promise<void>
@@ -277,8 +285,12 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       description,
       lat,
       lng,
-      severity = 'high',
-      citizenName = 'Live Citizen (You)',
+      severity = 'medium',
+      citizenName = 'Resident (GABAI User)',
+      isRoadSegment,
+      roadSegment,
+      passability,
+      waterDepth,
     }: {
       type: string
       description?: string
@@ -286,17 +298,28 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       lng?: number
       severity?: 'low' | 'medium' | 'high'
       citizenName?: string
+      isRoadSegment?: boolean
+      roadSegment?: any
+      passability?: string
+      waterDepth?: string
     }) => {
       const reportLat = lat ?? userLoc.coords.lat
       const reportLng = lng ?? userLoc.coords.lng
       const newHazardId = `haz-${Date.now()}`
       const newReportId = `rep-${Date.now()}`
 
+      let statusText = severity === 'high' ? 'Impassable' : 'Passable with caution'
+      if (passability === 'not_passable_all') statusText = 'Closed to All Vehicles'
+      if (passability === 'not_passable_light') statusText = 'Not Passable to Light Vehicles'
+      if (passability === 'all_passable') statusText = 'Passable to All Vehicles'
+
       const newHazard: Hazard = {
         id: newHazardId,
         type,
         emoji: EMOJI_MAP[type] || '⚠️',
-        label: LABEL_MAP[type] || 'Disaster Incident',
+        label: roadSegment?.roadName
+          ? `${roadSegment.roadName} Flooding`
+          : LABEL_MAP[type] || 'Disaster Incident',
         lat: reportLat,
         lng: reportLng,
         severity,
@@ -305,7 +328,12 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         reports: 1,
         verified: 0,
         ago: 'Just now',
-        status: severity === 'high' ? 'Impassable' : 'Passable with caution',
+        status: statusText,
+        isRoadSegment,
+        roadSegment,
+        passability: passability || 'not_passable_light',
+        waterDepth: waterDepth || 'Flood on Road',
+        isVerified: false,
       }
 
       const newReport: CitizenReport = {
@@ -320,7 +348,11 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         severity,
         time: 'Just now',
         status: 'pending',
-        locationName: userLoc.locationName,
+        locationName: roadSegment?.roadName || userLoc.locationName,
+        isRoadSegment,
+        roadSegment,
+        passability: passability || 'not_passable_light',
+        waterDepth: waterDepth || 'Flood on Road',
       }
 
       setHazards((prev) => [newHazard, ...prev])
@@ -340,6 +372,10 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             severity,
             citizen: citizenName,
             locationName: userLoc.locationName,
+            isRoadSegment,
+            roadSegment,
+            passability,
+            waterDepth,
           }),
         }).catch((err) => console.log('REST sync skipped:', err))
       }
@@ -367,7 +403,9 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             return {
               ...h,
               verified: (h.verified || 0) + 1,
-              confidence: Math.min(99, (h.confidence || 80) + 10),
+              isVerified: true,
+              status: 'Verified by LGU',
+              confidence: Math.min(99, (h.confidence || 80) + 15),
             }
           }
           return h

@@ -64,7 +64,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   >([])
   const [isSearching, setIsSearching] = useState(false)
 
-  // Reporting with AI Vision
+  // Reporting with AI Vision & Road Flood Segments
   const [reportStep, setReportStep] = useState<'form' | 'analyzing' | 'done'>('form')
   const [reportType, setReportType] = useState<string>('flood')
   const [reportDesc, setReportDesc] = useState<string>('')
@@ -72,6 +72,15 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false)
   const [photoAiAnalysis, setPhotoAiAnalysis] = useState<any>(null)
+
+  // Road Flood Line Segment State
+  const [isRoadSegmentMode, setIsRoadSegmentMode] = useState(true)
+  const [roadName, setRoadName] = useState('')
+  const [floodStartPoint, setFloodStartPoint] = useState<{ lat: number; lng: number; name: string } | null>(null)
+  const [floodEndPoint, setFloodEndPoint] = useState<{ lat: number; lng: number; name: string } | null>(null)
+  const [floodPassability, setFloodPassability] = useState<'all_passable' | 'not_passable_light' | 'not_passable_all'>('not_passable_light')
+  const [floodWaterDepth, setFloodWaterDepth] = useState('Knee Deep (0.45m)')
+  const [isPickingPointMode, setIsPickingPointMode] = useState<'from' | 'to' | null>(null)
 
   const [layersOpen, setLayersOpen] = useState(false)
   const mapCanvasRef = useRef<MapCanvasHandle>(null)
@@ -92,6 +101,28 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   }, [evacCenters, destinationSearch])
 
   const handleMapClick = (coords: { lat: number; lng: number }) => {
+    if (isPickingPointMode === 'from') {
+      setFloodStartPoint({
+        lat: coords.lat,
+        lng: coords.lng,
+        name: `Start (Point A: ${coords.lat.toFixed(3)}°N, ${coords.lng.toFixed(3)}°E)`,
+      })
+      setIsPickingPointMode(null)
+      setActiveModal('report')
+      return
+    }
+
+    if (isPickingPointMode === 'to') {
+      setFloodEndPoint({
+        lat: coords.lat,
+        lng: coords.lng,
+        name: `End (Point B: ${coords.lat.toFixed(3)}°N, ${coords.lng.toFixed(3)}°E)`,
+      })
+      setIsPickingPointMode(null)
+      setActiveModal('report')
+      return
+    }
+
     if (isMapClickDestinationMode) {
       setDestination({
         name: `Selected Map Location (${coords.lat.toFixed(3)}°N, ${coords.lng.toFixed(3)}°E)`,
@@ -236,8 +267,23 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
     setReportStep('form')
     setReportType('flood')
     setReportDesc('')
+    setIsRoadSegmentMode(true)
+    setRoadName('')
+    setFloodStartPoint({
+      lat: userLocation.lat,
+      lng: userLocation.lng,
+      name: locationName ? `Near ${locationName.split(',')[0]} (Point A)` : 'Current Location (Point A)',
+    })
+    setFloodEndPoint({
+      lat: userLocation.lat + 0.005,
+      lng: userLocation.lng + 0.006,
+      name: 'Downstream Road Crossing (Point B)',
+    })
+    setFloodPassability('not_passable_light')
+    setFloodWaterDepth('Knee Deep (0.45m)')
     setPhotoPreview(null)
     setPhotoAiAnalysis(null)
+    setIsPickingPointMode(null)
     setActiveModal('report')
   }
 
@@ -287,15 +333,26 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         type: reportType,
         description: reportDesc || undefined,
         severity: reportSeverity,
+        isRoadSegment: isRoadSegmentMode,
+        roadSegment:
+          isRoadSegmentMode && floodStartPoint && floodEndPoint
+            ? {
+                from: floodStartPoint,
+                to: floodEndPoint,
+                roadName: roadName || `${locationName.split(',')[0]} Road`,
+              }
+            : undefined,
+        passability: floodPassability,
+        waterDepth: floodWaterDepth,
       })
       setReportStep('done')
-    }, 1500)
+    }, 1200)
   }
 
   const closeModal = () => {
     setActiveModal('none')
     setSelectedHazard(null)
-    setSelectedEstablishment(null)
+    setIsPickingPointMode(null)
   }
 
   const handleLocateMe = () => {
@@ -350,6 +407,34 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           showRadar={showRadar}
         />
       </div>
+
+      {/* ── Picking Road Segment Mode Floating Banner ───────── */}
+      {isPickingPointMode && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-auto anim-slide-down">
+          <div className="bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border-2 border-cyan-500 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 font-black">
+              {isPickingPointMode === 'from' ? 'A' : 'B'}
+            </div>
+            <div>
+              <div className="font-extrabold text-xs text-white">
+                {isPickingPointMode === 'from' ? 'Tap Map to Set Start of Flood (Point A)' : 'Tap Map to Set End of Flood (Point B)'}
+              </div>
+              <div className="text-[10px] text-slate-300">
+                Click on the road segment where the flood starts or ends
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setIsPickingPointMode(null)
+                setActiveModal('report')
+              }}
+              className="ml-2 px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded-xl text-[10px] font-bold text-slate-200"
+            >
+              Back
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Toast Notification Banner ────────────────────────── */}
       {lastActionMessage && (
@@ -740,11 +825,14 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
               </div>
 
               {/* Stats row */}
-              <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="grid grid-cols-3 gap-2 mb-3">
                 {[
                   { label: 'AI Confidence', val: `${selectedHazard.confidence}%` },
                   { label: 'Citizen Reports', val: `${selectedHazard.reports}` },
-                  { label: 'LGU Status', val: selectedHazard.verified > 0 ? 'Verified' : 'Pending' },
+                  {
+                    label: 'LGU Status',
+                    val: (selectedHazard.verified > 0 || selectedHazard.isVerified) ? 'Verified' : 'Pending',
+                  },
                 ].map(({ label, val }) => (
                   <div key={label} className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-3 text-center border border-slate-100 dark:border-slate-700/50">
                     <div className="text-lg font-bold text-slate-900 dark:text-white">{val}</div>
@@ -752,6 +840,65 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                   </div>
                 ))}
               </div>
+
+              {/* Road Flood Line & Passability Details */}
+              {selectedHazard.isRoadSegment && selectedHazard.roadSegment && (
+                <div className="mb-3 p-3 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-black tracking-wider text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                      🛣️ Flooded Road Stretch
+                    </span>
+                    <span
+                      className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold ${
+                        selectedHazard.verified > 0 || selectedHazard.isVerified
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-amber-500 text-white animate-pulse'
+                      }`}
+                    >
+                      {selectedHazard.verified > 0 || selectedHazard.isVerified
+                        ? '🔵 LGU VERIFIED LINE'
+                        : '🟠 PENDING LGU LINE'}
+                    </span>
+                  </div>
+
+                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    {selectedHazard.roadSegment.roadName || selectedHazard.label}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="bg-white/80 dark:bg-slate-900/80 p-2 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+                      <div className="text-[10px] text-slate-500 font-semibold">Start (Point A)</div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                        {selectedHazard.roadSegment.from.name || 'Start Pin A'}
+                      </div>
+                    </div>
+                    <div className="bg-white/80 dark:bg-slate-900/80 p-2 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+                      <div className="text-[10px] text-slate-500 font-semibold">End (Point B)</div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                        {selectedHazard.roadSegment.to.name || 'End Pin B'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div className="text-xs">
+                      <span className="text-[10px] text-slate-400 block">Vehicle Passability:</span>
+                      <span className="font-black text-red-600 dark:text-red-400">
+                        {selectedHazard.passability === 'not_passable_all'
+                          ? '⛔ Closed to All Vehicles'
+                          : selectedHazard.passability === 'all_passable'
+                          ? '🟢 Passable to All Vehicles'
+                          : '🚫 Not Passable to Light Vehicles (Sedans, Motorcycles blocked)'}
+                      </span>
+                    </div>
+                    {selectedHazard.waterDepth && (
+                      <div className="text-right text-xs font-bold text-cyan-600 dark:text-cyan-400">
+                        🌊 {selectedHazard.waterDepth}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center gap-2 mb-4 text-xs text-slate-500 dark:text-slate-400">
                 <Clock className="w-3.5 h-3.5" />
@@ -988,6 +1135,148 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                     ))}
                   </div>
 
+                  {/* Mode Toggle: Road Segment (From ➔ To) vs Point */}
+                  <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsRoadSegmentMode(true)}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                        isRoadSegmentMode
+                          ? 'bg-white dark:bg-slate-700 text-cyan-600 dark:text-cyan-400 shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      🛣️ Flooded Road Stretch (Line)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsRoadSegmentMode(false)}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                        !isRoadSegmentMode
+                          ? 'bg-white dark:bg-slate-700 text-cyan-600 dark:text-cyan-400 shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      📍 Single Point
+                    </button>
+                  </div>
+
+                  {/* Road Flood Line Segment (From ➔ To) Controls */}
+                  {isRoadSegmentMode && (
+                    <div className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 mb-3 space-y-2.5">
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                        <span>Road / Street Information</span>
+                        <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-semibold">
+                          Draws line on map
+                        </span>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={roadName}
+                        onChange={(e) => setRoadName(e.target.value)}
+                        placeholder="Road / Street Name (e.g. Mexico-San Luis Road, MacArthur Hwy)"
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-white placeholder:text-slate-400 outline-none focus:border-cyan-500"
+                      />
+
+                      {/* Start Point (Point A) */}
+                      <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200/70 dark:border-slate-700/60">
+                        <div className="min-w-0 flex-1 pr-2">
+                          <div className="text-[10px] text-slate-400 font-bold uppercase">Start of Flood (Point A)</div>
+                          <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                            {floodStartPoint?.name || 'Tap on Map'}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsPickingPointMode('from')
+                            setActiveModal('none')
+                          }}
+                          className="px-2.5 py-1 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 rounded-lg text-[10px] font-bold shrink-0 hover:bg-cyan-100"
+                        >
+                          📍 Pick on Map
+                        </button>
+                      </div>
+
+                      {/* End Point (Point B) */}
+                      <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200/70 dark:border-slate-700/60">
+                        <div className="min-w-0 flex-1 pr-2">
+                          <div className="text-[10px] text-slate-400 font-bold uppercase">End of Flood (Point B)</div>
+                          <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                            {floodEndPoint?.name || 'Tap on Map'}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsPickingPointMode('to')
+                            setActiveModal('none')
+                          }}
+                          className="px-2.5 py-1 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 rounded-lg text-[10px] font-bold shrink-0 hover:bg-cyan-100"
+                        >
+                          📍 Pick on Map
+                        </button>
+                      </div>
+
+                      {/* Vehicle Passability Options */}
+                      <div className="space-y-1 pt-1">
+                        <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 block">
+                          Vehicle Passability Status:
+                        </label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {[
+                            { id: 'all_passable', label: 'Passable', desc: 'All Vehicles', color: 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' },
+                            { id: 'not_passable_light', label: 'No Light Cars', desc: '4x4 / Trucks Only', color: 'border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' },
+                            { id: 'not_passable_all', label: 'Closed Road', desc: 'All Blocked', color: 'border-red-500 bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300' },
+                          ].map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => setFloodPassability(p.id as any)}
+                              className={`p-2 rounded-xl border text-center transition-all ${
+                                floodPassability === p.id
+                                  ? `${p.color} border-2 shadow-sm font-bold`
+                                  : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
+                              }`}
+                            >
+                              <div className="text-[11px] font-black">{p.label}</div>
+                              <div className="text-[9px] opacity-80">{p.desc}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Water Depth Quick Selection */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 block">
+                          Estimated Water Depth:
+                        </label>
+                        <div className="grid grid-cols-4 gap-1">
+                          {[
+                            'Ankle Deep (10cm)',
+                            'Knee Deep (40cm)',
+                            'Waist Deep (70cm)',
+                            'Chest Deep (1m+)',
+                          ].map((depth) => (
+                            <button
+                              key={depth}
+                              type="button"
+                              onClick={() => setFloodWaterDepth(depth)}
+                              className={`py-1.5 px-1 rounded-lg text-[10px] font-bold border transition-colors truncate ${
+                                floodWaterDepth === depth
+                                  ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
+                                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                              }`}
+                            >
+                              {depth.split(' ')[0]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Multimodal AI Photo Analyzer */}
                   <div className="mb-3">
                     <input
@@ -1043,7 +1332,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                   <textarea
                     value={reportDesc}
                     onChange={(e) => setReportDesc(e.target.value)}
-                    placeholder="Describe what you see (e.g. knee-deep flood, fallen power line)..."
+                    placeholder="Describe what you see (e.g. knee-deep flood, impassable to tricycles)..."
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-700 dark:text-slate-300 placeholder-slate-400 outline-none focus:border-cyan-500 resize-none mb-3"
                     rows={2}
                   />
@@ -1053,7 +1342,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                     disabled={!reportType}
                     className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-3.5 rounded-xl disabled:opacity-40 transition-all hover:bg-slate-800 dark:hover:bg-slate-100 shadow-md text-sm"
                   >
-                    Submit Community Report
+                    Submit Report ({isRoadSegmentMode ? 'Draws Orange Line ➔ Pending LGU' : 'Publishes to Map'})
                   </button>
                 </>
               )}

@@ -5,6 +5,15 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { UserCoordinates } from '../hooks/useUserLocation'
 import { RouteInfo } from '../utils/routingEngine'
 
+export interface RoadSegment {
+  from: { lat: number; lng: number; name?: string }
+  to: { lat: number; lng: number; name?: string }
+  path?: [number, number][]
+  roadName?: string
+}
+
+export type PassabilityType = 'all_passable' | 'not_passable_light' | 'not_passable_all'
+
 export interface Hazard {
   id: number | string
   type: string
@@ -19,6 +28,11 @@ export interface Hazard {
   verified: number
   ago: string
   status: string
+  isRoadSegment?: boolean
+  roadSegment?: RoadSegment
+  passability?: PassabilityType
+  waterDepth?: string
+  isVerified?: boolean
 }
 
 export interface MapCanvasHandle {
@@ -41,6 +55,7 @@ interface Props {
   onMapClick?: (coords: { lat: number; lng: number }) => void
   flyToTrigger?: number
   showRadar?: boolean
+  isPickingRoadSegment?: 'from' | 'to' | null
 }
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -188,12 +203,12 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     }
   }, [flyToTrigger])
 
-  // Accurate Geodesic Danger Zones for all active hazards
+  // Geodesic Danger Zones for standard point hazards
   const hazardZonesGeoJSON = useMemo(() => {
     return {
       type: 'FeatureCollection' as const,
       features: hazards
-        .filter((h) => h.status !== 'Resolved')
+        .filter((h) => !h.isRoadSegment && h.status !== 'Resolved')
         .map((h) => {
           const radius =
             h.severity === 'high' ? 200 : h.severity === 'medium' ? 120 : 60
@@ -205,6 +220,48 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
               id: h.id,
               severity: h.severity,
               color,
+              isSelected: selectedHazard?.id === h.id,
+            },
+          }
+        }),
+    }
+  }, [hazards, selectedHazard])
+
+  // ── Road Flood LineString Segments (Orange = Unverified, Blue = Verified) ──
+  const roadFloodLinesGeoJSON = useMemo(() => {
+    return {
+      type: 'FeatureCollection' as const,
+      features: hazards
+        .filter((h) => h.isRoadSegment && h.roadSegment && h.status !== 'Resolved')
+        .map((h) => {
+          const isVerified = (h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified'
+          const seg = h.roadSegment!
+          const coords: [number, number][] =
+            seg.path && seg.path.length > 1
+              ? seg.path
+              : [
+                  [seg.from.lng, seg.from.lat],
+                  [seg.to.lng, seg.to.lat],
+                ]
+
+          // User Requirement: Orange for Unverified, Blue for Verified
+          const color = isVerified ? '#2563EB' : '#F97316'
+
+          return {
+            type: 'Feature' as const,
+            geometry: {
+              type: 'LineString' as const,
+              coordinates: coords,
+            },
+            properties: {
+              id: h.id,
+              isVerified,
+              color,
+              passability: h.passability || 'not_passable_light',
+              waterDepth: h.waterDepth || 'Flood on Road',
+              label: h.label,
+              roadName: seg.roadName || h.label,
+              severity: h.severity,
               isSelected: selectedHazard?.id === h.id,
             },
           }
@@ -224,17 +281,14 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     return {
       type: 'FeatureCollection' as const,
       features: [
-        // Heavy rain cell
         {
           ...createGeoCircle([userLng - 0.018, userLat + 0.015], 1800),
           properties: { color: '#EF4444', intensity: 'Heavy Precipitation (35mm/hr)' },
         },
-        // Moderate rain band
         {
           ...createGeoCircle([userLng + 0.022, userLat - 0.012], 2400),
           properties: { color: '#F59E0B', intensity: 'Moderate Rain (15mm/hr)' },
         },
-        // Broad light rain perimeter
         {
           ...createGeoCircle([userLng, userLat], 3200),
           properties: { color: '#10B981', intensity: 'Scattered Showers' },
@@ -347,6 +401,42 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         />
       </Source>
 
+      {/* ── Road Flood Line Segments (Orange = Unverified, Blue = Verified) ── */}
+      <Source id="road-flood-lines-source" type="geojson" data={roadFloodLinesGeoJSON}>
+        {/* Glow Layer */}
+        <Layer
+          id="road-flood-lines-glow"
+          type="line"
+          paint={{
+            'line-color': ['get', 'color'],
+            'line-width': ['case', ['get', 'isSelected'], 18, 12],
+            'line-blur': 6,
+            'line-opacity': 0.7,
+          }}
+        />
+        {/* Main Road Line Layer */}
+        <Layer
+          id="road-flood-lines-main"
+          type="line"
+          paint={{
+            'line-color': ['get', 'color'],
+            'line-width': ['case', ['get', 'isSelected'], 8, 6],
+            'line-opacity': 0.95,
+          }}
+        />
+        {/* Center Dash Layer */}
+        <Layer
+          id="road-flood-lines-stripes"
+          type="line"
+          paint={{
+            'line-color': '#FFFFFF',
+            'line-width': 2,
+            'line-dasharray': [3, 3],
+            'line-opacity': 0.8,
+          }}
+        />
+      </Source>
+
       {/* ── Accurate User GPS Accuracy Circle ── */}
       <Source id="user-accuracy-source" type="geojson" data={userAccuracyGeoJSON}>
         <Layer
@@ -431,60 +521,160 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         </Marker>
       )}
 
-      {/* ── Interactive Hazard Markers with Tap Handler ── */}
-      {hazards.map((h) => {
-        const isSelected = selectedHazard?.id === h.id
-        const isVerified = h.verified > 0 || h.status === 'Verified'
+      {/* ── Interactive Road Flood Line Endpoint Markers & Floating Passability Badges ── */}
+      {hazards
+        .filter((h) => h.isRoadSegment && h.roadSegment && h.status !== 'Resolved')
+        .map((h) => {
+          const seg = h.roadSegment!
+          const isVerified = (h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified'
+          const color = isVerified ? '#2563EB' : '#F97316'
+          const isSelected = selectedHazard?.id === h.id
 
-        return (
-          <Marker key={h.id} longitude={h.lng} latitude={h.lat} anchor="center">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                onHazardClick(h)
-              }}
-              className="group relative flex items-center justify-center cursor-pointer transition-all hover:scale-125 active:scale-95 focus:outline-none"
-              style={{
-                width: h.severity === 'high' ? '40px' : h.severity === 'medium' ? '34px' : '28px',
-                height: h.severity === 'high' ? '40px' : h.severity === 'medium' ? '34px' : '28px',
-              }}
-              title={`Tap to view details: ${h.label}`}
-            >
-              {/* Pulsing ring for high severity */}
-              {h.severity === 'high' && (
-                <div
-                  className="absolute inset-0 rounded-full animate-ping opacity-75"
-                  style={{ backgroundColor: SEVERITY_COLORS[h.severity] }}
-                />
-              )}
+          const midLat = (seg.from.lat + seg.to.lat) / 2
+          const midLng = (seg.from.lng + seg.to.lng) / 2
 
-              {/* Main Badge */}
-              <div
-                className="relative inset-0 w-full h-full rounded-full border-2 border-white shadow-xl flex items-center justify-center transition-all"
-                style={{
-                  backgroundColor: SEVERITY_COLORS[h.severity],
-                  opacity: 1,
-                  boxShadow: isSelected
-                    ? '0 0 25px rgba(239, 68, 68, 1)'
-                    : isVerified
-                    ? '0 0 14px rgba(16, 185, 129, 0.8)'
-                    : '0 4px 10px rgba(0,0,0,0.4)',
+          return (
+            <div key={`road-flood-markers-${h.id}`}>
+              {/* Point A (From) */}
+              <Marker longitude={seg.from.lng} latitude={seg.from.lat} anchor="bottom">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onHazardClick(h)
+                  }}
+                  className="flex flex-col items-center cursor-pointer group"
+                >
+                  <div
+                    className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-0.5 whitespace-nowrap"
+                    style={{ backgroundColor: color }}
+                  >
+                    Start: {seg.from.name || 'Point A'}
+                  </div>
+                  <div
+                    className="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-white text-[10px] font-black shadow-lg group-hover:scale-125 transition-transform"
+                    style={{ backgroundColor: color }}
+                  >
+                    A
+                  </div>
+                </button>
+              </Marker>
+
+              {/* Point B (To) */}
+              <Marker longitude={seg.to.lng} latitude={seg.to.lat} anchor="bottom">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onHazardClick(h)
+                  }}
+                  className="flex flex-col items-center cursor-pointer group"
+                >
+                  <div
+                    className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-0.5 whitespace-nowrap"
+                    style={{ backgroundColor: color }}
+                  >
+                    End: {seg.to.name || 'Point B'}
+                  </div>
+                  <div
+                    className="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-white text-[10px] font-black shadow-lg group-hover:scale-125 transition-transform"
+                    style={{ backgroundColor: color }}
+                  >
+                    B
+                  </div>
+                </button>
+              </Marker>
+
+              {/* Center Floating Passability Badge */}
+              <Marker longitude={midLng} latitude={midLat} anchor="center">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onHazardClick(h)
+                  }}
+                  className="group cursor-pointer transition-transform hover:scale-110 active:scale-95"
+                >
+                  <div
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-white text-white text-[10px] font-black shadow-2xl transition-all ${
+                      isSelected ? 'ring-4 ring-cyan-400 scale-105' : ''
+                    }`}
+                    style={{ backgroundColor: color }}
+                  >
+                    <span className="text-xs">🌊</span>
+                    <span className="uppercase tracking-wider">
+                      {isVerified ? 'LGU VERIFIED' : 'PENDING LGU'}
+                    </span>
+                    <span className="bg-black/30 px-1.5 py-0.5 rounded text-[9px] font-mono font-normal">
+                      {h.passability === 'not_passable_all'
+                        ? '⛔ CLOSED'
+                        : h.passability === 'all_passable'
+                        ? '🟢 PASSABLE'
+                        : '🚫 NO LIGHT VEHICLES'}
+                    </span>
+                  </div>
+                </button>
+              </Marker>
+            </div>
+          )
+        })}
+
+      {/* ── Interactive Point Hazard Markers with Tap Handler ── */}
+      {hazards
+        .filter((h) => !h.isRoadSegment)
+        .map((h) => {
+          const isSelected = selectedHazard?.id === h.id
+          const isVerified = h.verified > 0 || h.status === 'Verified'
+
+          return (
+            <Marker key={h.id} longitude={h.lng} latitude={h.lat} anchor="center">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onHazardClick(h)
                 }}
+                className="group relative flex items-center justify-center cursor-pointer transition-all hover:scale-125 active:scale-95 focus:outline-none"
+                style={{
+                  width: h.severity === 'high' ? '40px' : h.severity === 'medium' ? '34px' : '28px',
+                  height: h.severity === 'high' ? '40px' : h.severity === 'medium' ? '34px' : '28px',
+                }}
+                title={`Tap to view details: ${h.label}`}
               >
-                <span className="text-base select-none drop-shadow-sm">{h.emoji}</span>
-              </div>
+                {/* Pulsing ring for high severity */}
+                {h.severity === 'high' && (
+                  <div
+                    className="absolute inset-0 rounded-full animate-ping opacity-75"
+                    style={{ backgroundColor: SEVERITY_COLORS[h.severity] }}
+                  />
+                )}
 
-              {/* Verified Check Badge */}
-              {isVerified && (
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center text-[8px] text-white font-black shadow-sm">
-                  ✓
+                {/* Main Badge */}
+                <div
+                  className="relative inset-0 w-full h-full rounded-full border-2 border-white shadow-xl flex items-center justify-center transition-all"
+                  style={{
+                    backgroundColor: SEVERITY_COLORS[h.severity],
+                    opacity: 1,
+                    boxShadow: isSelected
+                      ? '0 0 25px rgba(239, 68, 68, 1)'
+                      : isVerified
+                      ? '0 0 14px rgba(16, 185, 129, 0.8)'
+                      : '0 4px 10px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  <span className="text-base select-none drop-shadow-sm">{h.emoji}</span>
                 </div>
-              )}
-            </button>
-          </Marker>
-        )
-      })}
+
+                {/* Verified Check Badge */}
+                {isVerified && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center text-[8px] text-white font-black shadow-sm">
+                    ✓
+                  </div>
+                )}
+              </button>
+            </Marker>
+          )
+        })}
 
       {/* ── Interactive Info Popup Tooltip when Hazard Tapped ── */}
       {selectedHazard && (
