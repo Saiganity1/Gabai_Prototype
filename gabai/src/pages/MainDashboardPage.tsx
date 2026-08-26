@@ -477,6 +477,8 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           showEvacCenters={showEvacCenters}
           is3D={is3D}
           onToggle3D={toggle3DMode}
+          isPickingRoadSegment={isPickingPointMode}
+          isPickingPoint={Boolean(isPickingPointMode || isMapClickDestinationMode)}
         />
       </div>
 

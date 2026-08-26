@@ -65,6 +65,7 @@ interface Props {
   is3D?: boolean
   onToggle3D?: () => void
   isPickingRoadSegment?: 'from' | 'to' | null
+  isPickingPoint?: boolean
 }
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -123,6 +124,8 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     showEvacCenters = true,
     is3D = true,
     onToggle3D,
+    isPickingRoadSegment,
+    isPickingPoint,
   },
   ref
 ) {
@@ -524,26 +527,30 @@ function interpolateSegment(
         onRender={updateScreenLines}
         onLoad={updateScreenLines}
         onClick={(e) => {
-          if (onMapClick && e.lngLat) {
+          if (!e.lngLat) return
+          if (onMapClick) {
             onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng })
           }
-          if (e.lngLat) {
-            const hit = hazards.find((h) => {
-              if (!h.isRoadSegment || !h.roadSegment) return false
-              const seg = h.roadSegment
-              const coords =
-                seg.path && seg.path.length > 1
-                  ? seg.path
-                  : [[seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat]]
+          if (isPickingPoint || isPickingRoadSegment) {
+            return
+          }
+          const hit = hazards.find((h) => {
+            if (!h.isRoadSegment || !h.roadSegment) return false
+            const seg = h.roadSegment
+            const coords =
+              seg.path && seg.path.length > 1
+                ? seg.path
+                : [[seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat]]
 
-              return coords.some(([lng, lat]) => {
-                const dist = Math.hypot(e.lngLat.lat - lat, e.lngLat.lng - lng)
-                return dist < 0.0025
-              })
+            return coords.some(([lng, lat]) => {
+              const dist = Math.hypot(e.lngLat.lat - lat, e.lngLat.lng - lng)
+              return dist < 0.0015
             })
-            if (hit) {
-              onHazardClick(hit)
-            }
+          })
+          if (hit) {
+            onHazardClick(hit)
+          } else {
+            onHazardClick(null as any)
           }
         }}
       >
@@ -849,7 +856,7 @@ function interpolateSegment(
       )}
 
       {/* ── Road Flood Endpoint & Center Badges (Visible ONLY When Line is Tapped / Selected) ── */}
-      {hazards
+      {!isPickingPoint && !isPickingRoadSegment && hazards
         .filter((h) => h.isRoadSegment && h.roadSegment && h.status !== 'Resolved' && selectedHazard?.id === h.id)
         .map((h) => {
           const seg = h.roadSegment!
@@ -939,10 +946,14 @@ function interpolateSegment(
               <button
                 type="button"
                 onClick={(e) => {
+                  if (isPickingPoint || isPickingRoadSegment) return
                   e.stopPropagation()
                   onHazardClick(h)
                 }}
-                className="group relative flex items-center justify-center cursor-pointer transition-all hover:scale-125 active:scale-95 focus:outline-none"
+                disabled={Boolean(isPickingPoint || isPickingRoadSegment)}
+                className={`group relative flex items-center justify-center cursor-pointer transition-all hover:scale-125 active:scale-95 focus:outline-none ${
+                  isPickingPoint || isPickingRoadSegment ? 'pointer-events-none' : ''
+                }`}
                 style={{
                   width: h.severity === 'high' ? '40px' : h.severity === 'medium' ? '34px' : '28px',
                   height: h.severity === 'high' ? '40px' : h.severity === 'medium' ? '34px' : '28px',
