@@ -4,7 +4,6 @@ import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { UserCoordinates } from '../hooks/useUserLocation'
 import { RouteInfo } from '../utils/routingEngine'
-import { Establishment, CATEGORY_CONFIG } from '../utils/establishmentImporter'
 
 export interface Hazard {
   id: number | string
@@ -37,10 +36,6 @@ interface Props {
   navPosition?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
   userLocation?: UserCoordinates
   hazards?: Hazard[]
-  establishments?: Establishment[]
-  selectedEstablishment?: Establishment | null
-  onEstablishmentClick?: (e: Establishment) => void
-  showEstablishments?: boolean
   routes?: Record<'safe' | 'balanced' | 'fast', RouteInfo>
   destination?: { name: string; lat: number; lng: number } | null
   onMapClick?: (coords: { lat: number; lng: number }) => void
@@ -90,10 +85,6 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     navPosition = 'top-right',
     userLocation = { lat: 14.5995, lng: 120.9842, accuracy: 25 },
     hazards = [],
-    establishments = [],
-    selectedEstablishment,
-    onEstablishmentClick = () => {},
-    showEstablishments = false,
     routes,
     destination,
     onMapClick,
@@ -443,51 +434,6 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
           </div>
         </Marker>
       )}
-
-      {/* ── Real Imported Map Establishments & POIs Layer ── */}
-      {showEstablishments &&
-        establishments.map((est) => {
-          const config = CATEGORY_CONFIG[est.category] || CATEGORY_CONFIG.government
-          const isSelected = selectedEstablishment?.id === est.id
-
-          return (
-            <Marker key={est.id} longitude={est.lng} latitude={est.lat} anchor="bottom">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onEstablishmentClick(est)
-                }}
-                className="group relative flex flex-col items-center cursor-pointer transition-all hover:scale-125 active:scale-95 focus:outline-none z-20"
-                title={`${est.name} (${est.categoryLabel}) - ${est.distance}`}
-              >
-                {/* Pin Badge */}
-                <div
-                  className="relative w-8 h-8 rounded-full border-2 border-white shadow-xl flex items-center justify-center transition-transform"
-                  style={{
-                    backgroundColor: config.color,
-                    boxShadow: isSelected
-                      ? `0 0 24px ${config.color}, 0 4px 12px rgba(0,0,0,0.5)`
-                      : '0 3px 10px rgba(0,0,0,0.4)',
-                    transform: isSelected ? 'scale(1.25)' : 'scale(1)',
-                  }}
-                >
-                  <span className="text-sm select-none drop-shadow">{est.emoji}</span>
-                </div>
-                {/* Pin Pointer Tail */}
-                <div
-                  className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] -mt-0.5"
-                  style={{ borderTopColor: config.color }}
-                />
-
-                {/* Subtitle Badge on Hover */}
-                <div className="hidden group-hover:flex absolute -bottom-6 bg-slate-900/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap shadow-lg backdrop-blur-sm pointer-events-none z-30">
-                  {est.name}
-                </div>
-              </button>
-            </Marker>
-          )
-        })}
 
       {/* ── Interactive Hazard Markers with Tap Handler ── */}
       {hazards.map((h) => {

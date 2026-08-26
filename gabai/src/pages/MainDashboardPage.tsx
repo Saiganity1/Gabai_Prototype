@@ -15,13 +15,7 @@ import { useDisaster } from '../context/DisasterContext'
 import { REPORT_TYPES } from '../constants'
 import { ActiveModal, AppState } from '../types'
 import { StatusDot } from '../components/ui/StatusDot'
-import { RiskBadge } from '../components/ui/RiskBadge'
-import {
-  Establishment,
-  EstablishmentCategory,
-  CATEGORY_CONFIG,
-  searchRealWorldPlaces,
-} from '../utils/establishmentImporter'
+import { searchRealWorldPlaces } from '../utils/placeSearch'
 
 interface Props {
   darkMode: boolean
@@ -32,9 +26,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const {
     hazards,
     evacCenters,
-    establishments,
-    selectedEstablishment,
-    setSelectedEstablishment,
     userLocation,
     locationName,
     isLocationLoading,
@@ -48,14 +39,13 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
     clearLastActionMessage,
   } = useDisaster()
 
-  const [activeModal, setActiveModal] = useState<ActiveModal | 'family_safety' | 'establishment'>('none')
+  const [activeModal, setActiveModal] = useState<ActiveModal | 'family_safety'>('none')
   const [appState, setAppState] = useState<AppState>('normal')
   const [selectedHazard, setSelectedHazard] = useState<Hazard | null>(null)
   const [selectedRoute, setSelectedRoute] = useState<'safe' | 'balanced' | 'fast'>('safe')
   const [panelOpen, setPanelOpen] = useState(false)
   const [showBubble, setShowBubble] = useState(false)
   const [showRadar, setShowRadar] = useState(true)
-  const [showEstablishments, setShowEstablishments] = useState(false)
 
   // Destination Choosing States
   const [isChoosingDestination, setIsChoosingDestination] = useState(false)
@@ -87,20 +77,19 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const mapCanvasRef = useRef<MapCanvasHandle>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Selectable Destinations list for Safe Route chooser
+  // Selectable Destinations list for Safe Route chooser (Evacuation Shelters)
   const selectableDestinations = useMemo(() => {
-    let list = establishments
+    let list = evacCenters
     if (destinationSearch.trim()) {
       const q = destinationSearch.toLowerCase().trim()
       list = list.filter(
         (e) =>
           e.name.toLowerCase().includes(q) ||
-          e.address.toLowerCase().includes(q) ||
-          e.categoryLabel.toLowerCase().includes(q)
+          e.address.toLowerCase().includes(q)
       )
     }
     return list
-  }, [establishments, destinationSearch])
+  }, [evacCenters, destinationSearch])
 
   const handleMapClick = (coords: { lat: number; lng: number }) => {
     if (isMapClickDestinationMode) {
@@ -126,23 +115,20 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       setIsSearching(true)
       const q = searchQuery.toLowerCase().trim()
 
-      // Match in local establishments first (all Pampanga hospitals, clinics, shelters)
-      let localMatches = establishments
+      // Match in evacuation centers first
+      let localMatches = evacCenters
         .filter(
-          (est) =>
-            est.name.toLowerCase().includes(q) ||
-            est.categoryLabel.toLowerCase().includes(q) ||
-            est.address.toLowerCase().includes(q) ||
-            (q.includes('hosp') && est.category === 'hospital') ||
-            (q.includes('clinic') && est.category === 'hospital')
+          (evac) =>
+            evac.name.toLowerCase().includes(q) ||
+            evac.address.toLowerCase().includes(q)
         )
-        .map((est) => ({
-          name: est.name,
-          address: `${est.categoryLabel} · ${est.address}`,
-          lat: est.lat,
-          lng: est.lng,
-          isEstablishment: true,
-          emoji: est.emoji,
+        .map((evac) => ({
+          name: evac.name,
+          address: `Evacuation Center · ${evac.address}`,
+          lat: evac.lat,
+          lng: evac.lng,
+          isEstablishment: false,
+          emoji: '🛡️',
         }))
 
       // Real-world OpenStreetMap Nominatim results
@@ -169,7 +155,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
     }, 200)
 
     return () => clearTimeout(timer)
-  }, [searchQuery, establishments, userLocation.lat, userLocation.lng])
+  }, [searchQuery, evacCenters, userLocation.lat, userLocation.lng])
 
   // AI Voice Context
   const mapContext = useMemo(
@@ -177,9 +163,8 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       currentLocation: `${locationName} (${userLocation.lat.toFixed(4)}°N, ${userLocation.lng.toFixed(4)}°E)`,
       nearbyHazards: hazards,
       evacuationCenters: evacCenters,
-      nearbyEstablishments: establishments.map((e) => `${e.name} (${e.category}) - ${e.distance}`),
     }),
-    [locationName, userLocation.lat, userLocation.lng, hazards, evacCenters, establishments]
+    [locationName, userLocation.lat, userLocation.lng, hazards, evacCenters]
   )
 
   // Handle AI Voice Action triggers
@@ -233,47 +218,18 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       setSelectedHazard(null)
       return
     }
-    setSelectedEstablishment(null)
     setSelectedHazard(h)
     setActiveModal('hazard')
     mapCanvasRef.current?.flyToCoords(h.lat, h.lng, 16)
   }
 
-  // When an establishment marker is tapped
-  const handleEstablishmentClick = (est: Establishment | null) => {
-    if (!est) {
-      setSelectedEstablishment(null)
-      return
-    }
-    setSelectedHazard(null)
-    setSelectedEstablishment(est)
-    setActiveModal('establishment')
-    mapCanvasRef.current?.flyToCoords(est.lat, est.lng, 16)
-  }
-
-  const handleNavigateToEstablishment = (est: Establishment) => {
-    setDestination({ name: est.name, lat: est.lat, lng: est.lng })
-    setActiveModal('routes')
-  }
-
   const handleSelectSearchResult = (result: { name: string; lat: number; lng: number }) => {
-    const matchedEst = establishments.find((e) => e.name === result.name)
-    if (matchedEst) {
-      handleEstablishmentClick(matchedEst)
-    } else {
-      setDestination({ name: result.name, lat: result.lat, lng: result.lng })
-      setActiveModal('routes')
-      mapCanvasRef.current?.flyToCoords(result.lat, result.lng, 16)
-    }
+    setDestination({ name: result.name, lat: result.lat, lng: result.lng })
+    setActiveModal('routes')
+    mapCanvasRef.current?.flyToCoords(result.lat, result.lng, 16)
     setSearchQuery('')
     setSearchFocused(false)
     setSearchResults([])
-  }
-
-  const handleManualImport = async () => {
-    setIsImportingMap(true)
-    await importEstablishmentsFromMap()
-    setIsImportingMap(false)
   }
 
   const handleOpenReportModal = () => {
@@ -382,10 +338,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           ref={mapCanvasRef}
           darkMode={darkMode}
           selectedHazard={selectedHazard}
-          establishments={establishments}
-          selectedEstablishment={selectedEstablishment}
-          onEstablishmentClick={handleEstablishmentClick}
-          showEstablishments={showEstablishments}
           showRoutes={activeModal === 'routes' || isDrivingHUDActive}
           selectedRoute={selectedRoute}
           onHazardClick={handleHazardClick}
@@ -599,15 +551,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       {/* Layers dropdown */}
       {layersOpen && (
         <div className="absolute right-14 z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200/50 dark:border-slate-700/50 p-4 w-56 anim-slide-up" style={{ bottom: appState === 'emergency' ? '180px' : '130px' }}>
-          <label className="flex items-center gap-2.5 py-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showEstablishments}
-              onChange={(e) => setShowEstablishments(e.target.checked)}
-              className="w-3.5 h-3.5 accent-cyan-500"
-            />
-            <span className="text-xs text-slate-700 dark:text-slate-300 font-bold">Establishments & POIs</span>
-          </label>
           <label className="flex items-center gap-2.5 py-1.5 cursor-pointer">
             <input
               type="checkbox"
@@ -830,79 +773,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         </div>
       )}
 
-      {/* ── 2. Establishment Detail Sheet (Tapped on POI) ────── */}
-      {activeModal === 'establishment' && selectedEstablishment && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 bottom-sheet">
-          <div className="bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl border-t border-slate-200/60 dark:border-slate-700/50 max-w-lg mx-auto">
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full" />
-            </div>
-            <div className="px-4 pt-2 pb-6">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <span className="text-3xl">{selectedEstablishment.emoji}</span>
-                  <div>
-                    <h3 className="font-extrabold text-slate-900 dark:text-white text-base leading-tight">
-                      {selectedEstablishment.name}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        {selectedEstablishment.categoryLabel}
-                      </span>
-                      <span>·</span>
-                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                        {selectedEstablishment.distance} away
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <button onClick={closeModal} className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Status & Capacity Card */}
-              <div className="bg-slate-50 dark:bg-slate-800/80 rounded-2xl p-3 border border-slate-100 dark:border-slate-700/60 mb-4 space-y-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500 dark:text-slate-400 font-medium">Operational Status:</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/50">
-                    {selectedEstablishment.status}
-                  </span>
-                </div>
-                {selectedEstablishment.capacityInfo && (
-                  <div className="text-xs text-slate-700 dark:text-slate-300 font-medium pt-1 border-t border-slate-200/50 dark:border-slate-700/40">
-                    🛡️ {selectedEstablishment.capacityInfo}
-                  </div>
-                )}
-                <div className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1.5 pt-1">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="truncate">{selectedEstablishment.address}</span>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-2">
-                <a
-                  href={`tel:${selectedEstablishment.phone.replace(/[^0-9]/g, '')}`}
-                  className="px-4 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <PhoneCall className="w-3.5 h-3.5" />
-                  <span>Call Hotline</span>
-                </a>
-                <button
-                  onClick={() => handleNavigateToEstablishment(selectedEstablishment)}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all"
-                >
-                  <Navigation className="w-3.5 h-3.5" />
-                  <span>Navigate Safe Route Here</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── 3. Route Selection & Interactive Destination Sheet ── */}
+      {/* ── 2. Route Selection & Interactive Destination Sheet ── */}
       {activeModal === 'routes' && (
         <div className="fixed bottom-0 left-0 right-0 z-50 bottom-sheet">
           <div className="bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl border-t border-slate-200/60 dark:border-slate-700/50 max-w-lg mx-auto max-h-[85vh] flex flex-col">
@@ -992,26 +863,17 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
                   {/* Quick Preset Buttons */}
                   <div className="grid grid-cols-2 gap-1.5 mb-2.5">
-                    {[
-                      { label: '🏥 Nearest Hospital', cat: 'hospital' },
-                      { label: '🏫 Nearest Shelter', cat: 'school' },
-                      { label: '⛽ Nearest Gas Station', cat: 'gas_station' },
-                      { label: '👮 Nearest Police', cat: 'police' },
-                    ].map((btn) => (
+                    {evacCenters.slice(0, 4).map((shelter) => (
                       <button
-                        key={btn.label}
+                        key={shelter.id}
                         onClick={() => {
-                          const matching = establishments.filter((e) => e.category === btn.cat)
-                          if (matching.length > 0) {
-                            const nearest = matching[0]
-                            setDestination({ name: nearest.name, lat: nearest.lat, lng: nearest.lng })
-                            setIsChoosingDestination(false)
-                            mapCanvasRef.current?.flyToCoords(nearest.lat, nearest.lng, 15)
-                          }
+                          setDestination({ name: shelter.name, lat: shelter.lat, lng: shelter.lng })
+                          setIsChoosingDestination(false)
+                          mapCanvasRef.current?.flyToCoords(shelter.lat, shelter.lng, 15)
                         }}
                         className="py-1.5 px-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-[11px] font-bold text-center truncate transition-colors"
                       >
-                        {btn.label}
+                        🛡️ {shelter.name}
                       </button>
                     ))}
                   </div>
@@ -1028,13 +890,13 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                         }}
                         className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-cyan-50 dark:hover:bg-slate-700/60 border border-slate-100 dark:border-slate-700/50 text-left transition-colors group"
                       >
-                        <span className="text-base shrink-0">{item.emoji}</span>
+                        <span className="text-base shrink-0">🛡️</span>
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-cyan-600 dark:group-hover:text-cyan-400">
                             {item.name}
                           </div>
                           <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                            {item.categoryLabel} · {item.distance} away
+                            {item.address} · {item.distance} away
                           </div>
                         </div>
                         <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0 group-hover:text-cyan-500" />

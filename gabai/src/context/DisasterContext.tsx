@@ -4,11 +4,6 @@ import { Hazard } from '../components/MapCanvas'
 import { useUserLocation, UserCoordinates } from '../hooks/useUserLocation'
 import { getContextualHazards, getContextualEvacCenters } from '../utils/geoHazards'
 import { generateDynamicRoutes, fetchAccurateRealWorldRoutes, RouteInfo } from '../utils/routingEngine'
-import {
-  Establishment,
-  fetchLiveMapEstablishments,
-  getContextualEstablishments,
-} from '../utils/establishmentImporter'
 
 const isLocalhost =
   typeof window !== 'undefined' &&
@@ -45,9 +40,6 @@ interface DisasterContextType {
   hazards: Hazard[]
   reports: CitizenReport[]
   evacCenters: ReturnType<typeof getContextualEvacCenters>
-  establishments: Establishment[]
-  selectedEstablishment: Establishment | null
-  setSelectedEstablishment: (e: Establishment | null) => void
   userLocation: UserCoordinates
   locationName: string
   isLocationLive: boolean
@@ -71,7 +63,6 @@ interface DisasterContextType {
   aiPatternInsight: AIPatternInsight | null
   lastActionMessage: string | null
   clearLastActionMessage: () => void
-  importEstablishmentsFromMap: () => Promise<void>
 }
 
 const DisasterContext = createContext<DisasterContextType | null>(null)
@@ -117,8 +108,6 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   )
 
   const [hazards, setHazards] = useState<Hazard[]>(baseHazards)
-  const [establishments, setEstablishments] = useState<Establishment[]>([])
-  const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null)
 
   const [reports, setReports] = useState<CitizenReport[]>([
     {
@@ -153,28 +142,6 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const [destination, setDestination] = useState<{ name: string; lat: number; lng: number } | null>(null)
   const [lastActionMessage, setLastActionMessage] = useState<string | null>(null)
-
-  // ── Import all data from the map on establishments ──────────────
-  const importEstablishmentsFromMap = useCallback(async () => {
-    try {
-      const results = await fetchLiveMapEstablishments(
-        userLoc.coords.lat,
-        userLoc.coords.lng,
-        userLoc.locationName
-      )
-      if (results && results.length > 0) {
-        setEstablishments(results)
-        setLastActionMessage(`🗺️ Imported ${results.length} establishments & POIs from map!`)
-      }
-    } catch (err) {
-      console.warn('Establishment import error:', err)
-    }
-  }, [userLoc.coords.lat, userLoc.coords.lng, userLoc.locationName])
-
-  // Auto-import establishments when user coordinates are updated
-  useEffect(() => {
-    importEstablishmentsFromMap()
-  }, [importEstablishmentsFromMap])
 
   // ── 1. Fetch initial data from REST API ──────────────────────────
   useEffect(() => {
@@ -495,9 +462,6 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         hazards,
         reports,
         evacCenters,
-        establishments,
-        selectedEstablishment,
-        setSelectedEstablishment,
         userLocation: userLoc.coords,
         locationName: userLoc.locationName,
         isLocationLive: userLoc.isLive,
@@ -514,7 +478,6 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         aiPatternInsight,
         lastActionMessage,
         clearLastActionMessage,
-        importEstablishmentsFromMap,
       }}
     >
       {children}
