@@ -93,6 +93,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
   // Map Layer & Perspective Controls
   const [is3D, setIs3D] = useState(true)
+  const [isSatellite, setIsSatellite] = useState(false)
   const [hazardFilter, setHazardFilter] = useState<'all' | 'flood' | 'closure' | 'verified' | 'no_light'>('all')
   const [show3DBuildings, setShow3DBuildings] = useState(true)
   const [showDangerZones, setShowDangerZones] = useState(true)
@@ -494,6 +495,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         <MapCanvas
           ref={mapCanvasRef}
           darkMode={darkMode}
+          isSatellite={isSatellite}
           selectedHazard={selectedHazard}
           showRoutes={activeModal === 'routes' || isDrivingHUDActive}
           selectedRoute={selectedRoute}
@@ -738,6 +740,19 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           >
             <span>🚧 Closures</span>
             <span className="opacity-75 text-[10px]">({closureCount})</span>
+          </button>
+
+          <button
+            onClick={() => setIsSatellite(!isSatellite)}
+            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5 active:scale-95 cursor-pointer shrink-0 ${
+              isSatellite
+                ? 'bg-emerald-600 text-white shadow-emerald-600/30 ring-2 ring-emerald-400/50'
+                : 'bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
+            title="Toggle Satellite Hybrid Imagery"
+          >
+            <span>🛰️</span>
+            <span>{isSatellite ? 'Satellite ON' : 'Satellite'}</span>
           </button>
 
           <button
@@ -1600,6 +1615,39 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             </div>
 
             <div className="p-4 space-y-3.5">
+              {/* Base Map Imagery Style: Streets vs Satellite Hybrid */}
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-2 flex items-center justify-between">
+                  <span>Base Map Imagery</span>
+                  <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-extrabold">{isSatellite ? '🛰️ Satellite Hybrid' : '🗺️ Standard Streets'}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setIsSatellite(false)}
+                    className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      !isSatellite
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-400/40'
+                        : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600'
+                    }`}
+                  >
+                    <span>🗺️ Streets (Vector)</span>
+                  </button>
+                  <button
+                    onClick={() => setIsSatellite(true)}
+                    className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      isSatellite
+                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/25 ring-2 ring-emerald-400/40'
+                        : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600'
+                    }`}
+                  >
+                    <span>🛰️ Satellite Hybrid</span>
+                  </button>
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-2">
+                  {isSatellite ? 'Real-world high-resolution satellite imagery with street labels' : 'Clean vector street map with dark/light theme support'}
+                </div>
+              </div>
+
               {/* 2D / 3D Mode Selector Card */}
               <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
                 <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-2 flex items-center justify-between">

@@ -67,6 +67,7 @@ export default function LGUDashboardPage({ darkMode = true, toggleDark = () => {
   const [showRadar, setShowRadar] = useState(true)
   const [isAiInsightDismissed, setIsAiInsightDismissed] = useState(false)
   const [is3D, setIs3D] = useState(false)
+  const [isSatellite, setIsSatellite] = useState(false)
 
   // Modals
   const [showBroadcastModal, setShowBroadcastModal] = useState(false)
@@ -348,6 +349,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
         <MapCanvas
           ref={mapCanvasRef}
           darkMode={darkMode}
+          isSatellite={isSatellite}
           selectedHazard={selectedHazard}
           showRoutes={false}
           selectedRoute={null}
@@ -447,6 +449,21 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                 title="Toggle Emergency Audio Siren"
               >
                 {isSirenActive ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+              </button>
+
+              {/* Satellite / Streets Switcher */}
+              <button
+                type="button"
+                onClick={() => setIsSatellite(!isSatellite)}
+                className={`border rounded-xl px-2.5 py-1.5 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                  isSatellite
+                    ? 'bg-emerald-600 border-emerald-400 text-white shadow-[0_0_12px_rgba(16,185,129,0.5)]'
+                    : 'bg-slate-950/80 hover:bg-slate-800 border-slate-800 text-slate-300'
+                }`}
+                title="Toggle High-Res Satellite Hybrid View"
+              >
+                <span>🛰️</span>
+                <span className="hidden sm:inline">{isSatellite ? 'Satellite ON' : 'Satellite'}</span>
               </button>
 
               {/* 2D / 3D Switcher */}
@@ -1201,6 +1218,15 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
+          <label className="flex items-center gap-2.5 py-1.5 cursor-pointer text-xs text-slate-300 hover:text-white">
+            <input
+              type="checkbox"
+              checked={isSatellite}
+              onChange={(e) => setIsSatellite(e.target.checked)}
+              className="w-3.5 h-3.5 accent-emerald-500"
+            />
+            <span className="font-bold">🛰️ Satellite Hybrid Imagery</span>
+          </label>
           <label className="flex items-center gap-2.5 py-1.5 cursor-pointer text-xs text-slate-300 hover:text-white">
             <input
               type="checkbox"

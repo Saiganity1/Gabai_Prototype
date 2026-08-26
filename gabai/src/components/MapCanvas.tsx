@@ -46,6 +46,7 @@ export interface MapCanvasHandle {
 
 interface Props {
   darkMode: boolean
+  isSatellite?: boolean
   selectedHazard: Hazard | null
   showRoutes: boolean
   selectedRoute: string | null
@@ -93,6 +94,7 @@ function createGeoCircle(center: [number, number], radiusMeters: number, points 
     const y = distanceY * Math.sin(theta)
     coords.push([lng + x, lat + y])
   }
+  coords.push(coords[0])
 
   return {
     type: 'Feature' as const,
@@ -100,6 +102,7 @@ function createGeoCircle(center: [number, number], radiusMeters: number, points 
       type: 'Polygon' as const,
       coordinates: [coords],
     },
+    properties: {},
   }
 }
 
@@ -108,6 +111,7 @@ const MAPTILER_KEY = 'nTk681BgoYKH6JYBCUgo'
 const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   {
     darkMode,
+    isSatellite = false,
     selectedHazard,
     showRoutes,
     selectedRoute,
@@ -179,6 +183,29 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         id: 'maptiler-dark-layer',
         type: 'raster',
         source: 'maptiler-dark',
+        minzoom: 0,
+        maxzoom: 22,
+      },
+    ],
+  }
+
+  const satelliteStyle: any = {
+    version: 8,
+    sources: {
+      'maptiler-satellite': {
+        type: 'raster',
+        tiles: [
+          `https://api.maptiler.com/maps/hybrid/256/{z}/{x}/{y}@2x.jpg?key=${MAPTILER_KEY}`,
+        ],
+        tileSize: 256,
+        attribution: '&copy; MapTiler &copy; OpenStreetMap contributors',
+      },
+    },
+    layers: [
+      {
+        id: 'maptiler-satellite-layer',
+        type: 'raster',
+        source: 'maptiler-satellite',
         minzoom: 0,
         maxzoom: 22,
       },
@@ -623,7 +650,7 @@ function interpolateSegment(
           bearing: is3D ? -15 : 0,
         }}
         style={{ width: '100%', height: '100%' }}
-        mapStyle={darkMode ? darkStyle : lightStyle}
+        mapStyle={isSatellite ? satelliteStyle : darkMode ? darkStyle : lightStyle}
         maxBounds={[[114.0, 4.0], [127.0, 22.0]]}
         minZoom={5}
         onMove={updateScreenLines}
