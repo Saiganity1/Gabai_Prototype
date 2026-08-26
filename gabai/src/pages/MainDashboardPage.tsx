@@ -19,6 +19,7 @@ import { StatusDot } from '../components/ui/StatusDot'
 import { RiskBadge } from '../components/ui/RiskBadge'
 import { searchRealWorldPlaces } from '../utils/placeSearch'
 import { fetchRoadSegmentPath } from '../utils/routingEngine'
+import { analyzeRouteWithAI } from '../utils/aiRouteAdvisor'
 
 const isLocalhost =
   typeof window !== 'undefined' &&
@@ -140,6 +141,11 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
     }
     return list
   }, [evacCenters, destinationSearch])
+
+  // AI Neural Route Analysis & Predictive Hazard Modeling
+  const aiRouteAnalysis = useMemo(() => {
+    return routes ? analyzeRouteWithAI(routes, hazards) : null
+  }, [routes, hazards])
 
   const handleMapClick = (coords: { lat: number; lng: number }) => {
     if (isPickingPointMode === 'from') {
@@ -1258,6 +1264,38 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                 </div>
               )}
 
+              {/* ── AI Neural Route Optimizer Card ── */}
+              {aiRouteAnalysis && (
+                <div className="mb-3.5 bg-gradient-to-br from-indigo-950/90 via-slate-900/95 to-slate-900/90 text-white rounded-2xl p-3.5 border border-cyan-500/40 shadow-lg relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+                  <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
+                        <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                      </div>
+                      <span className="text-xs font-black tracking-wide text-cyan-300 uppercase">
+                        AI Neural Route Optimizer
+                      </span>
+                    </div>
+                    <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-black px-2 py-0.5 rounded-full">
+                      {aiRouteAnalysis.confidenceScore}% ACCURACY
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-300 leading-relaxed mb-2.5 relative z-10">
+                    {aiRouteAnalysis.aiSummary}
+                  </p>
+
+                  <div className="space-y-1 relative z-10 bg-slate-950/50 rounded-xl p-2 border border-slate-800/80">
+                    {aiRouteAnalysis.aiReasoning.slice(0, 3).map((reason, idx) => (
+                      <div key={idx} className="text-[10px] text-slate-300 font-medium flex items-center gap-1.5">
+                        <span>{reason}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* ── Route Options Comparison ── */}
               <div className="space-y-2 mb-4">
                 {(['safe', 'balanced', 'fast'] as const).map((rId) => {
@@ -1266,7 +1304,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                     <button
                       key={r.id}
                       onClick={() => setSelectedRoute(r.id)}
-                      className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all text-left ${
+                      className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all text-left cursor-pointer ${
                         selectedRoute === r.id
                           ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 shadow-sm scale-[1.01]'
                           : 'border-transparent bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700'
