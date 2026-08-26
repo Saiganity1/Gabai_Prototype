@@ -91,9 +91,39 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const [floodWaterDepth, setFloodWaterDepth] = useState('Knee Deep (0.45m)')
   const [isPickingPointMode, setIsPickingPointMode] = useState<'from' | 'to' | null>(null)
 
+  // Map Layer & Perspective Controls
+  const [is3D, setIs3D] = useState(true)
+  const [hazardFilter, setHazardFilter] = useState<'all' | 'flood' | 'closure' | 'verified' | 'no_light'>('all')
+  const [show3DBuildings, setShow3DBuildings] = useState(true)
+  const [showDangerZones, setShowDangerZones] = useState(true)
+  const [showRoadLines, setShowRoadLines] = useState(true)
+  const [showEvacCenters, setShowEvacCenters] = useState(true)
   const [layersOpen, setLayersOpen] = useState(false)
   const mapCanvasRef = useRef<MapCanvasHandle>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const filteredHazards = useMemo(() => {
+    return hazards.filter((h) => {
+      if (hazardFilter === 'flood') return h.type === 'flood' || h.isRoadSegment
+      if (hazardFilter === 'closure') return h.type === 'closure' || h.type === 'road_block' || h.type === 'road'
+      if (hazardFilter === 'verified') return Boolean((h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified')
+      if (hazardFilter === 'no_light') return h.passability === 'not_passable_light' || h.passability === 'not_passable_all'
+      return true
+    })
+  }, [hazards, hazardFilter])
+
+  const floodCount = useMemo(() => hazards.filter((h) => h.type === 'flood' || h.isRoadSegment).length, [hazards])
+  const closureCount = useMemo(() => hazards.filter((h) => h.type === 'closure' || h.type === 'road_block' || h.type === 'road').length, [hazards])
+  const verifiedCount = useMemo(() => hazards.filter((h) => (h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified').length, [hazards])
+  const noLightCount = useMemo(() => hazards.filter((h) => h.passability === 'not_passable_light' || h.passability === 'not_passable_all').length, [hazards])
+
+  const toggle3DMode = () => {
+    setIs3D((prev) => {
+      const next = !prev
+      mapCanvasRef.current?.set3DMode(next)
+      return next
+    })
+  }
 
   // Selectable Destinations list for Safe Route chooser (Evacuation Shelters)
   const selectableDestinations = useMemo(() => {
@@ -434,11 +464,18 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           onHazardClick={handleHazardClick}
           emergencyMode={appState === 'emergency'}
           userLocation={userLocation}
-          hazards={hazards}
+          hazards={filteredHazards}
+          evacCenters={evacCenters}
           routes={routes}
           destination={destination}
           onMapClick={handleMapClick}
           showRadar={showRadar}
+          show3DBuildings={show3DBuildings}
+          showDangerZones={showDangerZones}
+          showRoadLines={showRoadLines}
+          showEvacCenters={showEvacCenters}
+          is3D={is3D}
+          onToggle3D={toggle3DMode}
         />
       </div>
 
@@ -598,6 +635,78 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
               Hazards ({hazards.length})
             </span>
             {panelOpen ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+          </button>
+        </div>
+
+        {/* ── Interactive Quick Map Filter Pills Bar ── */}
+        <div className="flex items-center gap-1.5 pointer-events-auto overflow-x-auto no-scrollbar py-0.5 max-w-full">
+          <button
+            onClick={() => setHazardFilter('all')}
+            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer ${
+              hazardFilter === 'all'
+                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-slate-900/20 ring-2 ring-slate-400/30'
+                : 'bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50'
+            }`}
+          >
+            <span>🏷️ All</span>
+            <span className="opacity-75 text-[10px]">({hazards.length})</span>
+          </button>
+
+          <button
+            onClick={() => setHazardFilter('flood')}
+            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer ${
+              hazardFilter === 'flood'
+                ? 'bg-orange-500 text-white shadow-orange-500/25 ring-2 ring-orange-400/50'
+                : 'bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50'
+            }`}
+          >
+            <span>🌊 Road Floods</span>
+            <span className="opacity-75 text-[10px]">({floodCount})</span>
+          </button>
+
+          <button
+            onClick={() => setHazardFilter('verified')}
+            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer ${
+              hazardFilter === 'verified'
+                ? 'bg-blue-600 text-white shadow-blue-600/25 ring-2 ring-blue-400/50'
+                : 'bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50'
+            }`}
+          >
+            <span>🔵 Verified</span>
+            <span className="opacity-75 text-[10px]">({verifiedCount})</span>
+          </button>
+
+          <button
+            onClick={() => setHazardFilter('no_light')}
+            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer ${
+              hazardFilter === 'no_light'
+                ? 'bg-rose-600 text-white shadow-rose-600/25 ring-2 ring-rose-400/50'
+                : 'bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50'
+            }`}
+          >
+            <span>🚫 No Light Cars</span>
+            <span className="opacity-75 text-[10px]">({noLightCount})</span>
+          </button>
+
+          <button
+            onClick={() => setHazardFilter('closure')}
+            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer ${
+              hazardFilter === 'closure'
+                ? 'bg-amber-600 text-white shadow-amber-600/25 ring-2 ring-amber-400/50'
+                : 'bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50'
+            }`}
+          >
+            <span>🚧 Closures</span>
+            <span className="opacity-75 text-[10px]">({closureCount})</span>
+          </button>
+
+          <button
+            onClick={() => setLayersOpen(true)}
+            className="px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5 bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 active:scale-95 cursor-pointer"
+            title="Map Layer Controls & 2D/3D Settings"
+          >
+            <Layers className="w-3.5 h-3.5 text-cyan-500" />
+            <span>Layers</span>
           </button>
         </div>
 
@@ -1422,6 +1531,165 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           onClose={closeModal}
           onTriggerSOSStrobe={() => setIsSOSStrobeActive(true)}
         />
+      )}
+
+      {/* ── 6. Map Layers & Perspective Settings Modal ─────────── */}
+      {layersOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm anim-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden anim-scale-up">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">Map Layers & 3D Settings</h3>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Customize view & optimize rendering</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setLayersOpen(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3.5">
+              {/* 2D / 3D Mode Selector Card */}
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-2 flex items-center justify-between">
+                  <span>Perspective Mode</span>
+                  <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-extrabold">{is3D ? '3D Angled View' : '2D Top-Down View'}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      if (!is3D) toggle3DMode()
+                    }}
+                    className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                      is3D
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-400/40'
+                        : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600'
+                    }`}
+                  >
+                    <span>🧊 3D Perspective</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (is3D) toggle3DMode()
+                    }}
+                    className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                      !is3D
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-400/40'
+                        : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600'
+                    }`}
+                  >
+                    <span>🗺️ 2D Flat (Fast)</span>
+                  </button>
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-2">
+                  {is3D ? 'Shows 3D pitch and extruded structures' : 'Top-down view for fastest scrolling & 0% GPU load'}
+                </div>
+              </div>
+
+              {/* Layer Toggles List */}
+              <div className="space-y-2">
+                {/* 3D Buildings */}
+                <label className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">🏢</span>
+                    <div>
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">3D Extruded Buildings</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">Urban building heights & outlines</div>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={show3DBuildings}
+                    onChange={(e) => setShow3DBuildings(e.target.checked)}
+                    className="w-4 h-4 text-cyan-600 rounded focus:ring-cyan-500 cursor-pointer"
+                  />
+                </label>
+
+                {/* Road Flood Corridors */}
+                <label className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">🛣️</span>
+                    <div>
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Road Flood Lines (Orange/Blue)</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">Submerged road corridors & passability</div>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={showRoadLines}
+                    onChange={(e) => setShowRoadLines(e.target.checked)}
+                    className="w-4 h-4 text-cyan-600 rounded focus:ring-cyan-500 cursor-pointer"
+                  />
+                </label>
+
+                {/* Danger Radius Circles */}
+                <label className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">🚨</span>
+                    <div>
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Danger Zones & Radius</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">Geodesic flood risk perimeter buffers</div>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={showDangerZones}
+                    onChange={(e) => setShowDangerZones(e.target.checked)}
+                    className="w-4 h-4 text-cyan-600 rounded focus:ring-cyan-500 cursor-pointer"
+                  />
+                </label>
+
+                {/* PAGASA Weather Radar */}
+                <label className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">🌧️</span>
+                    <div>
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">PAGASA Weather Doppler Radar</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">Live heavy rain & storm precipitation</div>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={showRadar}
+                    onChange={(e) => setShowRadar(e.target.checked)}
+                    className="w-4 h-4 text-cyan-600 rounded focus:ring-cyan-500 cursor-pointer"
+                  />
+                </label>
+
+                {/* Evacuation Centers */}
+                <label className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">🏥</span>
+                    <div>
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Evacuation Centers</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">Designated high-ground relief shelters</div>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={showEvacCenters}
+                    onChange={(e) => setShowEvacCenters(e.target.checked)}
+                    className="w-4 h-4 text-cyan-600 rounded focus:ring-cyan-500 cursor-pointer"
+                  />
+                </label>
+              </div>
+
+              <button
+                onClick={() => setLayersOpen(false)}
+                className="w-full mt-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-2.5 rounded-xl text-xs shadow-md transition-colors"
+              >
+                Apply & Return to Map
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

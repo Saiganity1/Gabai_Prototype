@@ -38,6 +38,8 @@ export interface Hazard {
 export interface MapCanvasHandle {
   flyToUser: () => void
   flyToCoords: (lat: number, lng: number, zoom?: number) => void
+  set3DMode: (is3D: boolean) => void
+  toggle3D: () => void
 }
 
 interface Props {
@@ -50,11 +52,18 @@ interface Props {
   navPosition?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
   userLocation?: UserCoordinates
   hazards?: Hazard[]
+  evacCenters?: Array<{ name: string; lat: number; lng: number; dist?: string; cap?: string; status?: string }>
   routes?: Record<'safe' | 'balanced' | 'fast', RouteInfo>
   destination?: { name: string; lat: number; lng: number } | null
   onMapClick?: (coords: { lat: number; lng: number }) => void
   flyToTrigger?: number
   showRadar?: boolean
+  show3DBuildings?: boolean
+  showDangerZones?: boolean
+  showRoadLines?: boolean
+  showEvacCenters?: boolean
+  is3D?: boolean
+  onToggle3D?: () => void
   isPickingRoadSegment?: 'from' | 'to' | null
 }
 
@@ -102,16 +111,24 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     navPosition = 'top-right',
     userLocation = { lat: 14.5995, lng: 120.9842, accuracy: 25 },
     hazards = [],
+    evacCenters = [],
     routes,
     destination,
     onMapClick,
     flyToTrigger,
     showRadar = true,
+    show3DBuildings = true,
+    showDangerZones = true,
+    showRoadLines = true,
+    showEvacCenters = true,
+    is3D = true,
+    onToggle3D,
   },
   ref
 ) {
   const mapRef = useRef<any>(null)
   const initialCentered = useRef(false)
+  const rafRef = useRef<number | null>(null)
 
   const lightStyle: any = {
     version: 8,
@@ -131,7 +148,7 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         type: 'raster',
         source: 'maptiler-voyager',
         minzoom: 0,
-        maxzoom: 20,
+        maxzoom: 22,
       },
     ],
   }
@@ -139,37 +156,40 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const darkStyle: any = {
     version: 8,
     sources: {
-      'maptiler-dark': {
+      'carto-dark': {
         type: 'raster',
         tiles: [
-          `https://api.maptiler.com/maps/dataviz-dark/256/{z}/{x}/{y}@2x.png?key=${MAPTILER_KEY}`,
+          'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+          'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+          'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+          'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
         ],
         tileSize: 256,
-        attribution: '&copy; <a href="https://www.maptiler.com/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       },
     },
     layers: [
       {
-        id: 'maptiler-dark-layer',
+        id: 'carto-dark-layer',
         type: 'raster',
-        source: 'maptiler-dark',
+        source: 'carto-dark',
         minzoom: 0,
-        maxzoom: 20,
+        maxzoom: 22,
       },
     ],
   }
 
-  const userLat = userLocation.lat
-  const userLng = userLocation.lng
+  const userLat = userLocation?.lat ?? 14.5995
+  const userLng = userLocation?.lng ?? 120.9842
 
   const flyToUser = () => {
-    if (mapRef.current) {
+    if (mapRef.current && userLat && userLng) {
       mapRef.current.flyTo({
         center: [userLng, userLat],
         zoom: 15,
-        pitch: 60,
-        bearing: 0,
-        duration: 1600,
+        pitch: is3D ? 60 : 0,
+        bearing: is3D ? -15 : 0,
+        duration: 1200,
         essential: true,
       })
     }
@@ -181,9 +201,25 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       mapRef.current?.flyTo({
         center: [lng, lat],
         zoom,
-        pitch: 60,
-        duration: 1600,
+        pitch: is3D ? 60 : 0,
+        duration: 1200,
         essential: true,
+      })
+    },
+    set3DMode: (threeD: boolean) => {
+      mapRef.current?.easeTo({
+        pitch: threeD ? 60 : 0,
+        bearing: threeD ? -15 : 0,
+        duration: 600,
+      })
+    },
+    toggle3D: () => {
+      const currentPitch = mapRef.current?.getPitch() || 0
+      const nextPitch = currentPitch > 20 ? 0 : 60
+      mapRef.current?.easeTo({
+        pitch: nextPitch,
+        bearing: nextPitch > 0 ? -15 : 0,
+        duration: 600,
       })
     },
   }))
@@ -349,70 +385,103 @@ function interpolateSegment(
   >([])
 
   const updateScreenLines = useCallback(() => {
-    if (!mapRef.current) return
-    const map = mapRef.current.getMap ? mapRef.current.getMap() : mapRef.current
-    if (!map || typeof map.project !== 'function') return
+    if (!showRoadLines) {
+      if (screenLines.length > 0) setScreenLines([])
+      return
+    }
 
-    const roadHazards = hazards.filter(
-      (h) =>
-        h.isRoadSegment &&
-        h.roadSegment &&
-        h.roadSegment.from &&
-        h.roadSegment.to &&
-        typeof h.roadSegment.from.lng === 'number' &&
-        typeof h.roadSegment.from.lat === 'number' &&
-        typeof h.roadSegment.to.lng === 'number' &&
-        typeof h.roadSegment.to.lat === 'number' &&
-        h.status !== 'Resolved'
-    )
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+    }
 
-    const lines = roadHazards
-      .map((h) => {
-        const seg = h.roadSegment!
-        const isVerified = Boolean(
-          (h.verified && h.verified > 0) ||
-            h.isVerified ||
-            h.status === 'Verified' ||
-            h.status?.includes('Verified')
-        )
-        const color = isVerified ? '#2563EB' : '#F97316'
+    rafRef.current = requestAnimationFrame(() => {
+      if (!mapRef.current) return
+      const map = mapRef.current.getMap ? mapRef.current.getMap() : mapRef.current
+      if (!map || typeof map.project !== 'function') return
 
-        const rawCoords: [number, number][] =
-          seg.path && seg.path.length > 1
-            ? seg.path
-            : interpolateSegment([seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat], 25)
+      const roadHazards = hazards.filter(
+        (h) =>
+          h.isRoadSegment &&
+          h.roadSegment &&
+          h.roadSegment.from &&
+          h.roadSegment.to &&
+          typeof h.roadSegment.from.lng === 'number' &&
+          typeof h.roadSegment.from.lat === 'number' &&
+          typeof h.roadSegment.to.lng === 'number' &&
+          typeof h.roadSegment.to.lat === 'number' &&
+          h.status !== 'Resolved'
+      )
 
-        try {
-          const projected = rawCoords.map(([lng, lat]) => {
-            const p = map.project([lng, lat])
-            return `${p.x.toFixed(1)},${p.y.toFixed(1)}`
-          })
-          return {
-            id: h.id,
-            points: projected.join(' '),
-            color,
+      const lines = roadHazards
+        .map((h) => {
+          const seg = h.roadSegment!
+          const isVerified = Boolean(
+            (h.verified && h.verified > 0) ||
+              h.isVerified ||
+              h.status === 'Verified' ||
+              h.status?.includes('Verified')
+          )
+          const color = isVerified ? '#2563EB' : '#F97316'
+
+          const rawCoords: [number, number][] =
+            seg.path && seg.path.length > 1
+              ? seg.path
+              : interpolateSegment([seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat], 25)
+
+          try {
+            const projected = rawCoords.map(([lng, lat]) => {
+              const p = map.project([lng, lat])
+              return `${p.x.toFixed(1)},${p.y.toFixed(1)}`
+            })
+            return {
+              id: h.id,
+              points: projected.join(' '),
+              color,
+            }
+          } catch {
+            return null
           }
-        } catch {
-          return null
-        }
-      })
-      .filter(Boolean) as Array<{
-      id: string | number
-      points: string
-      color: string
-    }>
+        })
+        .filter(Boolean) as Array<{
+        id: string | number
+        points: string
+        color: string
+      }>
 
-    setScreenLines(lines)
-  }, [hazards])
+      setScreenLines(lines)
+    })
+  }, [hazards, showRoadLines, screenLines.length])
 
   useEffect(() => {
     updateScreenLines()
-  }, [hazards, updateScreenLines])
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
+  }, [hazards, showRoadLines, updateScreenLines])
 
   return (
     <div className="relative w-full h-full overflow-hidden">
+      {/* ── Floating 2D / 3D Perspective Switcher Pill ── */}
+      {onToggle3D && (
+        <div className="absolute top-28 right-2.5 z-20 pointer-events-auto shadow-xl">
+          <button
+            type="button"
+            onClick={onToggle3D}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl shadow-md border backdrop-blur-md transition-all font-black text-xs active:scale-95 cursor-pointer ${
+              is3D
+                ? 'bg-blue-600 text-white border-blue-400 shadow-blue-500/25 ring-2 ring-blue-400/30'
+                : 'bg-white/95 dark:bg-slate-800/95 text-slate-800 dark:text-slate-100 border-slate-200/60 dark:border-slate-700/60'
+            }`}
+            title={is3D ? 'Current: 3D Angled View (Click for 2D Top-Down)' : 'Current: 2D Flat View (Click for 3D Angled)'}
+          >
+            <span className="text-sm">{is3D ? '🧊' : '🗺️'}</span>
+            <span>{is3D ? '3D VIEW' : '2D VIEW'}</span>
+          </button>
+        </div>
+      )}
+
       {/* ── Direct Visual SVG Road Flood Connector (Aligned Along Exact Road Geometry) ── */}
-      {screenLines.length > 0 && (
+      {showRoadLines && screenLines.length > 0 && (
         <svg className="absolute inset-0 pointer-events-none z-10 w-full h-full overflow-visible">
           {screenLines.map((line) => (
             <g key={`svg-road-line-${line.id}`}>
@@ -455,12 +524,13 @@ function interpolateSegment(
       <Map
         ref={mapRef}
         mapLib={maplibregl}
+        reuseMaps={true}
         initialViewState={{
           longitude: userLng,
           latitude: userLat,
           zoom: 14,
-          pitch: 60,
-          bearing: 0,
+          pitch: is3D ? 60 : 0,
+          bearing: is3D ? -15 : 0,
         }}
         style={{ width: '100%', height: '100%' }}
         mapStyle={darkMode ? darkStyle : lightStyle}
@@ -477,41 +547,43 @@ function interpolateSegment(
       >
       <NavigationControl position={navPosition} />
 
-      {/* ── True 3D Extruded Buildings Vector Layer ── */}
-      <Source
-        id="maptiler-buildings-source"
-        type="vector"
-        tiles={[`https://api.maptiler.com/tiles/v3/{z}/{x}/{y}.pbf?key=${MAPTILER_KEY}`]}
-        minzoom={13}
-        maxzoom={20}
-      >
-        <Layer
-          id="3d-buildings"
-          source-layer="building"
-          type="fill-extrusion"
+      {/* ── True 3D Extruded Buildings Vector Layer (Active only in 3D Mode) ── */}
+      {show3DBuildings && is3D && (
+        <Source
+          id="maptiler-buildings-source"
+          type="vector"
+          tiles={[`https://api.maptiler.com/tiles/v3/{z}/{x}/{y}.pbf?key=${MAPTILER_KEY}`]}
           minzoom={13}
-          paint={{
-            'fill-extrusion-color': darkMode ? '#334155' : '#cbd5e1',
-            'fill-extrusion-height': [
-              'case',
-              ['has', 'render_height'],
-              ['get', 'render_height'],
-              ['has', 'height'],
-              ['get', 'height'],
-              ['has', 'levels'],
-              ['*', ['get', 'levels'], 3.8],
-              18,
-            ],
-            'fill-extrusion-base': [
-              'case',
-              ['has', 'render_min_height'],
-              ['get', 'render_min_height'],
-              0,
-            ],
-            'fill-extrusion-opacity': 0.85,
-          }}
-        />
-      </Source>
+          maxzoom={20}
+        >
+          <Layer
+            id="3d-buildings"
+            source-layer="building"
+            type="fill-extrusion"
+            minzoom={13}
+            paint={{
+              'fill-extrusion-color': darkMode ? '#334155' : '#cbd5e1',
+              'fill-extrusion-height': [
+                'case',
+                ['has', 'render_height'],
+                ['get', 'render_height'],
+                ['has', 'height'],
+                ['get', 'height'],
+                ['has', 'levels'],
+                ['*', ['get', 'levels'], 3.8],
+                18,
+              ],
+              'fill-extrusion-base': [
+                'case',
+                ['has', 'render_min_height'],
+                ['get', 'render_min_height'],
+                0,
+              ],
+              'fill-extrusion-opacity': 0.85,
+            }}
+          />
+        </Source>
+      )}
 
       {/* ── PAGASA Doppler Weather Radar Layer ── */}
       {showRadar && radarPrecipitationGeoJSON && (
@@ -538,30 +610,33 @@ function interpolateSegment(
       )}
 
       {/* ── Geographically Accurate Danger Zones ── */}
-      <Source id="hazard-zones-source" type="geojson" data={hazardZonesGeoJSON}>
-        <Layer
-          id="hazard-zones-fill"
-          type="fill"
-          paint={{
-            'fill-color': ['get', 'color'],
-            'fill-opacity': ['case', ['get', 'isSelected'], 0.35, 0.16],
-          }}
-        />
-        <Layer
-          id="hazard-zones-line"
-          type="line"
-          paint={{
-            'line-color': ['get', 'color'],
-            'line-width': ['case', ['get', 'isSelected'], 3, 1.5],
-            'line-opacity': 0.85,
-          }}
-        />
-      </Source>
+      {showDangerZones && (
+        <Source id="hazard-zones-source" type="geojson" data={hazardZonesGeoJSON}>
+          <Layer
+            id="hazard-zones-fill"
+            type="fill"
+            paint={{
+              'fill-color': ['get', 'color'],
+              'fill-opacity': ['case', ['get', 'isSelected'], 0.35, 0.16],
+            }}
+          />
+          <Layer
+            id="hazard-zones-line"
+            type="line"
+            paint={{
+              'line-color': ['get', 'color'],
+              'line-width': ['case', ['get', 'isSelected'], 3, 1.5],
+              'line-opacity': 0.85,
+            }}
+          />
+        </Source>
+      )}
 
       {/* ── 1. Orange Road Flood Lines (Pending LGU) ── */}
-      <Source id="orange-road-flood-source" type="geojson" data={unverifiedRoadLinesGeoJSON}>
-        <Layer
-          id="orange-road-glow"
+      {showRoadLines && (
+        <Source id="orange-road-flood-source" type="geojson" data={unverifiedRoadLinesGeoJSON}>
+          <Layer
+            id="orange-road-glow"
           type="line"
           layout={{
             'line-cap': 'round',
@@ -601,50 +676,53 @@ function interpolateSegment(
           }}
         />
       </Source>
+      )}
 
       {/* ── 2. Blue Road Flood Lines (LGU Verified) ── */}
-      <Source id="blue-road-flood-source" type="geojson" data={verifiedRoadLinesGeoJSON}>
-        <Layer
-          id="blue-road-glow"
-          type="line"
-          layout={{
-            'line-cap': 'round',
-            'line-join': 'round',
-          }}
-          paint={{
-            'line-color': '#2563EB',
-            'line-width': 18,
-            'line-blur': 6,
-            'line-opacity': 0.75,
-          }}
-        />
-        <Layer
-          id="blue-road-main"
-          type="line"
-          layout={{
-            'line-cap': 'round',
-            'line-join': 'round',
-          }}
-          paint={{
-            'line-color': '#2563EB',
-            'line-width': 8,
-            'line-opacity': 1.0,
-          }}
-        />
-        <Layer
-          id="blue-road-stripes"
-          type="line"
-          layout={{
-            'line-cap': 'round',
-            'line-join': 'round',
-          }}
-          paint={{
-            'line-color': '#FFFFFF',
-            'line-width': 2.5,
-            'line-opacity': 0.9,
-          }}
-        />
-      </Source>
+      {showRoadLines && (
+        <Source id="blue-road-flood-source" type="geojson" data={verifiedRoadLinesGeoJSON}>
+          <Layer
+            id="blue-road-glow"
+            type="line"
+            layout={{
+              'line-cap': 'round',
+              'line-join': 'round',
+            }}
+            paint={{
+              'line-color': '#2563EB',
+              'line-width': 18,
+              'line-blur': 6,
+              'line-opacity': 0.75,
+            }}
+          />
+          <Layer
+            id="blue-road-main"
+            type="line"
+            layout={{
+              'line-cap': 'round',
+              'line-join': 'round',
+            }}
+            paint={{
+              'line-color': '#2563EB',
+              'line-width': 8,
+              'line-opacity': 1.0,
+            }}
+          />
+          <Layer
+            id="blue-road-stripes"
+            type="line"
+            layout={{
+              'line-cap': 'round',
+              'line-join': 'round',
+            }}
+            paint={{
+              'line-color': '#FFFFFF',
+              'line-width': 2.5,
+              'line-opacity': 0.9,
+            }}
+          />
+        </Source>
+      )}
 
       {/* ── Accurate User GPS Accuracy Circle ── */}
       <Source id="user-accuracy-source" type="geojson" data={userAccuracyGeoJSON}>
@@ -884,6 +962,21 @@ function interpolateSegment(
             </Marker>
           )
         })}
+
+      {/* ── Evacuation Shelter Center Markers ── */}
+      {showEvacCenters &&
+        evacCenters.map((e, idx) => (
+          <Marker key={`evac-marker-${idx}`} longitude={e.lng} latitude={e.lat} anchor="bottom">
+            <div className="flex flex-col items-center group cursor-pointer">
+              <div className="bg-slate-900 text-emerald-400 font-bold text-[9px] px-2 py-0.5 rounded-full shadow-lg border border-emerald-500/50 mb-0.5 whitespace-nowrap hidden group-hover:block">
+                🏥 {e.name}
+              </div>
+              <div className="w-7 h-7 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center text-white text-xs font-bold shadow-xl transition-transform group-hover:scale-125">
+                🏥
+              </div>
+            </div>
+          </Marker>
+        ))}
 
       {/* ── Interactive Info Popup Tooltip when Hazard Tapped ── */}
       {selectedHazard && (
