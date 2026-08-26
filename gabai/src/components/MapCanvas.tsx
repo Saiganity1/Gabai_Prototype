@@ -227,47 +227,90 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     }
   }, [hazards, selectedHazard])
 
+// Interpolate points between two coordinates for smooth 3D line rendering
+function interpolateSegment(
+  from: [number, number],
+  to: [number, number],
+  steps = 25
+): [number, number][] {
+  const result: [number, number][] = []
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const lng = from[0] + (to[0] - from[0]) * t
+    const lat = from[1] + (to[1] - from[1]) * t
+    result.push([lng, lat])
+  }
+  return result
+}
+
   // ── Road Flood LineString Segments (Orange = Unverified, Blue = Verified) ──
-  const roadFloodLinesGeoJSON = useMemo(() => {
+  const unverifiedRoadLinesGeoJSON = useMemo(() => {
+    const list = hazards.filter(
+      (h) =>
+        h.isRoadSegment &&
+        h.roadSegment &&
+        h.roadSegment.from &&
+        h.roadSegment.to &&
+        !((h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified' || h.status?.includes('Verified')) &&
+        h.status !== 'Resolved'
+    )
+
     return {
       type: 'FeatureCollection' as const,
-      features: hazards
-        .filter((h) => h.isRoadSegment && h.roadSegment && h.status !== 'Resolved')
-        .map((h) => {
-          const isVerified = (h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified'
-          const seg = h.roadSegment!
-          const coords: [number, number][] =
-            seg.path && seg.path.length > 1
-              ? seg.path
-              : [
-                  [seg.from.lng, seg.from.lat],
-                  [seg.to.lng, seg.to.lat],
-                ]
+      features: list.map((h) => {
+        const seg = h.roadSegment!
+        const coords =
+          seg.path && seg.path.length > 1
+            ? seg.path
+            : interpolateSegment([seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat], 25)
 
-          // User Requirement: Orange for Unverified, Blue for Verified
-          const color = isVerified ? '#2563EB' : '#F97316'
-
-          return {
-            type: 'Feature' as const,
-            geometry: {
-              type: 'LineString' as const,
-              coordinates: coords,
-            },
-            properties: {
-              id: h.id,
-              isVerified,
-              color,
-              passability: h.passability || 'not_passable_light',
-              waterDepth: h.waterDepth || 'Flood on Road',
-              label: h.label,
-              roadName: seg.roadName || h.label,
-              severity: h.severity,
-              isSelected: selectedHazard?.id === h.id,
-            },
-          }
-        }),
+        return {
+          type: 'Feature' as const,
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: coords,
+          },
+          properties: {
+            id: String(h.id),
+          },
+        }
+      }),
     }
-  }, [hazards, selectedHazard])
+  }, [hazards])
+
+  const verifiedRoadLinesGeoJSON = useMemo(() => {
+    const list = hazards.filter(
+      (h) =>
+        h.isRoadSegment &&
+        h.roadSegment &&
+        h.roadSegment.from &&
+        h.roadSegment.to &&
+        Boolean((h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified' || h.status?.includes('Verified')) &&
+        h.status !== 'Resolved'
+    )
+
+    return {
+      type: 'FeatureCollection' as const,
+      features: list.map((h) => {
+        const seg = h.roadSegment!
+        const coords =
+          seg.path && seg.path.length > 1
+            ? seg.path
+            : interpolateSegment([seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat], 25)
+
+        return {
+          type: 'Feature' as const,
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: coords,
+          },
+          properties: {
+            id: String(h.id),
+          },
+        }
+      }),
+    }
+  }, [hazards])
 
   // Accurate User GPS Accuracy Perimeter
   const userAccuracyGeoJSON = useMemo(() => {
@@ -401,38 +444,90 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         />
       </Source>
 
-      {/* ── Road Flood Line Segments (Orange = Unverified, Blue = Verified) ── */}
-      <Source id="road-flood-lines-source" type="geojson" data={roadFloodLinesGeoJSON}>
-        {/* Glow Layer */}
+      {/* ── 1. Orange Road Flood Lines (Pending LGU) ── */}
+      <Source id="orange-road-flood-source" type="geojson" data={unverifiedRoadLinesGeoJSON}>
         <Layer
-          id="road-flood-lines-glow"
+          id="orange-road-glow"
           type="line"
+          layout={{
+            'line-cap': 'round',
+            'line-join': 'round',
+          }}
           paint={{
-            'line-color': ['get', 'color'],
-            'line-width': ['case', ['get', 'isSelected'], 18, 12],
+            'line-color': '#F97316',
+            'line-width': 18,
             'line-blur': 6,
-            'line-opacity': 0.7,
+            'line-opacity': 0.75,
           }}
         />
-        {/* Main Road Line Layer */}
         <Layer
-          id="road-flood-lines-main"
+          id="orange-road-main"
           type="line"
+          layout={{
+            'line-cap': 'round',
+            'line-join': 'round',
+          }}
           paint={{
-            'line-color': ['get', 'color'],
-            'line-width': ['case', ['get', 'isSelected'], 8, 6],
-            'line-opacity': 0.95,
+            'line-color': '#F97316',
+            'line-width': 8,
+            'line-opacity': 1.0,
           }}
         />
-        {/* Center Dash Layer */}
         <Layer
-          id="road-flood-lines-stripes"
+          id="orange-road-stripes"
           type="line"
+          layout={{
+            'line-cap': 'round',
+            'line-join': 'round',
+          }}
           paint={{
             'line-color': '#FFFFFF',
-            'line-width': 2,
-            'line-dasharray': [3, 3],
-            'line-opacity': 0.8,
+            'line-width': 2.5,
+            'line-opacity': 0.9,
+          }}
+        />
+      </Source>
+
+      {/* ── 2. Blue Road Flood Lines (LGU Verified) ── */}
+      <Source id="blue-road-flood-source" type="geojson" data={verifiedRoadLinesGeoJSON}>
+        <Layer
+          id="blue-road-glow"
+          type="line"
+          layout={{
+            'line-cap': 'round',
+            'line-join': 'round',
+          }}
+          paint={{
+            'line-color': '#2563EB',
+            'line-width': 18,
+            'line-blur': 6,
+            'line-opacity': 0.75,
+          }}
+        />
+        <Layer
+          id="blue-road-main"
+          type="line"
+          layout={{
+            'line-cap': 'round',
+            'line-join': 'round',
+          }}
+          paint={{
+            'line-color': '#2563EB',
+            'line-width': 8,
+            'line-opacity': 1.0,
+          }}
+        />
+        <Layer
+          id="blue-road-stripes"
+          type="line"
+          layout={{
+            'line-cap': 'round',
+            'line-join': 'round',
+          }}
+          paint={{
+            'line-color': '#FFFFFF',
+            'line-width': 2.5,
+            'line-opacity': 0.9,
           }}
         />
       </Source>
