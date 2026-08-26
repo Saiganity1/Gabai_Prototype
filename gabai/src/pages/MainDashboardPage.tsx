@@ -55,6 +55,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const [panelOpen, setPanelOpen] = useState(false)
   const [showBubble, setShowBubble] = useState(false)
   const [showRadar, setShowRadar] = useState(true)
+  const [showEstablishments, setShowEstablishments] = useState(false)
 
   // Destination Choosing States
   const [isChoosingDestination, setIsChoosingDestination] = useState(false)
@@ -384,7 +385,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           establishments={establishments}
           selectedEstablishment={selectedEstablishment}
           onEstablishmentClick={handleEstablishmentClick}
-          showEstablishments={false}
+          showEstablishments={showEstablishments}
           showRoutes={activeModal === 'routes' || isDrivingHUDActive}
           selectedRoute={selectedRoute}
           onHazardClick={handleHazardClick}
