@@ -12,9 +12,12 @@ import FamilySafetyModal from '../components/FamilySafetyModal'
 import SOSRescueStrobe from '../components/SOSRescueStrobe'
 import { useVoiceAssistant, VoiceActionPayload } from '../hooks/useVoiceAssistant'
 import { useDisaster } from '../context/DisasterContext'
+import { REPORT_TYPES } from '../constants'
+import { ActiveModal, AppState } from '../types'
 import { StatusDot } from '../components/ui/StatusDot'
 import { RiskBadge } from '../components/ui/RiskBadge'
 import { searchRealWorldPlaces } from '../utils/placeSearch'
+import { fetchRoadSegmentPath } from '../utils/routingEngine'
 
 const isLocalhost =
   typeof window !== 'undefined' &&
@@ -346,8 +349,17 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
     reader.readAsDataURL(file)
   }
 
-  const submitReport = () => {
+  const submitReport = async () => {
     setReportStep('analyzing')
+
+    let snappedPath: [number, number][] | undefined = undefined
+    if (isRoadSegmentMode && floodStartPoint && floodEndPoint) {
+      const roadCoords = await fetchRoadSegmentPath(floodStartPoint, floodEndPoint)
+      if (roadCoords && roadCoords.length > 1) {
+        snappedPath = roadCoords
+      }
+    }
+
     setTimeout(() => {
       addHazardReport({
         type: reportType,
@@ -359,6 +371,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             ? {
                 from: floodStartPoint,
                 to: floodEndPoint,
+                path: snappedPath,
                 roadName: roadName || `${locationName.split(',')[0]} Road`,
               }
             : undefined,
@@ -366,7 +379,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         waterDepth: floodWaterDepth,
       })
       setReportStep('done')
-    }, 1200)
+    }, 800)
   }
 
   const closeModal = () => {

@@ -341,3 +341,25 @@ export async function fetchAccurateRealWorldRoutes(
     return fallback
   }
 }
+
+/**
+ * Snap / Route a road flood segment to the actual road network geometry
+ */
+export async function fetchRoadSegmentPath(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number }
+): Promise<[number, number][] | null> {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`
+    const res = await fetch(url, { signal: AbortSignal.timeout(3500) })
+    if (res.ok) {
+      const data = await res.json()
+      if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
+        return data.routes[0].geometry.coordinates // Array of [lng, lat]
+      }
+    }
+  } catch (err) {
+    console.warn('Road snapping fallback to direct line:', err)
+  }
+  return null
+}

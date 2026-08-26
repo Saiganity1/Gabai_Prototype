@@ -343,10 +343,7 @@ function interpolateSegment(
   const [screenLines, setScreenLines] = useState<
     Array<{
       id: string | number
-      x1: number
-      y1: number
-      x2: number
-      y2: number
+      points: string
       color: string
     }>
   >([])
@@ -380,15 +377,19 @@ function interpolateSegment(
         )
         const color = isVerified ? '#2563EB' : '#F97316'
 
+        const rawCoords: [number, number][] =
+          seg.path && seg.path.length > 1
+            ? seg.path
+            : interpolateSegment([seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat], 25)
+
         try {
-          const p1 = map.project([seg.from.lng, seg.from.lat])
-          const p2 = map.project([seg.to.lng, seg.to.lat])
+          const projected = rawCoords.map(([lng, lat]) => {
+            const p = map.project([lng, lat])
+            return `${p.x.toFixed(1)},${p.y.toFixed(1)}`
+          })
           return {
             id: h.id,
-            x1: p1.x,
-            y1: p1.y,
-            x2: p2.x,
-            y2: p2.y,
+            points: projected.join(' '),
             color,
           }
         } catch {
@@ -397,10 +398,7 @@ function interpolateSegment(
       })
       .filter(Boolean) as Array<{
       id: string | number
-      x1: number
-      y1: number
-      x2: number
-      y2: number
+      points: string
       color: string
     }>
 
@@ -413,43 +411,40 @@ function interpolateSegment(
 
   return (
     <div className="relative w-full h-full overflow-hidden">
-      {/* ── Direct Visual SVG Road Flood Connector (Infallible Visibility) ── */}
+      {/* ── Direct Visual SVG Road Flood Connector (Aligned Along Exact Road Geometry) ── */}
       {screenLines.length > 0 && (
         <svg className="absolute inset-0 pointer-events-none z-10 w-full h-full overflow-visible">
           {screenLines.map((line) => (
             <g key={`svg-road-line-${line.id}`}>
               {/* Outer Glow */}
-              <line
-                x1={line.x1}
-                y1={line.y1}
-                x2={line.x2}
-                y2={line.y2}
+              <polyline
+                points={line.points}
+                fill="none"
                 stroke={line.color}
                 strokeWidth="18"
                 strokeOpacity="0.45"
                 strokeLinecap="round"
+                strokeLinejoin="round"
               />
               {/* Main Solid Line */}
-              <line
-                x1={line.x1}
-                y1={line.y1}
-                x2={line.x2}
-                y2={line.y2}
+              <polyline
+                points={line.points}
+                fill="none"
                 stroke={line.color}
                 strokeWidth="8"
                 strokeOpacity="1"
                 strokeLinecap="round"
+                strokeLinejoin="round"
               />
               {/* Center White Stripes */}
-              <line
-                x1={line.x1}
-                y1={line.y1}
-                x2={line.x2}
-                y2={line.y2}
+              <polyline
+                points={line.points}
+                fill="none"
                 stroke="#FFFFFF"
                 strokeWidth="2.5"
                 strokeDasharray="8,8"
                 strokeLinecap="round"
+                strokeLinejoin="round"
                 strokeOpacity="0.9"
               />
             </g>
