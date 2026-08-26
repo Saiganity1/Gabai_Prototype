@@ -560,15 +560,45 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [])
 
   const resolveReport = useCallback(async (reportId: number | string) => {
+    const matched = reports.find((r) => r.id === reportId)
+
     setReports((prev) =>
       prev.map((r) => (r.id === reportId ? { ...r, status: 'resolved' as const } : r))
     )
-    setLastActionMessage('🏁 Incident resolved and marked cleared.')
+
+    setHazards((prev) =>
+      prev
+        .map((h) => {
+          if (matched && (h.id === matched.hazardId || h.id === matched.id)) {
+            return { ...h, status: 'Resolved' }
+          }
+          if (matched && matched.isRoadSegment && h.isRoadSegment) {
+            const hRoadName = h.roadSegment?.roadName || h.label || ''
+            const mRoadName = matched.roadSegment?.roadName || matched.locationName || ''
+            if (
+              (hRoadName && mRoadName && hRoadName.toLowerCase().includes(mRoadName.toLowerCase().slice(0, 8))) ||
+              (mRoadName && hRoadName && mRoadName.toLowerCase().includes(hRoadName.toLowerCase().slice(0, 8)))
+            ) {
+              return { ...h, status: 'Resolved' }
+            }
+          }
+          if (matched) {
+            const dist = Math.hypot(h.lat - matched.lat, h.lng - matched.lng)
+            if (dist < 0.004) {
+              return { ...h, status: 'Resolved' }
+            }
+          }
+          return h
+        })
+        .filter((h) => h.status !== 'Resolved')
+    )
+
+    setLastActionMessage('🏁 Incident resolved! Flood corridor cleared from live citizen map.')
 
     if (API_BASE_URL) {
       fetch(`${API_BASE_URL}/reports/${reportId}/resolve`, { method: 'PATCH' }).catch(() => {})
     }
-  }, [])
+  }, [reports])
 
   // ── Dynamic Safe Routes Engine with Real-World Road Network Routing ──
   const initialRoutes = useMemo(() => {

@@ -1078,7 +1078,7 @@ function interpolateSegment(
 
       {/* ── Interactive Point Hazard Markers with Tap Handler ── */}
       {hazards
-        .filter((h) => !h.isRoadSegment)
+        .filter((h) => !h.isRoadSegment && h.status !== 'Resolved')
         .map((h) => {
           const isSelected = selectedHazard?.id === h.id
           const isVerified = h.verified > 0 || h.status === 'Verified'
