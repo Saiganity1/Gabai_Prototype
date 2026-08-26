@@ -393,36 +393,60 @@ export async function fetchAccurateRealWorldRoutes(
       }
     }
 
-    // 3. AI Decision Engine: Filter ONLY 100% SAFE & DRY routes and sort by FASTEST travel time
-    const strictlyCleanRoutes = candidateBypasses.filter((c) => c.isSafeAndDry)
+    // ══════════════════════════════════════════════════════════════════
+    // 3. AI DECISION ENGINE — Flood-Free · Gas-Efficient · Shortest Trip
+    // ══════════════════════════════════════════════════════════════════
+    //
+    // Priority hierarchy:
+    //   1. SAFETY: 100% flood-free routes ALWAYS win over unsafe ones
+    //   2. GAS EFFICIENCY: Among safe routes, prefer shortest distance (less fuel)
+    //   3. SPEED: Break ties by fastest travel time
+    //   4. CLEARANCE: Final tiebreaker = maximum distance from any flood zone
+    //
+    const floodFreeRoutes = candidateBypasses.filter((c) => c.isSafeAndDry)
+    const unsafeRoutes = candidateBypasses.filter((c) => !c.isSafeAndDry)
 
+    // Sort flood-free routes by: shortest distance first (gas), then fastest, then max clearance
+    floodFreeRoutes.sort((a, b) =>
+      a.distanceKm - b.distanceKm ||
+      a.durationMin - b.durationMin ||
+      b.minHazardDistKm - a.minHazardDistKm
+    )
+
+    // Sort unsafe routes by: max distance from flood (safest possible), then shortest
+    unsafeRoutes.sort((a, b) =>
+      b.minHazardDistKm - a.minHazardDistKm ||
+      a.distanceKm - b.distanceKm
+    )
+
+    // AI picks the BEST flood-free route as "safe", the 2nd-best as "balanced"
     let safeRouteObj = primaryRoute
     let safeSteps = directSteps
     let safeDistanceKm = directDistKm
     let safeDurationMin = directDurationMin
     let isDetourActive = false
+    let safeHazardClearanceKm = directHazardCheck.minHazardDistanceKm
 
-    if (strictlyCleanRoutes.length > 0) {
-      // Sort strictly by FASTEST travel duration, then shortest distance
-      strictlyCleanRoutes.sort((a, b) => a.durationMin - b.durationMin || a.distanceKm - b.distanceKm)
-      const optimal = strictlyCleanRoutes[0]
-
+    if (floodFreeRoutes.length > 0) {
+      const optimal = floodFreeRoutes[0]
       safeRouteObj = optimal.route
       safeDistanceKm = optimal.distanceKm
       safeDurationMin = optimal.durationMin
-      safeSteps = parseSteps(optimal.route, optimal.isDetour)
+      safeSteps = parseSteps(optimal.route, true)
       isDetourActive = optimal.isDetour
-    } else if (candidateBypasses.length > 0) {
-      // If all routes have some flood, pick the one with MAXIMUM distance from floodwater
-      candidateBypasses.sort((a, b) => b.minHazardDistKm - a.minHazardDistKm || a.durationMin - b.durationMin)
-      const bestAvailable = candidateBypasses[0]
-
-      safeRouteObj = bestAvailable.route
-      safeDistanceKm = bestAvailable.distanceKm
-      safeDurationMin = bestAvailable.durationMin
-      safeSteps = parseSteps(bestAvailable.route, true)
-      isDetourActive = bestAvailable.isDetour
+      safeHazardClearanceKm = optimal.minHazardDistKm
+    } else if (unsafeRoutes.length > 0) {
+      // Absolute last resort: no flood-free route exists — pick the one farthest from floodwater
+      const leastBad = unsafeRoutes[0]
+      safeRouteObj = leastBad.route
+      safeDistanceKm = leastBad.distanceKm
+      safeDurationMin = leastBad.durationMin
+      safeSteps = parseSteps(leastBad.route, true)
+      isDetourActive = leastBad.isDetour
+      safeHazardClearanceKm = leastBad.minHazardDistKm
     }
+
+    const isSafeRouteFloodFree = floodFreeRoutes.length > 0
 
     // 4. Build output with 100% REAL ROAD OpenStreetMap geometries
     const safeGeoJSON = {
@@ -435,11 +459,18 @@ export async function fetchAccurateRealWorldRoutes(
       geometry: primaryRoute.geometry,
     }
 
-    // Select the best clean alternative for the Eco-Safe Balanced route
-    const balancedCandidate = strictlyCleanRoutes[1] || strictlyCleanRoutes[0] || {
+    // For balanced route: pick 2nd-best flood-free route (different path), or if only one, use same
+    const balancedPool = floodFreeRoutes.length > 1 ? floodFreeRoutes.slice(1) : floodFreeRoutes
+    // Sort balanced pool by fuel efficiency (distance) as primary factor
+    const balancedSorted = [...balancedPool].sort((a, b) =>
+      a.distanceKm - b.distanceKm ||
+      b.minHazardDistKm - a.minHazardDistKm
+    )
+    const balancedCandidate = balancedSorted[0] || {
       route: altRoute,
       distanceKm: altRoute.distance / 1000,
       durationMin: Math.max(1, Math.round(altRoute.duration / 60)),
+      minHazardDistKm: 999,
     }
 
     const balancedGeoJSON = {
@@ -449,7 +480,7 @@ export async function fetchAccurateRealWorldRoutes(
     const balancedDistKm = balancedCandidate.distanceKm
     const balancedDurationMin = balancedCandidate.durationMin
 
-    // Fuel efficiency calculations (Based on 14.5 km/L cruising on bypass vs 9.5 km/L idling in flooded traffic)
+    // Fuel efficiency calculations
     const fastFuelLiters = parseFloat((directDistKm / 9.8).toFixed(2))
     const ecoFuelLiters = parseFloat((balancedDistKm / 14.8).toFixed(2))
     const safeFuelLiters = parseFloat((safeDistanceKm / 13.5).toFixed(2))
@@ -458,18 +489,14 @@ export async function fetchAccurateRealWorldRoutes(
     return {
       safe: {
         id: 'safe',
-        label: isDetourActive
-          ? '⚡ AI Optimal (Fastest & 100% Flood-Free)'
-          : hasHazardOnDirect
-          ? 'AI Alternate Route (Caution: Flood Nearby)'
-          : '⚡ AI Optimal (Fastest & Flood-Free)',
+        label: isSafeRouteFloodFree
+          ? '⚡ AI Optimal (Shortest · Safe · Flood-Free)'
+          : '⚠️ AI Best Available (Caution: Flood Nearby)',
         time: `${safeDurationMin} min (${safeDistanceKm.toFixed(1)} km)`,
-        detail: isDetourActive
-          ? `🛡️ AI Selected: Fastest real road route with zero floodwater`
-          : hasHazardOnDirect
-          ? `⚠️ Passes near flood zone · Drive with caution`
-          : `100% Real Asphalt Road Trajectory · Optimal fast route`,
-        risk: strictlyCleanRoutes.length > 0 ? 'low' : hasHazardOnDirect ? 'medium' : 'low',
+        detail: isSafeRouteFloodFree
+          ? `🛡️ AI Selected: Shortest flood-free road · ${safeHazardClearanceKm.toFixed(1)} km from flood · ~${safeFuelLiters} L fuel`
+          : `⚠️ All routes pass near flood · ${safeHazardClearanceKm.toFixed(1)} km clearance`,
+        risk: isSafeRouteFloodFree ? 'low' : 'medium',
         geoJSON: safeGeoJSON,
         distanceKm: safeDistanceKm,
         fuelEstLiters: safeFuelLiters,
