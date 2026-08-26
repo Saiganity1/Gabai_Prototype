@@ -1,6 +1,6 @@
 import { Hazard } from '../components/MapCanvas'
 import { calculateDistanceKm } from '../hooks/useUserLocation'
-import { geminiDecideRoute, CandidateRouteData } from './aiRouteDecision'
+import { geminiDecideRoute, CandidateRouteData, extractRouteTelemetry, computeAdvancedFuel } from './aiRouteDecision'
 
 export interface RouteStep {
   instruction: string
@@ -403,13 +403,15 @@ export async function fetchAccurateRealWorldRoutes(
     // Falls back to algorithmic scoring if Gemini is unavailable.
     //
 
-    // Assign unique IDs to each candidate for AI tracking
-    const indexedCandidates = candidateBypasses.map((c, i) => ({
-      ...c,
-      uid: c.isDetour ? `detour-${i}` : `direct-${i}`,
-    }))
+    // Assign unique IDs and extract deep telemetry from each OSRM route
+    const indexedCandidates = candidateBypasses.map((c, i) => {
+      const uid = c.isDetour ? `detour-${i}` : `direct-${i}`
+      const telemetry = extractRouteTelemetry(c.route)
+      const fuel = computeAdvancedFuel(c.distanceKm, telemetry, !c.isSafeAndDry)
+      return { ...c, uid, telemetry, fuel }
+    })
 
-    // Prepare candidate data for Gemini AI
+    // Prepare rich candidate data for Gemini AI
     const aiCandidates: CandidateRouteData[] = indexedCandidates.map((c) => ({
       id: c.uid,
       distanceKm: c.distanceKm,
@@ -417,7 +419,16 @@ export async function fetchAccurateRealWorldRoutes(
       isSafeAndDry: c.isSafeAndDry,
       minHazardDistKm: c.minHazardDistKm,
       isDetour: c.isDetour,
-      fuelEstLiters: parseFloat((c.distanceKm / 13.5).toFixed(2)),
+      turnCount: c.telemetry.turnCount,
+      avgSpeedKmh: c.telemetry.avgSpeedKmh,
+      roadSegmentCount: c.telemetry.roadSegmentCount,
+      straightPct: c.telemetry.straightPct,
+      highwayPct: c.telemetry.highwayPct,
+      fuelEstLiters: c.fuel.fuelEstLiters,
+      fuelPerKm: c.fuel.fuelPerKm,
+      turnPenaltyLiters: c.fuel.turnPenaltyLiters,
+      idlePenaltyLiters: c.fuel.idlePenaltyLiters,
+      cruisingBonusPct: c.fuel.cruisingBonusPct,
     }))
 
     // Build hazard descriptions for AI context
