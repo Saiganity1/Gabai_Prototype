@@ -366,71 +366,101 @@ function interpolateSegment(
     }>
   >([])
 
-  const updateScreenLines = useCallback(() => {
-    if (!showRoadLines) {
-      if (screenLines.length > 0) setScreenLines([])
-      return
-    }
+  const [screenRouteLine, setScreenRouteLine] = useState<{
+    points: string
+    color: string
+  } | null>(null)
 
+  const updateScreenLines = useCallback(() => {
     if (!mapRef.current) return
     const map = mapRef.current.getMap ? mapRef.current.getMap() : mapRef.current
     if (!map || typeof map.project !== 'function') return
 
-    const roadHazards = hazards.filter(
-      (h) =>
-        h.isRoadSegment &&
-        h.roadSegment &&
-        h.roadSegment.from &&
-        h.roadSegment.to &&
-        typeof h.roadSegment.from.lng === 'number' &&
-        typeof h.roadSegment.from.lat === 'number' &&
-        typeof h.roadSegment.to.lng === 'number' &&
-        typeof h.roadSegment.to.lat === 'number' &&
-        h.status !== 'Resolved'
-    )
+    // 1. Synchronize Road Flood Lines
+    if (showRoadLines) {
+      const roadHazards = hazards.filter(
+        (h) =>
+          h.isRoadSegment &&
+          h.roadSegment &&
+          h.roadSegment.from &&
+          h.roadSegment.to &&
+          typeof h.roadSegment.from.lng === 'number' &&
+          typeof h.roadSegment.from.lat === 'number' &&
+          typeof h.roadSegment.to.lng === 'number' &&
+          typeof h.roadSegment.to.lat === 'number' &&
+          h.status !== 'Resolved'
+      )
 
-    const lines = roadHazards
-      .map((h) => {
-        const seg = h.roadSegment!
-        const isVerified = Boolean(
-          (h.verified && h.verified > 0) ||
-            h.isVerified ||
-            h.status === 'Verified' ||
-            h.status?.includes('Verified')
-        )
-        const color = isVerified ? '#2563EB' : '#F97316'
+      const lines = roadHazards
+        .map((h) => {
+          const seg = h.roadSegment!
+          const isVerified = Boolean(
+            (h.verified && h.verified > 0) ||
+              h.isVerified ||
+              h.status === 'Verified' ||
+              h.status?.includes('Verified')
+          )
+          const color = isVerified ? '#2563EB' : '#F97316'
 
-        const rawCoords: [number, number][] =
-          seg.path && seg.path.length > 1
-            ? seg.path
-            : interpolateSegment([seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat], 25)
+          const rawCoords: [number, number][] =
+            seg.path && seg.path.length > 1
+              ? seg.path
+              : interpolateSegment([seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat], 25)
 
+          try {
+            const projected = rawCoords.map(([lng, lat]) => {
+              const p = map.project([lng, lat])
+              return `${p.x.toFixed(1)},${p.y.toFixed(1)}`
+            })
+            return {
+              id: h.id,
+              points: projected.join(' '),
+              color,
+            }
+          } catch {
+            return null
+          }
+        })
+        .filter(Boolean) as Array<{
+        id: string | number
+        points: string
+        color: string
+      }>
+
+      setScreenLines(lines)
+    } else {
+      if (screenLines.length > 0) setScreenLines([])
+    }
+
+    // 2. Synchronize Active Driving / Safe Navigation Route Line
+    if (showRoutes && routes) {
+      const activeKey = (selectedRoute || 'safe') as 'safe' | 'balanced' | 'fast'
+      const activeRoute = routes[activeKey]
+      const coords = activeRoute?.geoJSON?.geometry?.coordinates
+      if (Array.isArray(coords) && coords.length > 1) {
         try {
-          const projected = rawCoords.map(([lng, lat]) => {
+          const projected = coords.map(([lng, lat]: [number, number]) => {
             const p = map.project([lng, lat])
             return `${p.x.toFixed(1)},${p.y.toFixed(1)}`
           })
-          return {
-            id: h.id,
+          setScreenRouteLine({
             points: projected.join(' '),
-            color,
-          }
+            color: activeKey === 'fast' ? '#EF4444' : activeKey === 'balanced' ? '#F59E0B' : '#10B981',
+          })
         } catch {
-          return null
+          setScreenRouteLine(null)
         }
-      })
-      .filter(Boolean) as Array<{
-      id: string | number
-      points: string
-      color: string
-    }>
-
-    setScreenLines(lines)
-  }, [hazards, showRoadLines, screenLines.length])
+      } else {
+        setScreenRouteLine(null)
+      }
+    } else {
+      setScreenRouteLine(null)
+    }
+  }, [hazards, showRoadLines, screenLines.length, showRoutes, routes, selectedRoute])
 
   useEffect(() => {
     updateScreenLines()
-  }, [hazards, showRoadLines, updateScreenLines])
+  }, [hazards, showRoadLines, showRoutes, routes, selectedRoute, updateScreenLines])
 
   return (
     <div className="relative w-full h-full overflow-hidden">
@@ -482,6 +512,53 @@ function interpolateSegment(
               />
             </g>
           ))}
+        </svg>
+      )}
+
+      {/* ── Active Driving Navigation Route Way Connector (High-Visibility Neon Emerald Path) ── */}
+      {showRoutes && screenRouteLine && (
+        <svg className="absolute inset-0 pointer-events-none z-10 w-full h-full overflow-visible">
+          {/* Outer Ambient Route Glow */}
+          <polyline
+            points={screenRouteLine.points}
+            fill="none"
+            stroke={screenRouteLine.color}
+            strokeWidth="22"
+            strokeOpacity="0.45"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {/* Dark Contrast Road Boundary */}
+          <polyline
+            points={screenRouteLine.points}
+            fill="none"
+            stroke="#022C22"
+            strokeWidth="11"
+            strokeOpacity="0.9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {/* Main Vibrant Route Line */}
+          <polyline
+            points={screenRouteLine.points}
+            fill="none"
+            stroke={screenRouteLine.color}
+            strokeWidth="7"
+            strokeOpacity="1"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {/* Center White Dashed Moving Waypoint Striping */}
+          <polyline
+            points={screenRouteLine.points}
+            fill="none"
+            stroke="#FFFFFF"
+            strokeWidth="2.2"
+            strokeDasharray="5,5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeOpacity="0.95"
+          />
         </svg>
       )}
 
@@ -803,36 +880,76 @@ function interpolateSegment(
         </div>
       </Marker>
 
-      {/* Dynamic Route Overlays */}
+      {/* Dynamic Route Overlays (High-Contrast WebGL Layers) */}
       {showRoutes && routes && (
         <>
           <Source id="route-fast" type="geojson" data={routes.fast.geoJSON}>
             <Layer
               type="line"
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
               paint={{
                 'line-color': '#EF4444',
-                'line-width': selectedRoute === 'fast' ? 7 : 3,
-                'line-opacity': selectedRoute === 'fast' ? 1 : 0.25,
+                'line-width': selectedRoute === 'fast' ? 8 : 3.5,
+                'line-opacity': selectedRoute === 'fast' ? 1.0 : 0.25,
               }}
             />
           </Source>
           <Source id="route-balanced" type="geojson" data={routes.balanced.geoJSON}>
             <Layer
               type="line"
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
               paint={{
                 'line-color': '#F59E0B',
-                'line-width': selectedRoute === 'balanced' ? 7 : 3,
-                'line-opacity': selectedRoute === 'balanced' ? 1 : 0.3,
+                'line-width': selectedRoute === 'balanced' ? 8 : 3.5,
+                'line-opacity': selectedRoute === 'balanced' ? 1.0 : 0.3,
               }}
             />
           </Source>
           <Source id="route-safe" type="geojson" data={routes.safe.geoJSON}>
+            {/* Safe Route Ambient Glow */}
             <Layer
+              id="route-safe-glow"
               type="line"
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              paint={{
+                'line-color': '#10B981',
+                'line-width': selectedRoute === 'safe' ? 22 : 6,
+                'line-opacity': selectedRoute === 'safe' ? 0.5 : 0.15,
+                'line-blur': 3,
+              }}
+            />
+            {/* Safe Route Dark Contrast Edge */}
+            <Layer
+              id="route-safe-edge"
+              type="line"
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              paint={{
+                'line-color': '#064E3B',
+                'line-width': selectedRoute === 'safe' ? 11 : 5,
+                'line-opacity': selectedRoute === 'safe' ? 0.9 : 0.2,
+              }}
+            />
+            {/* Safe Route Vibrant Core */}
+            <Layer
+              id="route-safe-core"
+              type="line"
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
               paint={{
                 'line-color': '#10B981',
                 'line-width': selectedRoute === 'safe' ? 7 : 3.5,
-                'line-opacity': selectedRoute === 'safe' ? 1 : 0.4,
+                'line-opacity': selectedRoute === 'safe' ? 1.0 : 0.4,
+              }}
+            />
+            {/* Safe Route White Moving Waypoint Dashes */}
+            <Layer
+              id="route-safe-stripe"
+              type="line"
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              paint={{
+                'line-color': '#FFFFFF',
+                'line-width': 2.2,
+                'line-dasharray': [3, 3],
+                'line-opacity': selectedRoute === 'safe' ? 0.95 : 0,
               }}
             />
           </Source>
