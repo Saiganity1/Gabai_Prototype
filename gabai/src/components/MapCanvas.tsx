@@ -480,47 +480,6 @@ function interpolateSegment(
         </div>
       )}
 
-      {/* ── Direct Visual SVG Road Flood Connector (Aligned Along Exact Road Geometry) ── */}
-      {showRoadLines && screenLines.length > 0 && (
-        <svg className="absolute inset-0 pointer-events-none z-10 w-full h-full overflow-visible">
-          {screenLines.map((line) => (
-            <g key={`svg-road-line-${line.id}`}>
-              {/* Outer Glow */}
-              <polyline
-                points={line.points}
-                fill="none"
-                stroke={line.color}
-                strokeWidth="18"
-                strokeOpacity="0.45"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {/* Main Solid Line */}
-              <polyline
-                points={line.points}
-                fill="none"
-                stroke={line.color}
-                strokeWidth="8"
-                strokeOpacity="1"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {/* Center White Stripes */}
-              <polyline
-                points={line.points}
-                fill="none"
-                stroke="#FFFFFF"
-                strokeWidth="2.5"
-                strokeDasharray="8,8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeOpacity="0.9"
-              />
-            </g>
-          ))}
-        </svg>
-      )}
-
       <Map
         ref={mapRef}
         mapLib={maplibregl}
@@ -808,12 +767,12 @@ function interpolateSegment(
         </Marker>
       )}
 
-      {/* ── Interactive Road Flood Line Endpoint Markers & Floating Passability Badges ── */}
+      {/* ── Interactive Road Flood Line Endpoint Markers & Tap-to-Reveal Passability Badges ── */}
       {hazards
         .filter((h) => h.isRoadSegment && h.roadSegment && h.status !== 'Resolved')
         .map((h) => {
           const seg = h.roadSegment!
-          const isVerified = (h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified'
+          const isVerified = Boolean((h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified' || h.status?.includes('Verified'))
           const color = isVerified ? '#2563EB' : '#F97316'
           const isSelected = selectedHazard?.id === h.id
 
@@ -823,23 +782,28 @@ function interpolateSegment(
           return (
             <div key={`road-flood-markers-${h.id}`}>
               {/* Point A (From) */}
-              <Marker longitude={seg.from.lng} latitude={seg.from.lat} anchor="bottom">
+              <Marker longitude={seg.from.lng} latitude={seg.from.lat} anchor="center">
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation()
                     onHazardClick(h)
                   }}
-                  className="flex flex-col items-center cursor-pointer group"
+                  className="flex flex-col items-center cursor-pointer group focus:outline-none"
+                  title={`Start of Flood: ${seg.from.name || 'Point A'} (Tap to inspect)`}
                 >
+                  {isSelected && (
+                    <div
+                      className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-1 whitespace-nowrap anim-scale-up"
+                      style={{ backgroundColor: color }}
+                    >
+                      Start: {seg.from.name || 'Point A'}
+                    </div>
+                  )}
                   <div
-                    className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-0.5 whitespace-nowrap"
-                    style={{ backgroundColor: color }}
-                  >
-                    Start: {seg.from.name || 'Point A'}
-                  </div>
-                  <div
-                    className="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-white text-[10px] font-black shadow-lg group-hover:scale-125 transition-transform"
+                    className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-white text-[10px] font-black shadow-lg transition-transform ${
+                      isSelected ? 'scale-125 ring-4 ring-white/60' : 'group-hover:scale-125'
+                    }`}
                     style={{ backgroundColor: color }}
                   >
                     A
@@ -848,23 +812,28 @@ function interpolateSegment(
               </Marker>
 
               {/* Point B (To) */}
-              <Marker longitude={seg.to.lng} latitude={seg.to.lat} anchor="bottom">
+              <Marker longitude={seg.to.lng} latitude={seg.to.lat} anchor="center">
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation()
                     onHazardClick(h)
                   }}
-                  className="flex flex-col items-center cursor-pointer group"
+                  className="flex flex-col items-center cursor-pointer group focus:outline-none"
+                  title={`End of Flood: ${seg.to.name || 'Point B'} (Tap to inspect)`}
                 >
+                  {isSelected && (
+                    <div
+                      className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-1 whitespace-nowrap anim-scale-up"
+                      style={{ backgroundColor: color }}
+                    >
+                      End: {seg.to.name || 'Point B'}
+                    </div>
+                  )}
                   <div
-                    className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-0.5 whitespace-nowrap"
-                    style={{ backgroundColor: color }}
-                  >
-                    End: {seg.to.name || 'Point B'}
-                  </div>
-                  <div
-                    className="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-white text-[10px] font-black shadow-lg group-hover:scale-125 transition-transform"
+                    className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-white text-[10px] font-black shadow-lg transition-transform ${
+                      isSelected ? 'scale-125 ring-4 ring-white/60' : 'group-hover:scale-125'
+                    }`}
                     style={{ backgroundColor: color }}
                   >
                     B
@@ -872,7 +841,7 @@ function interpolateSegment(
                 </button>
               </Marker>
 
-              {/* Center Floating Passability Badge */}
+              {/* Center Floating Passability Badge (Revealed ONLY on Tap / Selected) */}
               <Marker longitude={midLng} latitude={midLat} anchor="center">
                 <button
                   type="button"
@@ -880,26 +849,36 @@ function interpolateSegment(
                     e.stopPropagation()
                     onHazardClick(h)
                   }}
-                  className="group cursor-pointer transition-transform hover:scale-110 active:scale-95"
+                  className="cursor-pointer focus:outline-none transition-all"
+                  title="Tap to inspect road flood passability"
                 >
-                  <div
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-white text-white text-[10px] font-black shadow-2xl transition-all ${
-                      isSelected ? 'ring-4 ring-cyan-400 scale-105' : ''
-                    }`}
-                    style={{ backgroundColor: color }}
-                  >
-                    <span className="text-xs">🌊</span>
-                    <span className="uppercase tracking-wider">
-                      {isVerified ? 'LGU VERIFIED' : 'PENDING LGU'}
-                    </span>
-                    <span className="bg-black/30 px-1.5 py-0.5 rounded text-[9px] font-mono font-normal">
-                      {h.passability === 'not_passable_all'
-                        ? '⛔ CLOSED'
-                        : h.passability === 'all_passable'
-                        ? '🟢 PASSABLE'
-                        : '🚫 NO LIGHT VEHICLES'}
-                    </span>
-                  </div>
+                  {isSelected ? (
+                    /* Full LGU Passability Badge when selected */
+                    <div
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-white text-white text-[10px] font-black shadow-2xl ring-4 ring-cyan-400 scale-105 anim-scale-up"
+                      style={{ backgroundColor: color }}
+                    >
+                      <span className="text-xs">🌊</span>
+                      <span className="uppercase tracking-wider">
+                        {isVerified ? 'LGU VERIFIED' : 'PENDING LGU'}
+                      </span>
+                      <span className="bg-black/35 px-1.5 py-0.5 rounded text-[9px] font-mono font-normal">
+                        {h.passability === 'not_passable_all'
+                          ? '⛔ CLOSED'
+                          : h.passability === 'all_passable'
+                          ? '🟢 PASSABLE'
+                          : '🚫 NO LIGHT VEHICLES'}
+                      </span>
+                    </div>
+                  ) : (
+                    /* Subtle invisible/compact click hotspot when not selected */
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center hover:scale-125 transition-transform">
+                      <div
+                        className="w-3 h-3 rounded-full border border-white shadow-md opacity-80"
+                        style={{ backgroundColor: color }}
+                      />
+                    </div>
+                  )}
                 </button>
               </Marker>
             </div>
