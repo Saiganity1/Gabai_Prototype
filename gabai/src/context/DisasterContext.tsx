@@ -617,6 +617,7 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [userLoc.coords.lat, userLoc.coords.lng, destination, evacCenters, hazards])
 
   const [liveRoutes, setLiveRoutes] = useState<Record<'safe' | 'balanced' | 'fast', RouteInfo> | null>(null)
+  const latestRequestIdRef = useRef(0)
 
   useEffect(() => {
     const dest = destination || {
@@ -625,7 +626,8 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       lng: evacCenters[0]?.lng || userLoc.coords.lng - 0.012,
     }
 
-    let isMounted = true
+    const currentRequestId = ++latestRequestIdRef.current
+
     fetchAccurateRealWorldRoutes(
       userLoc.coords.lat,
       userLoc.coords.lng,
@@ -633,14 +635,10 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       dest.lng,
       hazards
     ).then((res) => {
-      if (isMounted && res) {
+      if (currentRequestId === latestRequestIdRef.current && res) {
         setLiveRoutes(res)
       }
     })
-
-    return () => {
-      isMounted = false
-    }
   }, [userLoc.coords.lat, userLoc.coords.lng, destination, evacCenters, hazards])
 
   const routes = liveRoutes || initialRoutes
