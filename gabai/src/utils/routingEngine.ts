@@ -1,5 +1,6 @@
 import { Hazard } from '../components/MapCanvas'
 import { calculateDistanceKm } from '../hooks/useUserLocation'
+import { geminiDecideRoute, CandidateRouteData } from './aiRouteDecision'
 
 export interface RouteStep {
   instruction: string
@@ -394,59 +395,75 @@ export async function fetchAccurateRealWorldRoutes(
     }
 
     // ══════════════════════════════════════════════════════════════════
-    // 3. AI DECISION ENGINE — Flood-Free · Gas-Efficient · Shortest Trip
+    // 3. GEMINI AI DECISION ENGINE — Flood-Free · Gas-Efficient · Shortest
     // ══════════════════════════════════════════════════════════════════
     //
-    // Priority hierarchy:
-    //   1. SAFETY: 100% flood-free routes ALWAYS win over unsafe ones
-    //   2. GAS EFFICIENCY: Among safe routes, prefer shortest distance (less fuel)
-    //   3. SPEED: Break ties by fastest travel time
-    //   4. CLEARANCE: Final tiebreaker = maximum distance from any flood zone
+    // Sends all candidates to Gemini AI for intelligent route selection.
+    // Priorities: 1) SAFETY  2) GAS EFFICIENCY  3) SHORTEST DISTANCE
+    // Falls back to algorithmic scoring if Gemini is unavailable.
     //
-    const floodFreeRoutes = candidateBypasses.filter((c) => c.isSafeAndDry)
-    const unsafeRoutes = candidateBypasses.filter((c) => !c.isSafeAndDry)
 
-    // Sort flood-free routes by: shortest distance first (gas), then fastest, then max clearance
+    // Assign unique IDs to each candidate for AI tracking
+    const indexedCandidates = candidateBypasses.map((c, i) => ({
+      ...c,
+      uid: c.isDetour ? `detour-${i}` : `direct-${i}`,
+    }))
+
+    // Prepare candidate data for Gemini AI
+    const aiCandidates: CandidateRouteData[] = indexedCandidates.map((c) => ({
+      id: c.uid,
+      distanceKm: c.distanceKm,
+      durationMin: c.durationMin,
+      isSafeAndDry: c.isSafeAndDry,
+      minHazardDistKm: c.minHazardDistKm,
+      isDetour: c.isDetour,
+      fuelEstLiters: parseFloat((c.distanceKm / 13.5).toFixed(2)),
+    }))
+
+    // Build hazard descriptions for AI context
+    const hazardDescriptions = activeHazards.map((h) => {
+      const label = h.label || h.type
+      const road = h.isRoadSegment && h.roadSegment?.roadName ? ` on ${h.roadSegment.roadName}` : ''
+      return `${label}${road} (${h.severity} severity, ${h.status})`
+    })
+
+    // Ask Gemini AI to decide the best routes
+    const aiDecision = await geminiDecideRoute(
+      aiCandidates,
+      hazardDescriptions,
+      `${originLat.toFixed(4)}°N, ${originLng.toFixed(4)}°E`,
+      `${destLat.toFixed(4)}°N, ${destLng.toFixed(4)}°E`
+    )
+
+    // Find the AI-selected candidates
+    const aiSafeCandidate = indexedCandidates.find((c) => c.uid === aiDecision.selectedSafeRouteId)
+    const aiBalancedCandidate = indexedCandidates.find((c) => c.uid === aiDecision.selectedBalancedRouteId)
+
+    // Fallback sorting if AI IDs don't match
+    const floodFreeRoutes = indexedCandidates.filter((c) => c.isSafeAndDry)
     floodFreeRoutes.sort((a, b) =>
       a.distanceKm - b.distanceKm ||
       a.durationMin - b.durationMin ||
       b.minHazardDistKm - a.minHazardDistKm
     )
-
-    // Sort unsafe routes by: max distance from flood (safest possible), then shortest
+    const unsafeRoutes = indexedCandidates.filter((c) => !c.isSafeAndDry)
     unsafeRoutes.sort((a, b) =>
       b.minHazardDistKm - a.minHazardDistKm ||
       a.distanceKm - b.distanceKm
     )
 
-    // AI picks the BEST flood-free route as "safe", the 2nd-best as "balanced"
-    let safeRouteObj = primaryRoute
-    let safeSteps = directSteps
-    let safeDistanceKm = directDistKm
-    let safeDurationMin = directDurationMin
-    let isDetourActive = false
-    let safeHazardClearanceKm = directHazardCheck.minHazardDistanceKm
+    // Resolve safe route: AI pick > flood-free shortest > least-bad unsafe > primary
+    const resolvedSafe = aiSafeCandidate || floodFreeRoutes[0] || unsafeRoutes[0] || indexedCandidates[0]
+    const safeRouteObj = resolvedSafe.route
+    const safeDistanceKm = resolvedSafe.distanceKm
+    const safeDurationMin = resolvedSafe.durationMin
+    const safeSteps = parseSteps(resolvedSafe.route, true)
+    const isDetourActive = resolvedSafe.isDetour
+    const safeHazardClearanceKm = resolvedSafe.minHazardDistKm
+    const isSafeRouteFloodFree = resolvedSafe.isSafeAndDry
 
-    if (floodFreeRoutes.length > 0) {
-      const optimal = floodFreeRoutes[0]
-      safeRouteObj = optimal.route
-      safeDistanceKm = optimal.distanceKm
-      safeDurationMin = optimal.durationMin
-      safeSteps = parseSteps(optimal.route, true)
-      isDetourActive = optimal.isDetour
-      safeHazardClearanceKm = optimal.minHazardDistKm
-    } else if (unsafeRoutes.length > 0) {
-      // Absolute last resort: no flood-free route exists — pick the one farthest from floodwater
-      const leastBad = unsafeRoutes[0]
-      safeRouteObj = leastBad.route
-      safeDistanceKm = leastBad.distanceKm
-      safeDurationMin = leastBad.durationMin
-      safeSteps = parseSteps(leastBad.route, true)
-      isDetourActive = leastBad.isDetour
-      safeHazardClearanceKm = leastBad.minHazardDistKm
-    }
-
-    const isSafeRouteFloodFree = floodFreeRoutes.length > 0
+    // Resolve balanced route: AI pick > 2nd flood-free > same as safe
+    const resolvedBalanced = aiBalancedCandidate || floodFreeRoutes[1] || floodFreeRoutes[0] || resolvedSafe
 
     // 4. Build output with 100% REAL ROAD OpenStreetMap geometries
     const safeGeoJSON = {
@@ -459,26 +476,12 @@ export async function fetchAccurateRealWorldRoutes(
       geometry: primaryRoute.geometry,
     }
 
-    // For balanced route: pick 2nd-best flood-free route (different path), or if only one, use same
-    const balancedPool = floodFreeRoutes.length > 1 ? floodFreeRoutes.slice(1) : floodFreeRoutes
-    // Sort balanced pool by fuel efficiency (distance) as primary factor
-    const balancedSorted = [...balancedPool].sort((a, b) =>
-      a.distanceKm - b.distanceKm ||
-      b.minHazardDistKm - a.minHazardDistKm
-    )
-    const balancedCandidate = balancedSorted[0] || {
-      route: altRoute,
-      distanceKm: altRoute.distance / 1000,
-      durationMin: Math.max(1, Math.round(altRoute.duration / 60)),
-      minHazardDistKm: 999,
-    }
-
     const balancedGeoJSON = {
       type: 'Feature' as const,
-      geometry: balancedCandidate.route.geometry,
+      geometry: resolvedBalanced.route.geometry,
     }
-    const balancedDistKm = balancedCandidate.distanceKm
-    const balancedDurationMin = balancedCandidate.durationMin
+    const balancedDistKm = resolvedBalanced.distanceKm
+    const balancedDurationMin = resolvedBalanced.durationMin
 
     // Fuel efficiency calculations
     const fastFuelLiters = parseFloat((directDistKm / 9.8).toFixed(2))
@@ -490,24 +493,24 @@ export async function fetchAccurateRealWorldRoutes(
       safe: {
         id: 'safe',
         label: isSafeRouteFloodFree
-          ? '⚡ AI Optimal (Shortest · Safe · Flood-Free)'
+          ? `⚡ AI Optimal (Shortest · Safe · Flood-Free)`
           : '⚠️ AI Best Available (Caution: Flood Nearby)',
         time: `${safeDurationMin} min (${safeDistanceKm.toFixed(1)} km)`,
         detail: isSafeRouteFloodFree
-          ? `🛡️ AI Selected: Shortest flood-free road · ${safeHazardClearanceKm.toFixed(1)} km from flood · ~${safeFuelLiters} L fuel`
-          : `⚠️ All routes pass near flood · ${safeHazardClearanceKm.toFixed(1)} km clearance`,
+          ? `🛡️ ${aiDecision.aiExplanation} · ${safeHazardClearanceKm.toFixed(1)} km from flood · ~${safeFuelLiters} L fuel`
+          : `⚠️ ${aiDecision.aiExplanation}`,
         risk: isSafeRouteFloodFree ? 'low' : 'medium',
         geoJSON: safeGeoJSON,
         distanceKm: safeDistanceKm,
         fuelEstLiters: safeFuelLiters,
-        ecoRating: 'High Efficiency',
+        ecoRating: `AI Score: ${aiDecision.overallScore}/100`,
         steps: safeSteps,
       },
       balanced: {
         id: 'balanced',
         label: '🍃 Eco-Safe Alternate (Gas-Efficient & Dry)',
         time: `${balancedDurationMin} min (${balancedDistKm.toFixed(1)} km)`,
-        detail: `🍃 Smooth cruising arterial · ~${ecoFuelLiters} L fuel (-${fuelSavings}% gas) · 100% safe & dry`,
+        detail: `🍃 ${aiDecision.reasoning} · ~${ecoFuelLiters} L fuel (-${fuelSavings}% gas)`,
         risk: 'low',
         geoJSON: balancedGeoJSON,
         distanceKm: balancedDistKm,
@@ -526,7 +529,7 @@ export async function fetchAccurateRealWorldRoutes(
         geoJSON: fastGeoJSON,
         distanceKm: directDistKm,
         fuelEstLiters: fastFuelLiters,
-        ecoRating: 'High Consumption (Stop & Go)',
+        ecoRating: 'Direct Route',
         steps: directSteps,
       },
     }
