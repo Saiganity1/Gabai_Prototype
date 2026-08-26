@@ -156,23 +156,20 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const darkStyle: any = {
     version: 8,
     sources: {
-      'carto-dark': {
+      'maptiler-dark': {
         type: 'raster',
         tiles: [
-          'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-          'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-          'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-          'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+          `https://api.maptiler.com/maps/streets-v2-dark/256/{z}/{x}/{y}@2x.png?key=${MAPTILER_KEY}`,
         ],
         tileSize: 256,
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        attribution: '&copy; <a href="https://www.maptiler.com/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       },
     },
     layers: [
       {
-        id: 'carto-dark-layer',
+        id: 'maptiler-dark-layer',
         type: 'raster',
-        source: 'carto-dark',
+        source: 'maptiler-dark',
         minzoom: 0,
         maxzoom: 22,
       },
