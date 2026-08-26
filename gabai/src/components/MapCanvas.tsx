@@ -122,22 +122,25 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const darkStyle: any = {
     version: 8,
     sources: {
-      'esri-dark-gray': {
+      'carto-dark': {
         type: 'raster',
         tiles: [
-          'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+          'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+          'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+          'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+          'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
         ],
         tileSize: 256,
-        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       },
     },
     layers: [
       {
-        id: 'esri-dark-gray-layer',
+        id: 'carto-dark-layer',
         type: 'raster',
-        source: 'esri-dark-gray',
+        source: 'carto-dark',
         minzoom: 0,
-        maxzoom: 18,
+        maxzoom: 20,
       },
     ],
   }
