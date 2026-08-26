@@ -329,8 +329,9 @@ export async function fetchAccurateRealWorldRoutes(
       })
     }
 
-    // If direct route or default alternatives have flood hazards, query multi-lateral road-snapped bypass corridors in PARALLEL
-    if (hasHazardOnDirect && activeHazards.length > 0) {
+    // ALWAYS search for alternative bypass routes when there are active hazards on the map
+    // This ensures the AI finds flood-free paths even when the direct route appears safe
+    if (activeHazards.length > 0) {
       const blockingHazard = directHazardCheck.blockingHazards[0] || activeHazards[0]
       const latDiff = destLat - originLat
       const lngDiff = destLng - originLng
@@ -339,7 +340,7 @@ export async function fetchAccurateRealWorldRoutes(
       const perpLng = latDiff / len
 
       // Multi-lateral search offsets (both left & right diversion corridors)
-      const offsetScales = [-0.015, 0.015, -0.025, 0.025, -0.038, 0.038, -0.055, 0.055]
+      const offsetScales = [-0.008, 0.008, -0.015, 0.015, -0.025, 0.025, -0.038, 0.038, -0.055, 0.055, -0.075, 0.075]
 
       const detourPromises = offsetScales.map(async (off) => {
         try {
@@ -427,6 +428,11 @@ export async function fetchAccurateRealWorldRoutes(
     const safeGeoJSON = {
       type: 'Feature' as const,
       geometry: safeRouteObj.geometry,
+    }
+
+    const fastGeoJSON = {
+      type: 'Feature' as const,
+      geometry: primaryRoute.geometry,
     }
 
     // Select the best clean alternative for the Eco-Safe Balanced route
