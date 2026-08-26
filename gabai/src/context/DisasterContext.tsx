@@ -10,8 +10,12 @@ import {
   getContextualEstablishments,
 } from '../utils/establishmentImporter'
 
-const API_BASE_URL = 'http://localhost:3000/api'
-const WS_URL = 'http://localhost:3000/realtime'
+const isLocalhost =
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (isLocalhost ? 'http://localhost:3000/api' : '')
+const WS_URL = import.meta.env.VITE_WS_URL || (isLocalhost ? 'http://localhost:3000/realtime' : '')
 
 export interface CitizenReport {
   id: number | string
@@ -174,6 +178,8 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // ── 1. Fetch initial data from REST API ──────────────────────────
   useEffect(() => {
+    if (!API_BASE_URL) return
+
     const fetchInitialData = async () => {
       try {
         const [hazRes, repRes] = await Promise.all([
@@ -219,9 +225,11 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // ── 2. Real-Time WebSockets Gateway Connection ────────────────────
   useEffect(() => {
+    if (!WS_URL) return
+
     const socket = io(WS_URL, {
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 3,
       reconnectionDelay: 2000,
     })
     socketRef.current = socket

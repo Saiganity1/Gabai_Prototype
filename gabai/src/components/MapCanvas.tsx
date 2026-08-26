@@ -1,5 +1,6 @@
 import { useRef, useEffect, useMemo, useImperativeHandle, forwardRef } from 'react'
 import Map, { Source, Layer, Marker, Popup, NavigationControl } from 'react-map-gl/maplibre'
+import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { UserCoordinates } from '../hooks/useUserLocation'
 import { RouteInfo } from '../utils/routingEngine'
@@ -254,6 +255,7 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   return (
     <Map
       ref={mapRef}
+      mapLib={maplibregl}
       initialViewState={{
         longitude: userLng,
         latitude: userLat,
