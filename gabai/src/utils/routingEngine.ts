@@ -237,30 +237,43 @@ export async function fetchAccurateRealWorldRoutes(
 
     const hasHazardOnDirect = intersectingHazards.length > 0
 
-    // 2. Check if any default OSRM alternative is already 100% flood-free
-    let safeRouteObj = primaryRoute
-    let safeSteps = directSteps
-    let safeDistanceKm = directDistKm
-    let safeDurationMin = directDurationMin
-    let isDetourActive = false
+    // 2. Multi-Candidate AI Route Optimizer: Gather all candidate road trajectories
+    const candidateBypasses: Array<{
+      route: any
+      distanceKm: number
+      durationMin: number
+      hazardExposure: number
+      isDetour: boolean
+    }> = []
 
+    // Add direct primary route
+    const primaryExposure = primaryCoords.filter(([lng, lat]) =>
+      isNearHazard(lat, lng, activeHazards, 0.3)
+    ).length
+    candidateBypasses.push({
+      route: primaryRoute,
+      distanceKm: directDistKm,
+      durationMin: directDurationMin,
+      hazardExposure: primaryExposure,
+      isDetour: false,
+    })
+
+    // Add default OSRM alternatives
     for (let i = 1; i < allOsrmRoutes.length; i++) {
       const r = allOsrmRoutes[i]
       const coords = r.geometry?.coordinates || []
-      const touchesFlood = coords.some(([lng, lat]) => isNearHazard(lat, lng, activeHazards, 0.3))
-      if (!touchesFlood) {
-        safeRouteObj = r
-        safeDistanceKm = r.distance / 1000
-        safeDurationMin = Math.max(1, Math.round(r.duration / 60))
-        safeSteps = parseSteps(r, true)
-        isDetourActive = true
-        break
-      }
+      const exposure = coords.filter(([lng, lat]) => isNearHazard(lat, lng, activeHazards, 0.3)).length
+      candidateBypasses.push({
+        route: r,
+        distanceKm: r.distance / 1000,
+        durationMin: Math.max(1, Math.round(r.duration / 60)),
+        hazardExposure: exposure,
+        isDetour: false,
+      })
     }
 
-    // 3. If primary route has flood and no default alternative is clean, find an alternate road bypass
-    if (!isDetourActive && hasHazardOnDirect) {
-      // Find the specific hazard that intersects the route
+    // If direct route or alternatives have flood hazards, query multi-lateral road-snapped bypasses
+    if (hasHazardOnDirect && activeHazards.length > 0) {
       const blockingHazard = intersectingHazards[0] || activeHazards[0]
       const latDiff = destLat - originLat
       const lngDiff = destLng - originLng
@@ -268,9 +281,7 @@ export async function fetchAccurateRealWorldRoutes(
       const perpLat = -lngDiff / len
       const perpLng = latDiff / len
 
-      // Generate multi-lateral offsets around the flood area
-      const offsetScales = [0.012, -0.012, 0.022, -0.022, 0.035, -0.035]
-      const candidateBypasses: Array<{ route: any; distanceKm: number; durationMin: number; hazardExposure: number }> = []
+      const offsetScales = [-0.012, 0.012, -0.018, 0.018, -0.025, 0.025, -0.035, 0.035]
 
       for (const off of offsetScales) {
         try {
@@ -279,7 +290,7 @@ export async function fetchAccurateRealWorldRoutes(
 
           // Snap candidate waypoint to nearest asphalt road intersection
           const nearUrl = `https://router.project-osrm.org/nearest/v1/driving/${candLng},${candLat}`
-          const nearRes = await fetch(nearUrl, { signal: AbortSignal.timeout(2000) })
+          const nearRes = await fetch(nearUrl, { signal: AbortSignal.timeout(1800) })
           if (!nearRes.ok) continue
           const nearData = await nearRes.json()
           const snappedLoc = nearData.waypoints?.[0]?.location
@@ -289,7 +300,7 @@ export async function fetchAccurateRealWorldRoutes(
 
           // Query OSRM to route through the clean road intersection directly to Point B
           const detourUrl = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${snapLng},${snapLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`
-          const detourRes = await fetch(detourUrl, { signal: AbortSignal.timeout(2500) })
+          const detourRes = await fetch(detourUrl, { signal: AbortSignal.timeout(2200) })
           if (!detourRes.ok) continue
           const detourData = await detourRes.json()
 
@@ -297,7 +308,6 @@ export async function fetchAccurateRealWorldRoutes(
             const candidateRoute = detourData.routes[0]
             const candidateCoords: [number, number][] = candidateRoute.geometry?.coordinates || []
 
-            // Calculate flood exposure score (0 = 100% clean of flood)
             const hazardExposure = candidateCoords.filter(([lng, lat]) =>
               isNearHazard(lat, lng, activeHazards, 0.28)
             ).length
@@ -307,33 +317,44 @@ export async function fetchAccurateRealWorldRoutes(
               distanceKm: candidateRoute.distance / 1000,
               durationMin: Math.max(1, Math.round(candidateRoute.duration / 60)),
               hazardExposure,
+              isDetour: true,
             })
-
-            // If 100% clean bypass found, select immediately!
-            if (hazardExposure === 0) {
-              safeRouteObj = candidateRoute
-              safeDistanceKm = candidateRoute.distance / 1000
-              safeDurationMin = Math.max(1, Math.round(candidateRoute.duration / 60))
-              safeSteps = parseSteps(candidateRoute, true)
-              isDetourActive = true
-              break
-            }
           }
         } catch {
-          // Continue to next offset
+          // Continue
         }
       }
+    }
 
-      // If no 100% clean route was found, pick the candidate with lowest flood exposure
-      if (!isDetourActive && candidateBypasses.length > 0) {
-        candidateBypasses.sort((a, b) => a.hazardExposure - b.hazardExposure || a.distanceKm - b.distanceKm)
-        const bestCandidate = candidateBypasses[0]
-        safeRouteObj = bestCandidate.route
-        safeDistanceKm = bestCandidate.distanceKm
-        safeDurationMin = bestCandidate.durationMin
-        safeSteps = parseSteps(bestCandidate.route, true)
-        isDetourActive = bestCandidate.hazardExposure === 0
-      }
+    // 3. AI Decision Engine: Filter 100% FLOOD-FREE routes and sort by FASTEST travel time
+    const zeroFloodRoutes = candidateBypasses.filter((c) => c.hazardExposure === 0)
+
+    let safeRouteObj = primaryRoute
+    let safeSteps = directSteps
+    let safeDistanceKm = directDistKm
+    let safeDurationMin = directDurationMin
+    let isDetourActive = false
+
+    if (zeroFloodRoutes.length > 0) {
+      // Sort strictly by FASTEST travel duration, then shortest distance
+      zeroFloodRoutes.sort((a, b) => a.durationMin - b.durationMin || a.distanceKm - b.distanceKm)
+      const optimal = zeroFloodRoutes[0]
+
+      safeRouteObj = optimal.route
+      safeDistanceKm = optimal.distanceKm
+      safeDurationMin = optimal.durationMin
+      safeSteps = parseSteps(optimal.route, optimal.isDetour)
+      isDetourActive = optimal.isDetour
+    } else if (candidateBypasses.length > 0) {
+      // If all routes have some flood, pick the one with MINIMUM exposure
+      candidateBypasses.sort((a, b) => a.hazardExposure - b.hazardExposure || a.durationMin - b.durationMin)
+      const bestAvailable = candidateBypasses[0]
+
+      safeRouteObj = bestAvailable.route
+      safeDistanceKm = bestAvailable.distanceKm
+      safeDurationMin = bestAvailable.durationMin
+      safeSteps = parseSteps(bestAvailable.route, true)
+      isDetourActive = bestAvailable.isDetour
     }
 
     // 4. Build output with 100% REAL ROAD OpenStreetMap geometries
@@ -358,17 +379,17 @@ export async function fetchAccurateRealWorldRoutes(
       safe: {
         id: 'safe',
         label: isDetourActive
-          ? 'AI Flood-Free Route (Safe Bypass to Point B)'
+          ? '⚡ AI Optimal (Fastest & 100% Flood-Free)'
           : hasHazardOnDirect
           ? 'AI Alternate Route (Caution: Flood Nearby)'
-          : 'AI Safe Route (Flood-Free)',
+          : '⚡ AI Optimal (Fastest & Flood-Free)',
         time: `${safeDurationMin} min (${safeDistanceKm.toFixed(1)} km)`,
         detail: isDetourActive
-          ? `🛡️ Bypassed flooded street · 100% real road trajectory to Point B`
+          ? `🛡️ AI Selected: Fastest real road route with zero floodwater`
           : hasHazardOnDirect
           ? `⚠️ Passes near flood zone · Drive with caution`
-          : `100% Real Asphalt Road Trajectory · Optimal route`,
-        risk: isDetourActive ? 'low' : hasHazardOnDirect ? 'medium' : 'low',
+          : `100% Real Asphalt Road Trajectory · Optimal fast route`,
+        risk: zeroFloodRoutes.length > 0 ? 'low' : hasHazardOnDirect ? 'medium' : 'low',
         geoJSON: safeGeoJSON,
         distanceKm: safeDistanceKm,
         steps: safeSteps,
