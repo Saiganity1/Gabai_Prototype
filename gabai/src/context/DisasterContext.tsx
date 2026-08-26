@@ -194,14 +194,23 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   )
 
   const [hazards, setHazards] = useState<Hazard[]>(() => {
+    const defaults = getContextualHazards(15.074, 120.781)
     try {
       const saved = localStorage.getItem('gabai-live-hazards')
       if (saved) {
         const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((item: any) => {
+            const match = defaults.find((d) => d.id === item.id)
+            if (match && match.isRoadSegment && match.roadSegment) {
+              return { ...item, roadSegment: match.roadSegment }
+            }
+            return item
+          })
+        }
       }
     } catch {}
-    return getContextualHazards(15.074, 120.781)
+    return defaults
   })
 
   const [reports, setReports] = useState<CitizenReport[]>(() => {

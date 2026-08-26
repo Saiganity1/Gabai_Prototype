@@ -504,60 +504,127 @@ function interpolateSegment(
       {/* ── Unified GPU-Accelerated Road Flood Vector Line Layer (100% Locked to Road) ── */}
       {showRoadLines && (
         <Source id="road-flood-vector-source" type="geojson" data={roadFloodLinesGeoJSON}>
-          {/* 1. Outer Soft Glow Base */}
+          {/* 1. Outer Soft Glow Base (Orange unverified) */}
           <Layer
-            id="road-flood-outer-glow"
+            id="road-flood-orange-glow"
             type="line"
+            filter={['!=', ['get', 'isVerified'], true]}
             layout={{
               'line-cap': 'round',
               'line-join': 'round',
             }}
             paint={{
-              'line-color': ['get', 'color'],
-              'line-width': ['case', ['get', 'isSelected'], 20, 14],
-              'line-blur': 3,
-              'line-opacity': 0.45,
+              'line-color': '#F97316',
+              'line-width': ['case', ['get', 'isSelected'], 22, 16],
+              'line-blur': 2,
+              'line-opacity': 0.5,
             }}
           />
-          {/* 2. Road Border Shadow Outline */}
+          {/* 2. Dark Outline (Orange) */}
           <Layer
-            id="road-flood-border-outline"
+            id="road-flood-orange-outline"
             type="line"
+            filter={['!=', ['get', 'isVerified'], true]}
             layout={{
               'line-cap': 'round',
               'line-join': 'round',
             }}
             paint={{
               'line-color': '#0F172A',
-              'line-width': ['case', ['get', 'isSelected'], 10, 7.5],
-              'line-opacity': 0.75,
+              'line-width': ['case', ['get', 'isSelected'], 11, 8.5],
+              'line-opacity': 0.85,
             }}
           />
-          {/* 3. Main Vibrant Solid Core Line */}
+          {/* 3. Solid Vibrant Core (Orange) */}
           <Layer
-            id="road-flood-solid-core"
+            id="road-flood-orange-core"
             type="line"
+            filter={['!=', ['get', 'isVerified'], true]}
             layout={{
               'line-cap': 'round',
               'line-join': 'round',
             }}
             paint={{
-              'line-color': ['get', 'color'],
-              'line-width': ['case', ['get', 'isSelected'], 7.5, 5.5],
+              'line-color': '#F97316',
+              'line-width': ['case', ['get', 'isSelected'], 8, 6],
               'line-opacity': 1.0,
             }}
           />
-          {/* 4. White Center Dashed Striping */}
+          {/* 4. Center Dashed Striping (Orange) */}
           <Layer
-            id="road-flood-white-stripe"
+            id="road-flood-orange-stripe"
             type="line"
+            filter={['!=', ['get', 'isVerified'], true]}
             layout={{
               'line-cap': 'round',
               'line-join': 'round',
             }}
             paint={{
               'line-color': '#FFFFFF',
-              'line-width': 1.8,
+              'line-width': 2,
+              'line-dasharray': [2, 2.5],
+              'line-opacity': 0.95,
+            }}
+          />
+
+          {/* 5. Outer Soft Glow Base (Blue verified) */}
+          <Layer
+            id="road-flood-blue-glow"
+            type="line"
+            filter={['==', ['get', 'isVerified'], true]}
+            layout={{
+              'line-cap': 'round',
+              'line-join': 'round',
+            }}
+            paint={{
+              'line-color': '#2563EB',
+              'line-width': ['case', ['get', 'isSelected'], 22, 16],
+              'line-blur': 2,
+              'line-opacity': 0.55,
+            }}
+          />
+          {/* 6. Dark Outline (Blue) */}
+          <Layer
+            id="road-flood-blue-outline"
+            type="line"
+            filter={['==', ['get', 'isVerified'], true]}
+            layout={{
+              'line-cap': 'round',
+              'line-join': 'round',
+            }}
+            paint={{
+              'line-color': '#0F172A',
+              'line-width': ['case', ['get', 'isSelected'], 11, 8.5],
+              'line-opacity': 0.85,
+            }}
+          />
+          {/* 7. Solid Vibrant Core (Blue) */}
+          <Layer
+            id="road-flood-blue-core"
+            type="line"
+            filter={['==', ['get', 'isVerified'], true]}
+            layout={{
+              'line-cap': 'round',
+              'line-join': 'round',
+            }}
+            paint={{
+              'line-color': '#2563EB',
+              'line-width': ['case', ['get', 'isSelected'], 8, 6],
+              'line-opacity': 1.0,
+            }}
+          />
+          {/* 8. Center Dashed Striping (Blue) */}
+          <Layer
+            id="road-flood-blue-stripe"
+            type="line"
+            filter={['==', ['get', 'isVerified'], true]}
+            layout={{
+              'line-cap': 'round',
+              'line-join': 'round',
+            }}
+            paint={{
+              'line-color': '#FFFFFF',
+              'line-width': 2,
               'line-dasharray': [2, 2.5],
               'line-opacity': 0.95,
             }}
