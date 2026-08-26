@@ -525,44 +525,6 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
           </div>
         </Popup>
       )}
-
-      {/* ── Interactive Info Popup Tooltip when Establishment Tapped ── */}
-      {selectedEstablishment && (
-        <Popup
-          longitude={selectedEstablishment.lng}
-          latitude={selectedEstablishment.lat}
-          anchor="bottom"
-          offset={22}
-          closeButton={true}
-          closeOnClick={false}
-          onClose={() => onEstablishmentClick(null as any)}
-          className="z-30 rounded-2xl overflow-hidden shadow-2xl"
-        >
-          <div className="p-3 max-w-[260px] text-slate-900 bg-white font-sans">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-2xl">{selectedEstablishment.emoji}</span>
-              <div>
-                <div className="font-black text-sm leading-tight text-slate-900 line-clamp-2">
-                  {selectedEstablishment.name}
-                </div>
-                <div className="text-[10px] text-slate-500 font-medium mt-0.5">
-                  {selectedEstablishment.categoryLabel}
-                </div>
-              </div>
-            </div>
-            <div className="text-[11px] text-slate-600 my-2 bg-slate-100 p-2 rounded-xl">
-              <div>📍 {selectedEstablishment.address}</div>
-              <div className="mt-1 font-semibold text-emerald-600">{selectedEstablishment.status}</div>
-            </div>
-            <button
-              onClick={() => onEstablishmentClick(selectedEstablishment)}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded-xl transition-colors shadow-sm"
-            >
-              Navigate Safe Route Here
-            </button>
-          </div>
-        </Popup>
-      )}
     </Map>
   )
 })
