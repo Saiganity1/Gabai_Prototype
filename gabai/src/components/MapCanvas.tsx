@@ -98,8 +98,51 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const mapRef = useRef<any>(null)
   const initialCentered = useRef(false)
 
-  const lightStyle = `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
-  const darkStyle = `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${MAPTILER_KEY}`
+  const lightStyle: any = {
+    version: 8,
+    sources: {
+      'maptiler-voyager': {
+        type: 'raster',
+        tiles: [
+          `https://api.maptiler.com/maps/voyager/256/{z}/{x}/{y}@2x.png?key=${MAPTILER_KEY}`,
+        ],
+        tileSize: 256,
+        attribution: '&copy; <a href="https://www.maptiler.com/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      },
+    },
+    layers: [
+      {
+        id: 'maptiler-voyager-layer',
+        type: 'raster',
+        source: 'maptiler-voyager',
+        minzoom: 0,
+        maxzoom: 20,
+      },
+    ],
+  }
+
+  const darkStyle: any = {
+    version: 8,
+    sources: {
+      'maptiler-dark': {
+        type: 'raster',
+        tiles: [
+          `https://api.maptiler.com/maps/dataviz-dark/256/{z}/{x}/{y}@2x.png?key=${MAPTILER_KEY}`,
+        ],
+        tileSize: 256,
+        attribution: '&copy; <a href="https://www.maptiler.com/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      },
+    },
+    layers: [
+      {
+        id: 'maptiler-dark-layer',
+        type: 'raster',
+        source: 'maptiler-dark',
+        minzoom: 0,
+        maxzoom: 20,
+      },
+    ],
+  }
 
   const userLat = userLocation.lat
   const userLng = userLocation.lng
@@ -223,34 +266,41 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     >
       <NavigationControl position={navPosition} />
 
-      {/* ── True 3D Extruded Buildings Layer ── */}
-      <Layer
-        id="maptiler-3d-buildings"
-        source="maptiler_planet"
-        source-layer="building"
-        type="fill-extrusion"
+      {/* ── True 3D Extruded Buildings Vector Layer ── */}
+      <Source
+        id="maptiler-buildings-source"
+        type="vector"
+        tiles={[`https://api.maptiler.com/tiles/v3/{z}/{x}/{y}.pbf?key=${MAPTILER_KEY}`]}
         minzoom={13}
-        paint={{
-          'fill-extrusion-color': darkMode ? '#334155' : '#cbd5e1',
-          'fill-extrusion-height': [
-            'case',
-            ['has', 'render_height'],
-            ['get', 'render_height'],
-            ['has', 'height'],
-            ['get', 'height'],
-            ['has', 'levels'],
-            ['*', ['get', 'levels'], 3.8],
-            18,
-          ],
-          'fill-extrusion-base': [
-            'case',
-            ['has', 'render_min_height'],
-            ['get', 'render_min_height'],
-            0,
-          ],
-          'fill-extrusion-opacity': 0.85,
-        }}
-      />
+        maxzoom={20}
+      >
+        <Layer
+          id="3d-buildings"
+          source-layer="building"
+          type="fill-extrusion"
+          minzoom={13}
+          paint={{
+            'fill-extrusion-color': darkMode ? '#334155' : '#cbd5e1',
+            'fill-extrusion-height': [
+              'case',
+              ['has', 'render_height'],
+              ['get', 'render_height'],
+              ['has', 'height'],
+              ['get', 'height'],
+              ['has', 'levels'],
+              ['*', ['get', 'levels'], 3.8],
+              18,
+            ],
+            'fill-extrusion-base': [
+              'case',
+              ['has', 'render_min_height'],
+              ['get', 'render_min_height'],
+              0,
+            ],
+            'fill-extrusion-opacity': 0.85,
+          }}
+        />
+      </Source>
 
       {/* ── PAGASA Doppler Weather Radar Layer ── */}
       {showRadar && radarPrecipitationGeoJSON && (
