@@ -74,6 +74,8 @@ function createGeoCircle(center: [number, number], radiusMeters: number, points 
   }
 }
 
+const CARTO_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhIjoiYWNfdDcxMnE1MWoiLCJqdGkiOiJmZjIxZjRmMiJ9.Mru8jEoiJayH0kyVFDL4azv6GW3ekTizMKMqpCTrHqs'
+
 const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   {
     darkMode,
@@ -99,22 +101,25 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const lightStyle: any = {
     version: 8,
     sources: {
-      'osm-standard': {
+      'carto-voyager': {
         type: 'raster',
         tiles: [
-          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          `https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png?api_key=${CARTO_TOKEN}`,
+          `https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png?api_key=${CARTO_TOKEN}`,
+          `https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png?api_key=${CARTO_TOKEN}`,
+          `https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png?api_key=${CARTO_TOKEN}`,
         ],
         tileSize: 256,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       },
     },
     layers: [
       {
-        id: 'osm-standard-layer',
+        id: 'carto-voyager-layer',
         type: 'raster',
-        source: 'osm-standard',
+        source: 'carto-voyager',
         minzoom: 0,
-        maxzoom: 19,
+        maxzoom: 20,
       },
     ],
   }
@@ -122,22 +127,25 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const darkStyle: any = {
     version: 8,
     sources: {
-      'esri-dark-gray': {
+      'carto-dark': {
         type: 'raster',
         tiles: [
-          'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+          `https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png?api_key=${CARTO_TOKEN}`,
+          `https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png?api_key=${CARTO_TOKEN}`,
+          `https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png?api_key=${CARTO_TOKEN}`,
+          `https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png?api_key=${CARTO_TOKEN}`,
         ],
         tileSize: 256,
-        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       },
     },
     layers: [
       {
-        id: 'esri-dark-gray-layer',
+        id: 'carto-dark-layer',
         type: 'raster',
-        source: 'esri-dark-gray',
+        source: 'carto-dark',
         minzoom: 0,
-        maxzoom: 18,
+        maxzoom: 20,
       },
     ],
   }
@@ -263,6 +271,42 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       }}
     >
       <NavigationControl position={navPosition} />
+
+      {/* ── 3D Buildings Vector Source & Fill-Extrusion Layer ── */}
+      <Source
+        id="carto-buildings-source"
+        type="vector"
+        tiles={[`https://tiles.basemaps.cartocdn.com/vectortiles/carto.streets/v1/{z}/{x}/{y}.mvt?api_key=${CARTO_TOKEN}`]}
+        minzoom={13}
+        maxzoom={20}
+      >
+        <Layer
+          id="3d-buildings"
+          source-layer="building"
+          type="fill-extrusion"
+          minzoom={13}
+          paint={{
+            'fill-extrusion-color': darkMode ? '#3b4252' : '#cbd5e1',
+            'fill-extrusion-height': [
+              'case',
+              ['has', 'render_height'],
+              ['get', 'render_height'],
+              ['has', 'height'],
+              ['get', 'height'],
+              ['has', 'levels'],
+              ['*', ['get', 'levels'], 3.8],
+              18,
+            ],
+            'fill-extrusion-base': [
+              'case',
+              ['has', 'render_min_height'],
+              ['get', 'render_min_height'],
+              0,
+            ],
+            'fill-extrusion-opacity': 0.85,
+          }}
+        />
+      </Source>
 
       {/* ── PAGASA Doppler Weather Radar Layer ── */}
       {showRadar && radarPrecipitationGeoJSON && (
