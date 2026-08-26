@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Shield, Sun, Moon,
   Clock, Layers, Locate,
@@ -353,13 +354,13 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
               </button>
 
               {/* Public Citizen Map View */}
-              <a
-                href="/"
+              <Link
+                to="/"
                 className="bg-slate-950/80 hover:bg-slate-800 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-200 hover:text-blue-400 transition-colors flex items-center gap-1.5"
               >
                 <Eye className="w-3.5 h-3.5 text-blue-400" />
                 <span className="hidden sm:inline">Public Map</span>
-              </a>
+              </Link>
 
               {/* Theme Toggle */}
               <button

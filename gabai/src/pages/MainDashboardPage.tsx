@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Search, Sun, Moon, Mic, MicOff, Layers, Locate,
   ChevronUp, ChevronDown, X, Shield, Navigation,
@@ -554,12 +555,12 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           </div>
 
           {/* LGU Switch Shortcut */}
-          <a
-            href="/lgu"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-md shadow-sm border border-slate-200/50 dark:border-slate-700/50 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 transition-colors"
+          <Link
+            to="/lgu"
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-md shadow-sm border border-slate-200/50 dark:border-slate-700/50 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 transition-colors"
           >
             LGU
-          </a>
+          </Link>
 
           {/* Theme toggle */}
           <button

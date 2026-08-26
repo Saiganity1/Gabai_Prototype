@@ -99,6 +99,84 @@ const LABEL_MAP: Record<string, string> = {
   other: 'Hazard Advisory',
 }
 
+const DEFAULT_SEED_REPORTS: CitizenReport[] = [
+  {
+    id: 'rep-santamaria',
+    hazardId: 'haz-pamp-santamaria',
+    citizen: 'Barangay Santa Maria Watch',
+    type: 'flood',
+    emoji: '🌊',
+    desc: 'Flooding along Mexico-San Luis Road from Santa Maria Chapel to Purok 2. Not passable to light vehicles (tricycles and motorcycles submerged).',
+    lat: 15.074,
+    lng: 120.781,
+    severity: 'high',
+    time: '2 mins ago',
+    status: 'pending',
+    locationName: 'Mexico - San Luis Provincial Road',
+    isRoadSegment: true,
+    roadSegment: {
+      from: { lat: 15.071, lng: 120.776, name: 'Santa Maria Chapel (Tramo)' },
+      to: { lat: 15.078, lng: 120.789, name: 'Purok 2 Highway Crossing' },
+      roadName: 'Mexico - San Luis Provincial Road',
+      path: [
+        [120.7760, 15.0710],
+        [120.7774, 15.0719],
+        [120.7792, 15.0731],
+        [120.7811, 15.0744],
+        [120.7830, 15.0756],
+        [120.7852, 15.0768],
+        [120.7872, 15.0775],
+        [120.7890, 15.0780],
+      ],
+    },
+    passability: 'not_passable_light',
+    waterDepth: 'Knee Deep (0.45m)',
+  },
+  {
+    id: 'rep-101',
+    hazardId: 'haz-pamp-1',
+    citizen: 'Maria S. (Citizen)',
+    type: 'flood',
+    emoji: '🌊',
+    desc: 'MacArthur Highway knee-deep flash flood near Dolores flyover.',
+    lat: 15.039,
+    lng: 120.684,
+    severity: 'high',
+    time: '3 mins ago',
+    status: 'verified',
+    locationName: 'MacArthur Highway Commercial Strip',
+    isRoadSegment: true,
+    roadSegment: {
+      from: { lat: 15.035, lng: 120.681, name: 'San Fernando Junction' },
+      to: { lat: 15.044, lng: 120.688, name: 'Dolores Flyover Intersection' },
+      roadName: 'MacArthur Highway',
+      path: [
+        [120.6810, 15.0350],
+        [120.6828, 15.0375],
+        [120.6840, 15.0390],
+        [120.6860, 15.0415],
+        [120.6880, 15.0440],
+      ],
+    },
+    passability: 'not_passable_light',
+    waterDepth: 'Knee Deep (0.50m)',
+  },
+  {
+    id: 'rep-102',
+    hazardId: 'haz-pamp-3',
+    citizen: 'Juan D. (Barangay Patrol)',
+    type: 'road',
+    emoji: '🚧',
+    desc: 'JASA road clearing in progress. Counterflow traffic enforced.',
+    lat: 15.046,
+    lng: 120.676,
+    severity: 'medium',
+    time: '10 mins ago',
+    status: 'verified',
+    locationName: 'Jose Abad Santos Avenue',
+  },
+]
+
 export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const userLoc = useUserLocation()
   const socketRef = useRef<Socket | null>(null)
@@ -115,38 +193,76 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [userLoc.coords.lat, userLoc.coords.lng, userLoc.locationName]
   )
 
-  const [hazards, setHazards] = useState<Hazard[]>(baseHazards)
+  const [hazards, setHazards] = useState<Hazard[]>(() => {
+    try {
+      const saved = localStorage.getItem('gabai-live-hazards')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      }
+    } catch {}
+    return getContextualHazards(15.074, 120.781)
+  })
 
-  const [reports, setReports] = useState<CitizenReport[]>([
-    {
-      id: 'rep-101',
-      hazardId: 'haz-1',
-      citizen: 'Maria S. (Citizen)',
-      type: 'flood',
-      emoji: '🌊',
-      desc: 'Water is knee-deep in front of the plaza.',
-      lat: userLoc.coords.lat - 0.0075,
-      lng: userLoc.coords.lng - 0.0062,
-      severity: 'high',
-      time: '3 mins ago',
-      status: 'pending',
-      locationName: userLoc.locationName,
-    },
-    {
-      id: 'rep-102',
-      hazardId: 'haz-2',
-      citizen: 'Juan D. (Barangay Patrol)',
-      type: 'road',
-      emoji: '🚧',
-      desc: 'Fallen tree blocking both lanes.',
-      lat: userLoc.coords.lat + 0.0092,
-      lng: userLoc.coords.lng + 0.0055,
-      severity: 'medium',
-      time: '8 mins ago',
-      status: 'verified',
-      locationName: userLoc.locationName,
-    },
-  ])
+  const [reports, setReports] = useState<CitizenReport[]>(() => {
+    try {
+      const saved = localStorage.getItem('gabai-live-reports')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      }
+    } catch {}
+    return DEFAULT_SEED_REPORTS
+  })
+
+  // Auto-sync state to localStorage and broadcast to other tabs
+  useEffect(() => {
+    try {
+      localStorage.setItem('gabai-live-reports', JSON.stringify(reports))
+      localStorage.setItem('gabai-live-hazards', JSON.stringify(hazards))
+    } catch {}
+  }, [reports, hazards])
+
+  // Multi-tab real-time listener (Cross-tab broadcast channel)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    let bc: BroadcastChannel | null = null
+    try {
+      if ('BroadcastChannel' in window) {
+        bc = new BroadcastChannel('gabai-sync-channel')
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'SYNC_REPORTS' && Array.isArray(event.data.reports)) {
+            setReports(event.data.reports)
+          }
+          if (event.data?.type === 'SYNC_HAZARDS' && Array.isArray(event.data.hazards)) {
+            setHazards(event.data.hazards)
+          }
+        }
+      }
+    } catch {}
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'gabai-live-reports' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue)
+          if (Array.isArray(parsed)) setReports(parsed)
+        } catch {}
+      }
+      if (e.key === 'gabai-live-hazards' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue)
+          if (Array.isArray(parsed)) setHazards(parsed)
+        } catch {}
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      if (bc) bc.close()
+    }
+  }, [])
 
   const [destination, setDestination] = useState<{ name: string; lat: number; lng: number } | null>(null)
   const [lastActionMessage, setLastActionMessage] = useState<string | null>(null)
