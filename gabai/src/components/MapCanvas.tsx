@@ -236,9 +236,9 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         source="carto"
         source-layer="building"
         type="fill-extrusion"
-        minzoom={13}
+        minzoom={12}
         paint={{
-          'fill-extrusion-color': darkMode ? '#334155' : '#cbd5e1',
+          'fill-extrusion-color': darkMode ? '#3b4252' : '#cbd5e1',
           'fill-extrusion-height': [
             'case',
             ['has', 'render_height'],
@@ -246,8 +246,8 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
             ['has', 'height'],
             ['get', 'height'],
             ['has', 'levels'],
-            ['*', ['get', 'levels'], 3.5],
-            16,
+            ['*', ['get', 'levels'], 3.8],
+            18,
           ],
           'fill-extrusion-base': [
             'case',
@@ -255,7 +255,7 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
             ['get', 'render_min_height'],
             0,
           ],
-          'fill-extrusion-opacity': 0.85,
+          'fill-extrusion-opacity': 0.9,
         }}
       />
 
