@@ -102,11 +102,57 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   },
   ref
 ) {
-  const mapRef = useRef<any>(null)
-  const initialCentered = useRef(false)
+  const lightStyle: any = {
+    version: 8,
+    sources: {
+      'carto-voyager': {
+        type: 'raster',
+        tiles: [
+          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+          'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        ],
+        tileSize: 256,
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      },
+    },
+    layers: [
+      {
+        id: 'carto-voyager-layer',
+        type: 'raster',
+        source: 'carto-voyager',
+        minzoom: 0,
+        maxzoom: 20,
+      },
+    ],
+  }
 
-  const lightStyle = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json'
-  const darkStyle = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
+  const darkStyle: any = {
+    version: 8,
+    sources: {
+      'carto-dark': {
+        type: 'raster',
+        tiles: [
+          'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+          'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+          'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+          'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+        ],
+        tileSize: 256,
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      },
+    },
+    layers: [
+      {
+        id: 'carto-dark-layer',
+        type: 'raster',
+        source: 'carto-dark',
+        minzoom: 0,
+        maxzoom: 20,
+      },
+    ],
+  }
 
   const userLat = userLocation.lat
   const userLng = userLocation.lng
