@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronUp, CheckCircle, XCircle, Flag, Sparkles, AlertTriangle,
   Users, Megaphone, Send, LifeBuoy,
   Copy, Check, Search, Plus, Minus, Volume2, VolumeX, Eye,
-  Radio, Anchor, HeartPulse, Truck
+  Radio, Anchor, HeartPulse, Truck, Printer, Filter, MapPin, X
 } from 'lucide-react'
 import MapCanvas, { Hazard, MapCanvasHandle } from '../components/MapCanvas'
 import { useDisaster } from '../context/DisasterContext'
@@ -65,14 +65,29 @@ export default function LGUDashboardPage({ darkMode = true, toggleDark = () => {
   const [isSirenActive, setIsSirenActive] = useState(false)
   const [copiedSitRep, setCopiedSitRep] = useState(false)
   const [showRadar, setShowRadar] = useState(true)
+  const [isAiInsightDismissed, setIsAiInsightDismissed] = useState(false)
+  const [is3D, setIs3D] = useState(false)
 
   // Modals
   const [showBroadcastModal, setShowBroadcastModal] = useState(false)
+  const [broadcastChannel, setBroadcastChannel] = useState<{ sms: boolean; app: boolean; siren: boolean }>({
+    sms: true,
+    app: true,
+    siren: false,
+  })
   const [broadcastMessage, setBroadcastMessage] = useState('CRITICAL ADVISORY: Evacuate low-lying river areas immediately.')
+  
   const [showDispatchModal, setShowDispatchModal] = useState(false)
   const [dispatchTargetReport, setDispatchTargetReport] = useState<any>(null)
   const [selectedUnitType, setSelectedUnitType] = useState<string>('rescue_boat')
   const [selectedAgency, setSelectedAgency] = useState<'LGU' | 'PCG' | 'RED_CROSS' | 'BFP' | 'DPWH'>('LGU')
+
+  // New Hazard Declaration Modal
+  const [showAddHazardModal, setShowAddHazardModal] = useState(false)
+  const [newHazardLabel, setNewHazardLabel] = useState('Road Flooding — Emergency Closure')
+  const [newHazardType, setNewHazardType] = useState('flood')
+  const [newHazardSeverity, setNewHazardSeverity] = useState<'high' | 'medium' | 'low'>('high')
+  const [newHazardPassability, setNewHazardPassability] = useState<'all_passable' | 'not_passable_light' | 'not_passable_all'>('not_passable_all')
 
   // Live Digital Clock
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -91,22 +106,22 @@ export default function LGUDashboardPage({ darkMode = true, toggleDark = () => {
   const [fleet, setFleet] = useState<DispatchUnit[]>([
     {
       id: 'unit-1',
-      name: 'PCG Water Search & Rescue Unit',
+      name: 'PCG Water Search & Rescue Unit Alpha',
       agency: 'PCG',
       type: 'rescue_boat',
       status: 'en_route',
-      assignedIncident: 'Flash Flood — Main Avenue',
+      assignedIncident: 'Flash Flood — Santa Maria Corridor',
       location: 'En route to Sector 2',
       eta: '4 mins',
     },
     {
       id: 'unit-2',
-      name: 'Philippine Red Cross EMT Ambulance',
+      name: 'Philippine Red Cross EMT Ambulance 01',
       agency: 'RED_CROSS',
       type: 'medical_emt',
       status: 'on_scene',
       assignedIncident: 'Barangay Medical Aid',
-      location: 'Central Gymnasium',
+      location: 'Central Evacuation Gym',
       eta: 'On Scene',
     },
     {
@@ -130,7 +145,7 @@ export default function LGUDashboardPage({ darkMode = true, toggleDark = () => {
   ])
 
   // Mutual Aid Requests
-  const [mutualAidRequests] = useState<MutualAidRequest[]>([
+  const [mutualAidRequests, setMutualAidRequests] = useState<MutualAidRequest[]>([
     {
       id: 'ma-1',
       agency: 'PCG',
@@ -221,6 +236,32 @@ export default function LGUDashboardPage({ darkMode = true, toggleDark = () => {
     setActiveTab('dispatch')
   }
 
+  const handleRequestMutualAid = () => {
+    const newMa: MutualAidRequest = {
+      id: `ma-${Date.now()}`,
+      agency: 'PCG',
+      resource: '2x Amphibious Rescue Trucks & 6 Swiftwater Technicians',
+      quantity: '2 Trucks',
+      status: 'APPROVED & EN ROUTE',
+      eta: '15 mins',
+    }
+    setMutualAidRequests((prev) => [newMa, ...prev])
+  }
+
+  const handleCreateOfficialHazard = (e: React.FormEvent) => {
+    e.preventDefault()
+    addHazardReport({
+      type: newHazardType,
+      description: newHazardLabel,
+      severity: newHazardSeverity,
+      citizenName: 'LGU Incident Commander (Official Declaration)',
+      isRoadSegment: true,
+      passability: newHazardPassability,
+    })
+    setShowAddHazardModal(false)
+    setActiveTab('hazards')
+  }
+
   // SitRep Generator in Markdown
   const sitRepContent = useMemo(() => {
     const timeStr = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
@@ -228,9 +269,9 @@ export default function LGUDashboardPage({ darkMode = true, toggleDark = () => {
     const highHazards = hazards.filter((h) => h.severity === 'high')
 
     return `# GABAI DISASTER SITUATION REPORT (SITREP)
-**Jurisdiction:** ${locationName} — Incident Command Post
+**Jurisdiction:** ${locationName} — Disaster Operations Command Center (OpCen)
 **Date / Time:** ${dateStr} @ ${timeStr} PST
-**Alert Level:** ${alertLevel.toUpperCase()} ALERT (Active Response Phase)
+**Alert Level:** ${alertLevel.toUpperCase()} ALERT (Active Response & Rescue Phase)
 
 ## 1. EXECUTIVE SUMMARY
 - Total Incidents Under Surveillance: **${hazards.length}**
@@ -239,8 +280,8 @@ export default function LGUDashboardPage({ darkMode = true, toggleDark = () => {
 - Operational Evacuation Shelters: **${localShelters.length}**
 - Inter-Agency Response Fleet: **${fleet.length} Units Active** (PCG, Red Cross, BFP, DPWH, LGU)
 
-## 2. ACTIVE HAZARDS INVENTORY
-${hazards.map((h, i) => `${i + 1}. **${h.label}** (${h.severity.toUpperCase()}) — ${h.status} [${h.reports} reports, ${h.verified} verified]`).join('\n')}
+## 2. ACTIVE HAZARDS & ROAD PASSABILITY MATRIX
+${hazards.map((h, i) => `${i + 1}. **${h.label}** (${h.severity.toUpperCase()}) — ${h.status} [${h.passability ? h.passability.replace(/_/g, ' ').toUpperCase() : 'PASSABILITY RECORDED'}]`).join('\n')}
 
 ## 3. EVACUATION SHELTER STATUS
 ${localShelters.map((s) => `- **${s.name}**: ${s.cap} Occupancy (${s.status})`).join('\n')}
@@ -260,7 +301,9 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
     setTimeout(() => setCopiedSitRep(false), 3000)
   }
 
-  const [is3D, setIs3D] = useState(false)
+  const printSitRep = () => {
+    window.print()
+  }
 
   const toggle3DMode = () => {
     setIs3D((prev) => {
@@ -296,15 +339,15 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
         />
       </div>
 
-      {/* ── Fixed Header Command Bar (Zero Overlap) ───────────── */}
+      {/* ── Fixed Header Command Bar (Glassmorphic OpCen Deck) ── */}
       <header className="absolute top-0 left-0 right-0 z-20 bg-slate-900/90 backdrop-blur-xl border-b border-slate-800 shadow-2xl p-2.5 sm:p-3">
         <div className="max-w-7xl mx-auto flex flex-col gap-2.5">
-          {/* Top Row: Brand + Controls */}
+          {/* Top Row: Brand + Alert Status + Controls */}
           <div className="flex items-center justify-between gap-2 flex-wrap">
             {/* OpCen Logo & Location */}
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-md shrink-0 border border-blue-400/30">
-                <Shield className="w-4 h-4 text-white" strokeWidth={2.5} />
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 flex items-center justify-center shadow-lg shrink-0 border border-blue-400/40">
+                <Shield className="w-5 h-5 text-white" strokeWidth={2.5} />
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -312,9 +355,12 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                   <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[9px] font-black px-1.5 py-0.5 rounded uppercase">
                     DISASTER OPCEN
                   </span>
-                  <span className={`w-2 h-2 rounded-full ${isWsConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} title={isWsConnected ? 'Live WebSocket Connected' : 'Syncing'} />
+                  <span
+                    className={`w-2 h-2 rounded-full ${isWsConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}
+                    title={isWsConnected ? 'Live Cloud Sync Connected' : 'Syncing'}
+                  />
                 </div>
-                <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
+                <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5 mt-0.5">
                   <span className="text-slate-200 font-semibold truncate max-w-[200px]">{locationName}</span>
                   <span>•</span>
                   <span className="text-emerald-400 font-mono font-bold">
@@ -332,14 +378,15 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                 {(['blue', 'orange', 'red'] as const).map((lvl) => (
                   <button
                     key={lvl}
+                    type="button"
                     onClick={() => setAlertLevel(lvl)}
-                    className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase transition-all ${
+                    className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase transition-all cursor-pointer ${
                       alertLevel === lvl
                         ? lvl === 'red'
-                          ? 'bg-red-600 text-white shadow-[0_0_10px_rgba(239,68,68,0.8)]'
+                          ? 'bg-red-600 text-white shadow-[0_0_12px_rgba(239,68,68,0.8)]'
                           : lvl === 'orange'
-                          ? 'bg-amber-500 text-slate-950 font-bold shadow-[0_0_10px_rgba(245,158,11,0.6)]'
-                          : 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.6)]'
+                          ? 'bg-amber-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)]'
+                          : 'bg-blue-600 text-white shadow-[0_0_12px_rgba(37,99,235,0.6)]'
                         : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
@@ -350,8 +397,9 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
 
               {/* Broadcast Alert Button */}
               <button
+                type="button"
                 onClick={() => setShowBroadcastModal(true)}
-                className="bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-md border border-red-400/40 flex items-center gap-1.5 active:scale-95 transition-all"
+                className="bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl shadow-md border border-red-400/40 flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
               >
                 <Megaphone className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Broadcast Alert</span>
@@ -359,8 +407,9 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
 
               {/* Siren Audio Toggle */}
               <button
+                type="button"
                 onClick={() => setIsSirenActive(!isSirenActive)}
-                className={`p-2 rounded-xl border transition-all ${
+                className={`p-2 rounded-xl border transition-all cursor-pointer ${
                   isSirenActive
                     ? 'bg-red-600 border-red-400 text-white animate-pulse'
                     : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white'
@@ -370,29 +419,41 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                 {isSirenActive ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
               </button>
 
+              {/* 2D / 3D Switcher */}
+              <button
+                type="button"
+                onClick={toggle3DMode}
+                className="bg-slate-950/80 hover:bg-slate-800 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
+                title="Switch 2D / 3D View"
+              >
+                <span>{is3D ? '🧊 3D' : '🗺️ 2D'}</span>
+              </button>
+
               {/* Public Citizen Map View */}
               <Link
                 to="/"
                 className="bg-slate-950/80 hover:bg-slate-800 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-200 hover:text-blue-400 transition-colors flex items-center gap-1.5"
               >
                 <Eye className="w-3.5 h-3.5 text-blue-400" />
-                <span className="hidden sm:inline">Public Map</span>
+                <span className="hidden sm:inline">Public Citizen Map</span>
               </Link>
 
               {/* Theme Toggle */}
               <button
+                type="button"
                 onClick={toggleDark}
-                className="bg-slate-950/80 border border-slate-800 rounded-xl p-2 text-slate-400 hover:text-white transition-colors"
+                className="bg-slate-950/80 border border-slate-800 rounded-xl p-2 text-slate-400 hover:text-white transition-colors cursor-pointer"
               >
                 {darkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-blue-400" />}
               </button>
             </div>
           </div>
 
-          {/* Row 2: Telemetry Metrics Strip */}
+          {/* Row 2: Telemetry Metrics Ribbon */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
             {[
               {
+                id: 'hazards',
                 label: 'Active Danger Pins',
                 val: activeHazardsCount,
                 icon: AlertTriangle,
@@ -400,6 +461,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                 border: 'border-red-500/30',
               },
               {
+                id: 'triage',
                 label: 'Pending Triage',
                 val: pendingReports.length,
                 icon: Clock,
@@ -407,6 +469,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                 border: 'border-amber-500/30',
               },
               {
+                id: 'triage',
                 label: 'Verified Incidents',
                 val: verifiedReports.length,
                 icon: CheckCircle,
@@ -414,6 +477,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                 border: 'border-emerald-500/30',
               },
               {
+                id: 'evacuation',
                 label: 'Active Shelters',
                 val: localShelters.length,
                 icon: Users,
@@ -421,6 +485,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                 border: 'border-blue-500/30',
               },
               {
+                id: 'dispatch',
                 label: 'Dispatched Fleet',
                 val: fleet.length,
                 icon: LifeBuoy,
@@ -430,9 +495,14 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
             ].map((m) => {
               const Icon = m.icon
               return (
-                <div
+                <button
                   key={m.label}
-                  className={`bg-slate-950/70 rounded-xl p-2 px-3 border ${m.border} flex items-center justify-between shadow-inner`}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(m.id as any)
+                    setIsPanelMinimized(false)
+                  }}
+                  className={`bg-slate-950/70 hover:bg-slate-900 rounded-xl p-2 px-3 border ${m.border} flex items-center justify-between shadow-inner transition-colors cursor-pointer text-left`}
                 >
                   <div>
                     <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{m.label}</div>
@@ -441,7 +511,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                   <div className={`p-1.5 rounded-lg bg-slate-900 ${m.color}`}>
                     <Icon className="w-3.5 h-3.5" />
                   </div>
-                </div>
+                </button>
               )
             })}
           </div>
@@ -459,17 +529,24 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
       )}
 
       {/* ── Main Command Sidebar Panel ───────────────────────── */}
-      <div className="absolute top-[138px] bottom-4 left-4 z-20 w-full sm:w-[440px] max-w-[calc(100vw-32px)] pointer-events-none transition-all duration-300">
+      <div className="absolute top-[148px] bottom-4 left-4 z-20 w-full sm:w-[450px] max-w-[calc(100vw-32px)] pointer-events-none transition-all duration-300">
         <div className="h-full bg-slate-900/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] border border-slate-700/60 overflow-hidden flex flex-col pointer-events-auto">
           {/* AI Pattern Alert Pill */}
-          {aiPatternInsight && (
-            <div className="bg-amber-950/80 border-b border-amber-500/40 p-3 flex items-start gap-2.5 anim-slide-down">
+          {aiPatternInsight && !isAiInsightDismissed && (
+            <div className="bg-amber-950/80 border-b border-amber-500/40 p-2.5 px-3 flex items-start gap-2.5 anim-slide-down">
               <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40 shrink-0 mt-0.5">
                 <Sparkles className="w-3.5 h-3.5 animate-pulse" />
               </div>
               <div className="flex-1 min-w-0 text-xs">
-                <div className="font-black text-amber-300 text-[11px] leading-tight flex items-center gap-1.5">
+                <div className="font-black text-amber-300 text-[11px] leading-tight flex items-center justify-between">
                   <span className="truncate">{aiPatternInsight.title}</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsAiInsightDismissed(true)}
+                    className="text-amber-400 hover:text-white p-0.5 rounded cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
                 <p className="text-slate-300 text-[10px] mt-0.5 line-clamp-2 leading-relaxed">
                   {aiPatternInsight.description}
@@ -481,8 +558,9 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
           {/* Tabs Navigation */}
           <div className="p-2 bg-slate-950/80 border-b border-slate-800 flex items-center gap-1">
             <button
+              type="button"
               onClick={() => setIsPanelMinimized(!isPanelMinimized)}
-              className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800/60 transition-colors"
+              className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800/60 transition-colors cursor-pointer"
               title={isPanelMinimized ? 'Expand Control Panel' : 'Minimize Control Panel'}
             >
               {isPanelMinimized ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -498,11 +576,12 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
               ].map((t) => (
                 <button
                   key={t.id}
+                  type="button"
                   onClick={() => {
                     setActiveTab(t.id as any)
                     setIsPanelMinimized(false)
                   }}
-                  className={`py-1.5 px-1 rounded-xl text-[11px] font-extrabold capitalize transition-all relative flex flex-col items-center justify-center ${
+                  className={`py-1.5 px-1 rounded-xl text-[11px] font-extrabold capitalize transition-all relative flex flex-col items-center justify-center cursor-pointer ${
                     activeTab === t.id && !isPanelMinimized
                       ? 'bg-blue-600 text-white shadow-md border border-blue-400/40'
                       : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
@@ -549,10 +628,11 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                       {(['all', 'pending', 'verified', 'resolved'] as const).map((st) => (
                         <button
                           key={st}
+                          type="button"
                           onClick={() => setReportFilter(st)}
-                          className={`px-3 py-1 rounded-xl text-[10px] font-bold capitalize transition-colors whitespace-nowrap ${
+                          className={`px-3 py-1 rounded-xl text-[10px] font-bold capitalize transition-colors whitespace-nowrap cursor-pointer ${
                             reportFilter === st
-                              ? 'bg-blue-600 text-white'
+                              ? 'bg-blue-600 text-white shadow-sm'
                               : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
                           }`}
                         >
@@ -571,16 +651,16 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                       <div
                         key={report.id}
                         onClick={() => mapCanvasRef.current?.flyToCoords(report.lat, report.lng, 16)}
-                        className={`p-3 rounded-2xl border transition-all cursor-pointer ${
+                        className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
                           isPending
-                            ? 'border-amber-500/60 bg-amber-500/5 hover:bg-amber-500/10'
+                            ? 'border-amber-500/60 bg-amber-500/5 hover:bg-amber-500/10 shadow-sm'
                             : isVerified
                             ? 'border-emerald-500/60 bg-emerald-500/5 hover:bg-emerald-500/10'
                             : 'border-slate-800 bg-slate-950/40 hover:bg-slate-900/60'
                         }`}
                       >
                         <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2.5">
                             <span className="text-2xl">{report.emoji}</span>
                             <div>
                               <div className="font-extrabold text-xs text-slate-100 flex items-center gap-1.5">
@@ -593,7 +673,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                             </div>
                           </div>
                           <span
-                            className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${
+                            className={`text-[9px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider ${
                               isVerified
                                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                                 : isPending
@@ -609,17 +689,17 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
 
                         {/* Road Flood Line & Passability Specific Badge in LGU Triage */}
                         {report.isRoadSegment && report.roadSegment && (
-                          <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800 my-2 space-y-1.5 text-xs">
+                          <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 my-2 space-y-1.5 text-xs">
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] font-black uppercase tracking-wider text-cyan-400 flex items-center gap-1">
-                                🛣️ Road Stretch: {report.roadSegment.roadName || 'Road Segment'}
+                                🛣️ Road Corridor: {report.roadSegment.roadName || 'Segment'}
                               </span>
                               <span
                                 className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
                                   isVerified ? 'bg-blue-600 text-white' : 'bg-amber-500 text-white'
                                 }`}
                               >
-                                {isVerified ? '🔵 Verified Blue Line' : '🟠 Pending Orange Line'}
+                                {isVerified ? '🔵 LGU Verified Corridor' : '🟠 Pending Citizen Report'}
                               </span>
                             </div>
                             <div className="grid grid-cols-2 gap-1.5 text-[10px]">
@@ -656,32 +736,36 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                           {isPending && (
                             <>
                               <button
+                                type="button"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   verifyReport(report.id)
                                 }}
-                                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 rounded-xl text-xs flex items-center justify-center gap-1 transition-all shadow-md active:scale-95"
+                                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 rounded-xl text-xs flex items-center justify-center gap-1 transition-all shadow-md active:scale-95 cursor-pointer"
                               >
                                 <CheckCircle className="w-3.5 h-3.5" />
-                                <span>{report.isRoadSegment ? 'Verify Road Flood (Turns Blue)' : 'Verify & Publish'}</span>
+                                <span>Verify Incident</span>
                               </button>
                               <button
+                                type="button"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setDispatchTargetReport(report)
                                   setShowDispatchModal(true)
                                 }}
-                                className="px-3 bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 rounded-xl text-xs flex items-center gap-1 transition-all active:scale-95"
+                                className="px-3 bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 rounded-xl text-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
                               >
                                 <LifeBuoy className="w-3.5 h-3.5" />
                                 <span>Dispatch</span>
                               </button>
                               <button
+                                type="button"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   rejectReport(report.id)
                                 }}
-                                className="px-2.5 bg-slate-800 hover:bg-red-950/60 hover:text-red-400 text-slate-400 font-bold py-1.5 rounded-xl text-xs"
+                                className="px-2.5 bg-slate-800 hover:bg-red-950/60 hover:text-red-400 text-slate-400 font-bold py-1.5 rounded-xl text-xs cursor-pointer"
+                                title="Dismiss / Reject Report"
                               >
                                 <XCircle className="w-3.5 h-3.5" />
                               </button>
@@ -691,22 +775,24 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                           {isVerified && (
                             <>
                               <button
+                                type="button"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setDispatchTargetReport(report)
                                   setShowDispatchModal(true)
                                 }}
-                                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 rounded-xl text-xs flex items-center justify-center gap-1 transition-all shadow-md active:scale-95"
+                                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 rounded-xl text-xs flex items-center justify-center gap-1 transition-all shadow-md active:scale-95 cursor-pointer"
                               >
                                 <LifeBuoy className="w-3.5 h-3.5" />
-                                <span>Assign Mutual Aid / Fleet</span>
+                                <span>Deploy Rescue / Fleet</span>
                               </button>
                               <button
+                                type="button"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   resolveReport(report.id)
                                 }}
-                                className="px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-1.5 rounded-xl text-xs flex items-center gap-1"
+                                className="px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-1.5 rounded-xl text-xs flex items-center gap-1 cursor-pointer"
                               >
                                 <Flag className="w-3.5 h-3.5 text-blue-400" />
                                 <span>Resolve</span>
@@ -715,8 +801,8 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                           )}
 
                           {isResolved && (
-                            <div className="w-full text-center text-[10px] text-slate-500 font-bold py-1">
-                              🏁 Incident Cleared & Closed
+                            <div className="w-full text-center text-[10px] text-slate-500 font-bold py-1 flex items-center justify-center gap-1">
+                              <span>🏁</span> Incident Cleared & Closed
                             </div>
                           )}
                         </div>
@@ -732,20 +818,14 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-extrabold text-sm text-white">Active Map Hazards</h3>
-                      <p className="text-[11px] text-slate-400">Broadcasting to citizen route routers</p>
+                      <p className="text-[11px] text-slate-400">Broadcasting live to citizen GPS routers</p>
                     </div>
                     <button
-                      onClick={() =>
-                        addHazardReport({
-                          type: 'flood',
-                          description: 'LGU Commanded Hazard Zone: High Risk Flood Warning',
-                          severity: 'high',
-                          citizenName: 'LGU Incident Commander',
-                        })
-                      }
-                      className="bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-xl flex items-center gap-1"
+                      type="button"
+                      onClick={() => setShowAddHazardModal(true)}
+                      className="bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 shadow-md cursor-pointer active:scale-95"
                     >
-                      <Plus className="w-3.5 h-3.5" /> Add Zone
+                      <Plus className="w-3.5 h-3.5" /> Declare Hazard
                     </button>
                   </div>
 
@@ -756,7 +836,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                         setSelectedHazard(h)
                         mapCanvasRef.current?.flyToCoords(h.lat, h.lng, 16)
                       }}
-                      className={`p-3 rounded-2xl border transition-all cursor-pointer ${
+                      className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
                         selectedHazard?.id === h.id
                           ? 'border-blue-500 bg-blue-500/20 shadow-lg'
                           : 'border-slate-800 bg-slate-950/60 hover:border-slate-700'
@@ -768,7 +848,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                           <div>
                             <div className="font-bold text-xs text-white">{h.label}</div>
                             <div className="text-[10px] text-slate-400 mt-0.5">
-                              {h.distance} · {h.reports} reports · {h.verified} LGU verified
+                              {h.distance} · {h.reports} reports · {h.verified} verified
                             </div>
                           </div>
                         </div>
@@ -794,8 +874,8 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-extrabold text-sm text-white">Shelter Logistics</h3>
-                      <p className="text-[11px] text-slate-400">Live capacity controls</p>
+                      <h3 className="font-extrabold text-sm text-white">Shelter Logistics & Beds</h3>
+                      <p className="text-[11px] text-slate-400">Real-time capacity controller</p>
                     </div>
                     <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 rounded-lg">
                       100% OPERATIONAL
@@ -808,14 +888,16 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                       <div
                         key={shelter.name}
                         onClick={() => mapCanvasRef.current?.flyToCoords(shelter.lat, shelter.lng, 16)}
-                        className="p-3 rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 transition-all cursor-pointer space-y-2.5"
+                        className="p-3.5 rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 transition-all cursor-pointer space-y-2.5 shadow-sm"
                       >
                         <div className="flex justify-between items-start">
                           <div>
                             <div className="font-extrabold text-xs text-white">{shelter.name}</div>
                             <div className="text-[10px] text-slate-400 mt-0.5">{shelter.dist} away from OpCen</div>
                           </div>
-                          <span className="text-xs font-bold text-emerald-400">{shelter.status}</span>
+                          <span className={`text-xs font-bold ${pct >= 90 ? 'text-red-400' : 'text-emerald-400'}`}>
+                            {pct >= 90 ? 'Full' : shelter.status}
+                          </span>
                         </div>
 
                         <div>
@@ -834,19 +916,21 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                         </div>
 
                         <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs">
-                          <span className="text-[10px] text-slate-400 font-medium">Adjust Occupancy:</span>
+                          <span className="text-[10px] text-slate-400 font-medium">Quick Capacity Adjust:</span>
                           <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
                             <button
+                              type="button"
                               onClick={() => handleModifyShelter(idx, -10)}
-                              className="p-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300"
+                              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 text-[10px] font-bold flex items-center gap-0.5 cursor-pointer"
                             >
-                              <Minus className="w-3.5 h-3.5" />
+                              <Minus className="w-3 h-3" /> 10%
                             </button>
                             <button
+                              type="button"
                               onClick={() => handleModifyShelter(idx, 10)}
-                              className="p-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300"
+                              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 text-[10px] font-bold flex items-center gap-0.5 cursor-pointer"
                             >
-                              <Plus className="w-3.5 h-3.5" />
+                              <Plus className="w-3 h-3" /> 10%
                             </button>
                           </div>
                         </div>
@@ -865,25 +949,23 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                       <p className="text-[11px] text-slate-400">PCG, Red Cross, BFP, DPWH, LGU</p>
                     </div>
                     <button
-                      onClick={() => {
-                        setDispatchTargetReport(reports[0])
-                        setShowDispatchModal(true)
-                      }}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 shadow-md"
+                      type="button"
+                      onClick={handleRequestMutualAid}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 shadow-md cursor-pointer active:scale-95"
                     >
-                      <Plus className="w-3.5 h-3.5" /> Request Aid
+                      <Plus className="w-3.5 h-3.5" /> Request Mutual Aid
                     </button>
                   </div>
 
                   {fleet.map((unit) => (
                     <div
                       key={unit.id}
-                      className="p-3 rounded-2xl border border-slate-800 bg-slate-950/60 space-y-2"
+                      className="p-3.5 rounded-2xl border border-slate-800 bg-slate-950/60 space-y-2 shadow-sm"
                     >
                       <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-2">
-                          <div className="p-1.5 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                            {unit.agency === 'PCG' ? <Anchor className="w-3.5 h-3.5" /> : unit.agency === 'RED_CROSS' ? <HeartPulse className="w-3.5 h-3.5" /> : <LifeBuoy className="w-3.5 h-3.5" />}
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                            {unit.agency === 'PCG' ? <Anchor className="w-4 h-4" /> : unit.agency === 'RED_CROSS' ? <HeartPulse className="w-4 h-4" /> : <LifeBuoy className="w-4 h-4" />}
                           </div>
                           <div>
                             <div className="font-bold text-xs text-white flex items-center gap-1.5">
@@ -896,7 +978,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                           </div>
                         </div>
                         <span
-                          className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+                          className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded-md ${
                             unit.status === 'en_route'
                               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
                               : unit.status === 'on_scene'
@@ -925,18 +1007,30 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-extrabold text-sm text-white">AI Situation Report (SitRep)</h3>
-                      <p className="text-[11px] text-slate-400">Automated government executive brief</p>
+                      <p className="text-[11px] text-slate-400">Official NDRRMC / PDRRMO Executive Format</p>
                     </div>
-                    <button
-                      onClick={copySitRep}
-                      className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-md"
-                    >
-                      {copiedSitRep ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedSitRep ? 'Copied!' : 'Copy SitRep'}</span>
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={printSitRep}
+                        className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-2.5 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer"
+                        title="Print / Save as Official PDF"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Print</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={copySitRep}
+                        className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-md cursor-pointer"
+                      >
+                        {copiedSitRep ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copiedSitRep ? 'Copied!' : 'Copy'}</span>
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 font-mono text-[10px] text-slate-300 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto">
+                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 font-mono text-[10px] text-slate-300 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto shadow-inner">
                     {sitRepContent}
                   </div>
                 </div>
@@ -949,16 +1043,18 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
       {/* ── Map Action Controls (Bottom Right) ────────────────── */}
       <div className="absolute bottom-6 right-4 z-20 flex flex-col gap-2 pointer-events-none">
         <button
+          type="button"
           onClick={handleLocateMe}
           title="Center OpCen on GPS coordinates"
-          className="pointer-events-auto w-11 h-11 bg-slate-900/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/60 flex items-center justify-center text-slate-300 hover:text-blue-400 hover:bg-slate-800 transition-all active:scale-95 group"
+          className="pointer-events-auto w-11 h-11 bg-slate-900/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/60 flex items-center justify-center text-slate-300 hover:text-blue-400 hover:bg-slate-800 transition-all active:scale-95 group cursor-pointer"
         >
           <Locate className={`w-4 h-4 transition-transform ${isLocationLoading ? 'animate-spin text-blue-400' : 'group-hover:scale-110'}`} />
         </button>
 
         <button
+          type="button"
           onClick={() => setLayersOpen(!layersOpen)}
-          className={`pointer-events-auto w-11 h-11 rounded-2xl shadow-2xl border flex items-center justify-center transition-all active:scale-95 backdrop-blur-xl ${
+          className={`pointer-events-auto w-11 h-11 rounded-2xl shadow-2xl border flex items-center justify-center transition-all active:scale-95 backdrop-blur-xl cursor-pointer ${
             layersOpen
               ? 'bg-blue-600 border-blue-400 text-white'
               : 'bg-slate-900/90 border-slate-700/60 text-slate-300 hover:bg-slate-800 hover:text-blue-400'
@@ -970,8 +1066,13 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
 
       {/* Layers Dropdown */}
       {layersOpen && (
-        <div className="absolute bottom-20 right-4 z-30 bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/60 p-4 w-56 anim-slide-up pointer-events-auto">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Map Layers</div>
+        <div className="absolute bottom-20 right-4 z-30 bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/60 p-4 w-60 anim-slide-up pointer-events-auto">
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+            <span>Map Layers</span>
+            <button onClick={() => setLayersOpen(false)} className="text-slate-500 hover:text-white">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
           <label className="flex items-center gap-2.5 py-1.5 cursor-pointer text-xs text-slate-300 hover:text-white">
             <input
               type="checkbox"
@@ -979,12 +1080,12 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
               onChange={(e) => setShowRadar(e.target.checked)}
               className="w-3.5 h-3.5 accent-blue-500"
             />
-            <span className="font-bold">PAGASA Doppler Weather Radar</span>
+            <span className="font-bold">PAGASA Weather Doppler Radar</span>
           </label>
           {[
-            { id: 'hazards', label: 'Hazard Danger Pins' },
+            { id: 'hazards', label: 'Flood Lines & Danger Zones' },
             { id: 'evac', label: 'Evacuation Shelters' },
-            { id: '3d', label: '3D Buildings Extrusion' },
+            { id: '3d', label: '3D Extruded Buildings' },
           ].map((l) => (
             <label key={l.id} className="flex items-center gap-2.5 py-1.5 cursor-pointer text-xs text-slate-300 hover:text-white">
               <input type="checkbox" defaultChecked={l.id !== '3d'} className="w-3.5 h-3.5 accent-blue-500" />
@@ -998,38 +1099,104 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
 
       {/* 1. Emergency Broadcast Modal */}
       {showBroadcastModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 anim-fade-in">
-          <div className="bg-slate-900 border border-red-500/50 rounded-3xl p-6 max-w-md w-full shadow-[0_0_50px_rgba(239,68,68,0.3)] anim-slide-up">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-2xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400">
-                <Megaphone className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 anim-fade-in">
+          <div className="bg-slate-900 border border-red-500/50 rounded-3xl p-6 max-w-md w-full shadow-[0_0_60px_rgba(239,68,68,0.35)] anim-slide-up">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400">
+                  <Megaphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-white text-base">Public Emergency Broadcast</h3>
+                  <p className="text-xs text-slate-400">Multi-Channel Citizen Alert Notification</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-extrabold text-white text-base">Public Emergency Broadcast</h3>
-                <p className="text-xs text-slate-400">Pushes red alert notification to all active citizen devices</p>
+              <button onClick={() => setShowBroadcastModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Templates */}
+            <div className="mb-3">
+              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">
+                Quick Advisory Preset Templates:
+              </label>
+              <div className="grid grid-cols-1 gap-1.5">
+                {[
+                  '🚨 EVACUATION ORDER: Immediate pre-emptive evacuation for low-lying river areas.',
+                  '⛔ ROAD CLOSURE: Flooding detected on Mexico-San Luis corridor. Follow GABAI safe route.',
+                  '🟢 ALL CLEAR: Floodwaters subsiding. Relief goods distribution active at Municipal Gym.',
+                ].map((tmpl) => (
+                  <button
+                    key={tmpl}
+                    type="button"
+                    onClick={() => setBroadcastMessage(tmpl)}
+                    className="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[11px] text-slate-300 rounded-xl text-left truncate transition-colors cursor-pointer"
+                  >
+                    {tmpl}
+                  </button>
+                ))}
               </div>
             </div>
 
-            <textarea
-              value={broadcastMessage}
-              onChange={(e) => setBroadcastMessage(e.target.value)}
-              rows={3}
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-xs text-white placeholder-slate-500 outline-none focus:border-red-500 resize-none mb-4"
-            />
+            <div className="mb-4">
+              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">
+                Custom Broadcast Message:
+              </label>
+              <textarea
+                value={broadcastMessage}
+                onChange={(e) => setBroadcastMessage(e.target.value)}
+                rows={3}
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-xs text-white placeholder-slate-500 outline-none focus:border-red-500 resize-none"
+              />
+            </div>
+
+            {/* Channels */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              <label className="p-2 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2 text-[10px] font-bold text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={broadcastChannel.sms}
+                  onChange={(e) => setBroadcastChannel({ ...broadcastChannel, sms: e.target.checked })}
+                  className="accent-red-500"
+                />
+                <span>SMS Cell Broadcast</span>
+              </label>
+              <label className="p-2 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2 text-[10px] font-bold text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={broadcastChannel.app}
+                  onChange={(e) => setBroadcastChannel({ ...broadcastChannel, app: e.target.checked })}
+                  className="accent-red-500"
+                />
+                <span>App Push Alert</span>
+              </label>
+              <label className="p-2 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2 text-[10px] font-bold text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={broadcastChannel.siren}
+                  onChange={(e) => setBroadcastChannel({ ...broadcastChannel, siren: e.target.checked })}
+                  className="accent-red-500"
+                />
+                <span>OpCen Sirens</span>
+              </label>
+            </div>
 
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={() => setShowBroadcastModal(false)}
-                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs"
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs cursor-pointer"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setShowBroadcastModal(false)
-                  setIsSirenActive(true)
+                  if (broadcastChannel.siren) setIsSirenActive(true)
                 }}
-                className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg"
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg cursor-pointer active:scale-95"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Send Broadcast</span>
@@ -1041,19 +1208,24 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
 
       {/* 2. Mutual Aid & Dispatch Modal */}
       {showDispatchModal && dispatchTargetReport && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 anim-fade-in">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 anim-fade-in">
           <form
             onSubmit={handleAssignDispatch}
-            className="bg-slate-900 border border-indigo-500/50 rounded-3xl p-6 max-w-md w-full shadow-[0_0_50px_rgba(99,102,241,0.3)] anim-slide-up"
+            className="bg-slate-900 border border-indigo-500/50 rounded-3xl p-6 max-w-md w-full shadow-[0_0_60px_rgba(99,102,241,0.35)] anim-slide-up"
           >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
-                <LifeBuoy className="w-5 h-5" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+                  <LifeBuoy className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-white text-base">Inter-Agency Mutual Aid Dispatch</h3>
+                  <p className="text-xs text-slate-400 truncate max-w-[280px]">Target: {dispatchTargetReport.desc}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-extrabold text-white text-base">Inter-Agency Mutual Aid Dispatch</h3>
-                <p className="text-xs text-slate-400 truncate max-w-[280px]">Incident: {dispatchTargetReport.desc}</p>
-              </div>
+              <button type="button" onClick={() => setShowDispatchModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <div className="space-y-2 mb-4">
@@ -1063,8 +1235,8 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                   { id: 'PCG', label: 'Coast Guard', icon: Anchor },
                   { id: 'RED_CROSS', label: 'Red Cross', icon: HeartPulse },
                   { id: 'BFP', label: 'Fire Bureau', icon: Shield },
-                  { id: 'DPWH', label: 'DPWH Infra', icon: Truck },
-                  { id: 'LGU', label: 'LGU OpCen', icon: LifeBuoy },
+                  { id: 'DPWH', label: 'DPWH Clearing', icon: Truck },
+                  { id: 'LGU', label: 'MDRRMO Crew', icon: LifeBuoy },
                 ].map((ag) => {
                   const Icon = ag.icon
                   return (
@@ -1072,9 +1244,9 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                       key={ag.id}
                       type="button"
                       onClick={() => setSelectedAgency(ag.id as any)}
-                      className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+                      className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
                         selectedAgency === ag.id
-                          ? 'border-indigo-500 bg-indigo-500/20 text-white'
+                          ? 'border-indigo-500 bg-indigo-500/20 text-white shadow-md'
                           : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:text-white'
                       }`}
                     >
@@ -1090,16 +1262,104 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
               <button
                 type="button"
                 onClick={() => setShowDispatchModal(false)}
-                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs"
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg"
+                className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg cursor-pointer active:scale-95"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Deploy Unit</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* 3. Declare New Hazard / Closure Modal */}
+      {showAddHazardModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 anim-fade-in">
+          <form
+            onSubmit={handleCreateOfficialHazard}
+            className="bg-slate-900 border border-blue-500/50 rounded-3xl p-6 max-w-md w-full shadow-[0_0_60px_rgba(59,130,246,0.35)] anim-slide-up"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-white text-base">Declare Official Hazard Zone</h3>
+                  <p className="text-xs text-slate-400">Broadcasts immediately to all citizen navigation maps</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setShowAddHazardModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">
+                  Incident Title / Road Name:
+                </label>
+                <input
+                  type="text"
+                  value={newHazardLabel}
+                  onChange={(e) => setNewHazardLabel(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">
+                    Severity:
+                  </label>
+                  <select
+                    value={newHazardSeverity}
+                    onChange={(e: any) => setNewHazardSeverity(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-white outline-none"
+                  >
+                    <option value="high">🔴 High (Emergency)</option>
+                    <option value="medium">🟠 Medium (Caution)</option>
+                    <option value="low">🔵 Low (Advisory)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">
+                    Passability:
+                  </label>
+                  <select
+                    value={newHazardPassability}
+                    onChange={(e: any) => setNewHazardPassability(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-white outline-none"
+                  >
+                    <option value="not_passable_all">⛔ Closed (All Vehicles)</option>
+                    <option value="not_passable_light">🚫 No Light Cars</option>
+                    <option value="all_passable">🟢 Passable (Caution)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAddHazardModal(false)}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg cursor-pointer active:scale-95"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span>Publish Hazard</span>
               </button>
             </div>
           </form>
