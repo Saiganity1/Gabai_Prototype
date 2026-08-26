@@ -1,0 +1,1242 @@
+import { useState, useEffect, useMemo, useRef } from 'react'
+import {
+  Search, Sun, Moon, Mic, MicOff, Layers, Locate,
+  ChevronUp, ChevronDown, X, Shield, Navigation,
+  MapPin, TriangleAlert, Users,
+  PhoneCall, Clock, ChevronRight, Loader2, Sparkles,
+  Camera, Upload, Zap, CloudRain, Radio
+} from 'lucide-react'
+import MapCanvas, { Hazard, MapCanvasHandle } from '../components/MapCanvas'
+import DrivingHUD from '../components/DrivingHUD'
+import FamilySafetyModal from '../components/FamilySafetyModal'
+import SOSRescueStrobe from '../components/SOSRescueStrobe'
+import { useVoiceAssistant, VoiceActionPayload } from '../hooks/useVoiceAssistant'
+import { useDisaster } from '../context/DisasterContext'
+import { REPORT_TYPES } from '../constants'
+import { ActiveModal, AppState } from '../types'
+import { StatusDot } from '../components/ui/StatusDot'
+import { RiskBadge } from '../components/ui/RiskBadge'
+import {
+  Establishment,
+  EstablishmentCategory,
+  CATEGORY_CONFIG,
+  searchRealWorldPlaces,
+} from '../utils/establishmentImporter'
+
+interface Props {
+  darkMode: boolean
+  toggleDark: () => void
+}
+
+export default function MainApp({ darkMode, toggleDark }: Props) {
+  const {
+    hazards,
+    evacCenters,
+    establishments,
+    selectedEstablishment,
+    setSelectedEstablishment,
+    userLocation,
+    locationName,
+    isLocationLoading,
+    requestLocation,
+    addHazardReport,
+    destination,
+    setDestination,
+    routes,
+    aiPatternInsight,
+    lastActionMessage,
+    clearLastActionMessage,
+  } = useDisaster()
+
+  const [activeModal, setActiveModal] = useState<ActiveModal | 'family_safety' | 'establishment'>('none')
+  const [appState, setAppState] = useState<AppState>('normal')
+  const [selectedHazard, setSelectedHazard] = useState<Hazard | null>(null)
+  const [selectedRoute, setSelectedRoute] = useState<'safe' | 'balanced' | 'fast'>('safe')
+  const [panelOpen, setPanelOpen] = useState(false)
+  const [showBubble, setShowBubble] = useState(false)
+  const [showRadar, setShowRadar] = useState(true)
+
+  // Destination Choosing States
+  const [isChoosingDestination, setIsChoosingDestination] = useState(false)
+  const [destinationSearch, setDestinationSearch] = useState('')
+  const [isMapClickDestinationMode, setIsMapClickDestinationMode] = useState(false)
+
+  // Advanced feature active views
+  const [isDrivingHUDActive, setIsDrivingHUDActive] = useState(false)
+  const [isSOSStrobeActive, setIsSOSStrobeActive] = useState(false)
+
+  // Real Search Autocomplete
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
+  const [searchResults, setSearchResults] = useState<
+    Array<{ name: string; address: string; lat: number; lng: number; isEstablishment?: boolean; emoji?: string }>
+  >([])
+  const [isSearching, setIsSearching] = useState(false)
+
+  // Reporting with AI Vision
+  const [reportStep, setReportStep] = useState<'form' | 'analyzing' | 'done'>('form')
+  const [reportType, setReportType] = useState<string>('flood')
+  const [reportDesc, setReportDesc] = useState<string>('')
+  const [reportSeverity, setReportSeverity] = useState<'low' | 'medium' | 'high'>('high')
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false)
+  const [photoAiAnalysis, setPhotoAiAnalysis] = useState<any>(null)
+
+  const [layersOpen, setLayersOpen] = useState(false)
+  const mapCanvasRef = useRef<MapCanvasHandle>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Selectable Destinations list for Safe Route chooser
+  const selectableDestinations = useMemo(() => {
+    let list = establishments
+    if (destinationSearch.trim()) {
+      const q = destinationSearch.toLowerCase().trim()
+      list = list.filter(
+        (e) =>
+          e.name.toLowerCase().includes(q) ||
+          e.address.toLowerCase().includes(q) ||
+          e.categoryLabel.toLowerCase().includes(q)
+      )
+    }
+    return list
+  }, [establishments, destinationSearch])
+
+  const handleMapClick = (coords: { lat: number; lng: number }) => {
+    if (isMapClickDestinationMode) {
+      setDestination({
+        name: `Selected Map Location (${coords.lat.toFixed(3)}°N, ${coords.lng.toFixed(3)}°E)`,
+        lat: coords.lat,
+        lng: coords.lng,
+      })
+      setIsMapClickDestinationMode(false)
+      setActiveModal('routes')
+      mapCanvasRef.current?.flyToCoords(coords.lat, coords.lng, 15)
+    }
+  }
+
+  // Live real-world search debounce
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length < 2) {
+      setSearchResults([])
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true)
+      const q = searchQuery.toLowerCase().trim()
+
+      // Match in local establishments first (all Pampanga hospitals, clinics, shelters)
+      let localMatches = establishments
+        .filter(
+          (est) =>
+            est.name.toLowerCase().includes(q) ||
+            est.categoryLabel.toLowerCase().includes(q) ||
+            est.address.toLowerCase().includes(q) ||
+            (q.includes('hosp') && est.category === 'hospital') ||
+            (q.includes('clinic') && est.category === 'hospital')
+        )
+        .map((est) => ({
+          name: est.name,
+          address: `${est.categoryLabel} · ${est.address}`,
+          lat: est.lat,
+          lng: est.lng,
+          isEstablishment: true,
+          emoji: est.emoji,
+        }))
+
+      // Real-world OpenStreetMap Nominatim results
+      const osmMatches = await searchRealWorldPlaces(
+        searchQuery,
+        userLocation.lat,
+        userLocation.lng
+      )
+
+      const combined = [
+        ...localMatches,
+        ...osmMatches.map((m) => ({
+          name: m.name,
+          address: m.address,
+          lat: m.lat,
+          lng: m.lng,
+          isEstablishment: false,
+          emoji: '📍',
+        })),
+      ]
+
+      setSearchResults(combined.slice(0, 10))
+      setIsSearching(false)
+    }, 200)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery, establishments, userLocation.lat, userLocation.lng])
+
+  // AI Voice Context
+  const mapContext = useMemo(
+    () => ({
+      currentLocation: `${locationName} (${userLocation.lat.toFixed(4)}°N, ${userLocation.lng.toFixed(4)}°E)`,
+      nearbyHazards: hazards,
+      evacuationCenters: evacCenters,
+      nearbyEstablishments: establishments.map((e) => `${e.name} (${e.category}) - ${e.distance}`),
+    }),
+    [locationName, userLocation.lat, userLocation.lng, hazards, evacCenters, establishments]
+  )
+
+  // Handle AI Voice Action triggers
+  const handleVoiceAction = (payload: VoiceActionPayload) => {
+    if (payload.action === 'REPORT_HAZARD') {
+      const { hazard } = addHazardReport({
+        type: payload.hazardType || 'flood',
+        description: `Voice AI Report: ${payload.transcript}`,
+        severity: payload.severity || 'high',
+        citizenName: 'Voice Assistant (Live Citizen)',
+      })
+      setSelectedHazard(hazard)
+      setActiveModal('hazard')
+    } else if (payload.action === 'SAFE_ROUTE') {
+      setActiveModal('routes')
+    }
+  }
+
+  const voice = useVoiceAssistant(mapContext, handleVoiceAction)
+
+  // Auto-show bubble when speaking or processing
+  useEffect(() => {
+    if (voice.state === 'speaking' || voice.state === 'processing') {
+      setShowBubble(true)
+    } else if (voice.state === 'idle' && !voice.response && !voice.transcript) {
+      setShowBubble(false)
+    }
+  }, [voice.state, voice.response, voice.transcript])
+
+  // Clear action toast after 4 seconds
+  useEffect(() => {
+    if (lastActionMessage) {
+      const timer = setTimeout(() => clearLastActionMessage(), 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [lastActionMessage, clearLastActionMessage])
+
+  const handleMicPress = () => {
+    setShowBubble(false)
+    voice.toggleListening()
+  }
+
+  const handleSuggestion = (s: string) => {
+    setShowBubble(true)
+    voice.triggerTextPrompt(s)
+  }
+
+  // When a hazard marker is tapped
+  const handleHazardClick = (h: Hazard | null) => {
+    if (!h) {
+      setSelectedHazard(null)
+      return
+    }
+    setSelectedEstablishment(null)
+    setSelectedHazard(h)
+    setActiveModal('hazard')
+    mapCanvasRef.current?.flyToCoords(h.lat, h.lng, 16)
+  }
+
+  // When an establishment marker is tapped
+  const handleEstablishmentClick = (est: Establishment | null) => {
+    if (!est) {
+      setSelectedEstablishment(null)
+      return
+    }
+    setSelectedHazard(null)
+    setSelectedEstablishment(est)
+    setActiveModal('establishment')
+    mapCanvasRef.current?.flyToCoords(est.lat, est.lng, 16)
+  }
+
+  const handleNavigateToEstablishment = (est: Establishment) => {
+    setDestination({ name: est.name, lat: est.lat, lng: est.lng })
+    setActiveModal('routes')
+  }
+
+  const handleSelectSearchResult = (result: { name: string; lat: number; lng: number }) => {
+    const matchedEst = establishments.find((e) => e.name === result.name)
+    if (matchedEst) {
+      handleEstablishmentClick(matchedEst)
+    } else {
+      setDestination({ name: result.name, lat: result.lat, lng: result.lng })
+      setActiveModal('routes')
+      mapCanvasRef.current?.flyToCoords(result.lat, result.lng, 16)
+    }
+    setSearchQuery('')
+    setSearchFocused(false)
+    setSearchResults([])
+  }
+
+  const handleManualImport = async () => {
+    setIsImportingMap(true)
+    await importEstablishmentsFromMap()
+    setIsImportingMap(false)
+  }
+
+  const handleOpenReportModal = () => {
+    setReportStep('form')
+    setReportType('flood')
+    setReportDesc('')
+    setPhotoPreview(null)
+    setPhotoAiAnalysis(null)
+    setActiveModal('report')
+  }
+
+  // Multimodal AI Photo Upload & Vision Analysis
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = async () => {
+      const base64 = reader.result as string
+      setPhotoPreview(base64)
+      setIsAnalyzingPhoto(true)
+
+      try {
+        const res = await fetch('http://localhost:3000/api/ai/analyze-photo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            photoBase64: base64,
+            descriptionHint: reportDesc,
+            location: locationName,
+          }),
+        })
+
+        if (res.ok) {
+          const analysis = await res.json()
+          setPhotoAiAnalysis(analysis)
+          setReportDesc(
+            `AI Vision: ${analysis.waterDepthLevel}. ${analysis.vehiclePassability}. Hazards: ${analysis.hazardsDetected?.join(', ')}`
+          )
+          if (analysis.estimatedRisk === 'HIGH') setReportSeverity('high')
+        }
+      } catch (err) {
+        console.warn('AI Vision offline fallback:', err)
+      } finally {
+        setIsAnalyzingPhoto(false)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const submitReport = () => {
+    setReportStep('analyzing')
+    setTimeout(() => {
+      addHazardReport({
+        type: reportType,
+        description: reportDesc || undefined,
+        severity: reportSeverity,
+      })
+      setReportStep('done')
+    }, 1500)
+  }
+
+  const closeModal = () => {
+    setActiveModal('none')
+    setSelectedHazard(null)
+    setSelectedEstablishment(null)
+  }
+
+  const handleLocateMe = () => {
+    requestLocation()
+    mapCanvasRef.current?.flyToUser()
+  }
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchResults.length > 0) {
+      handleSelectSearchResult(searchResults[0])
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 overflow-hidden bg-slate-100 dark:bg-slate-900 select-none flex flex-col">
+      {/* ── Active Fullscreen Driving HUD ───────────────────── */}
+      {isDrivingHUDActive && routes && (
+        <DrivingHUD
+          route={routes[selectedRoute]}
+          destinationName={destination?.name || 'Safe Evacuation Center'}
+          nearbyHazards={hazards}
+          onExit={() => setIsDrivingHUDActive(false)}
+        />
+      )}
+
+      {/* ── Active Fullscreen SOS Rescue Strobe ─────────────── */}
+      {isSOSStrobeActive && (
+        <SOSRescueStrobe
+          lat={userLocation.lat}
+          lng={userLocation.lng}
+          locationName={locationName}
+          onClose={() => setIsSOSStrobeActive(false)}
+        />
+      )}
+
+      {/* Map Canvas Background */}
+      <div className="absolute inset-0 z-0">
+        <MapCanvas
+          ref={mapCanvasRef}
+          darkMode={darkMode}
+          selectedHazard={selectedHazard}
+          establishments={establishments}
+          selectedEstablishment={selectedEstablishment}
+          onEstablishmentClick={handleEstablishmentClick}
+          showEstablishments={false}
+          showRoutes={activeModal === 'routes' || isDrivingHUDActive}
+          selectedRoute={selectedRoute}
+          onHazardClick={handleHazardClick}
+          emergencyMode={appState === 'emergency'}
+          userLocation={userLocation}
+          hazards={hazards}
+          routes={routes}
+          destination={destination}
+          onMapClick={handleMapClick}
+          showRadar={showRadar}
+        />
+      </div>
+
+      {/* ── Toast Notification Banner ────────────────────────── */}
+      {lastActionMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-auto anim-slide-down">
+          <div className="bg-slate-900/95 dark:bg-white/95 text-white dark:text-slate-900 text-xs font-semibold px-4 py-2.5 rounded-full shadow-2xl backdrop-blur-md flex items-center gap-2 border border-slate-700/50 dark:border-slate-200/50">
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400 dark:text-cyan-600 shrink-0" />
+            <span>{lastActionMessage}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Emergency banner ────────────────────────────────── */}
+      {appState === 'emergency' && (
+        <div className="absolute top-0 left-0 right-0 z-50 emergency-bar bg-red-600 text-white px-4 py-3 flex items-center gap-3 pointer-events-auto shadow-md">
+          <span className="text-base">🔴</span>
+          <span className="text-sm font-semibold flex-1">
+            Emergency alert active — high flood risk detected in your vicinity. Evacuate if instructed.
+          </span>
+          <button onClick={() => setAppState('normal')} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-500 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ── Top bar: Search + Status + Controls ─────────────── */}
+      <div className={`absolute left-0 right-0 z-10 px-3 pt-3 sm:px-4 sm:pt-4 flex flex-col gap-2 pointer-events-none ${appState === 'emergency' ? 'top-12' : 'top-0'}`}>
+        <div className="flex items-center gap-2 pointer-events-auto relative">
+          {/* Logo */}
+          <div className="w-10 h-10 rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-md shadow-sm flex items-center justify-center border border-slate-200/50 dark:border-slate-700/50 shrink-0">
+            <div className="w-6 h-6 rounded bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-inner">
+              <Shield className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
+            </div>
+          </div>
+
+          {/* Real-World Search bar */}
+          <div className="flex-1 relative">
+            <form
+              onSubmit={handleSearchSubmit}
+              className="flex items-center gap-2 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-xl shadow-sm border border-slate-200/50 dark:border-slate-700/50 px-3 py-2.5 transition-all focus-within:ring-2 focus-within:ring-cyan-500/50"
+            >
+              <Search className="w-4 h-4 text-slate-400 shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search real hospitals, shelters, clinics, or streets..."
+                onFocus={() => setSearchFocused(true)}
+                className="flex-1 bg-transparent text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none"
+              />
+              {isSearching && <Loader2 className="w-3.5 h-3.5 text-cyan-500 animate-spin" />}
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => { setSearchQuery(''); setSearchResults([]) }}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </form>
+
+            {/* Live Search Autocomplete Dropdown */}
+            {searchFocused && searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200/70 dark:border-slate-700/70 overflow-hidden z-50 anim-slide-up max-h-72 overflow-y-auto">
+                <div className="px-3 py-2 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700/50 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Real-World Locations & POIs
+                </div>
+                {searchResults.map((res, i) => (
+                  <button
+                    key={`${res.name}-${i}`}
+                    onMouseDown={() => handleSelectSearchResult(res)}
+                    className="w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b border-slate-100 dark:border-slate-700/40 last:border-0"
+                  >
+                    <span className="text-lg">{res.emoji || '📍'}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-bold text-slate-900 dark:text-white truncate">{res.name}</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">{res.address}</div>
+                    </div>
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* LGU Switch Shortcut */}
+          <a
+            href="/lgu"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-md shadow-sm border border-slate-200/50 dark:border-slate-700/50 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 transition-colors"
+          >
+            LGU
+          </a>
+
+          {/* Theme toggle */}
+          <button
+            onClick={toggleDark}
+            className="w-10 h-10 rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-md shadow-sm border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-800 transition-all shrink-0 active:scale-95"
+            aria-label="Toggle theme"
+          >
+            {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+        </div>
+
+        {/* Live Location & Area status chip + panel toggle */}
+        <div className="flex items-center gap-2 pointer-events-auto flex-wrap">
+          {/* Location Badge */}
+          <button
+            onClick={handleLocateMe}
+            className="flex items-center gap-1.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-full px-3 py-1.5 shadow-sm border border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors max-w-[220px]"
+            title="Click to center map on your GPS location"
+          >
+            {isLocationLoading ? (
+              <Loader2 className="w-3 h-3 text-cyan-500 animate-spin shrink-0" />
+            ) : (
+              <MapPin className="w-3 h-3 text-cyan-500 shrink-0" />
+            )}
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
+              {locationName}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setPanelOpen((p) => !p)}
+            className="flex items-center gap-1.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-full px-3 py-1.5 shadow-sm border border-slate-200/50 dark:border-slate-700/50 hover:bg-white dark:hover:bg-slate-800 transition-all active:scale-95"
+          >
+            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+              Hazards ({hazards.length})
+            </span>
+            {panelOpen ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+          </button>
+        </div>
+
+        {/* AI Pattern Alert Pill */}
+        {aiPatternInsight && aiPatternInsight.severity === 'high' && (
+          <div className="pointer-events-auto bg-amber-500/90 dark:bg-amber-600/90 text-white backdrop-blur-md rounded-2xl p-2.5 px-3 shadow-lg flex items-center gap-2.5 max-w-lg anim-slide-down">
+            <Sparkles className="w-4 h-4 text-amber-100 shrink-0" />
+            <div className="flex-1 min-w-0 text-xs">
+              <span className="font-bold">{aiPatternInsight.title}</span> — {aiPatternInsight.description}
+            </div>
+            <button
+              onClick={() => setActiveModal('routes')}
+              className="text-[11px] bg-white text-slate-900 px-2 py-1 rounded-lg font-bold shrink-0 shadow-sm hover:bg-slate-100"
+            >
+              Avoid
+            </button>
+          </div>
+        )}
+
+        {/* Collapsible Intelligence Panel */}
+        {panelOpen && (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200/60 dark:border-slate-700/50 overflow-hidden anim-slide-up mt-2 max-w-md pointer-events-auto">
+            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nearby Active Hazards</span>
+              <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-medium">Near {locationName.split(',')[0]}</span>
+            </div>
+            <div className="divide-y divide-slate-100 dark:divide-slate-700/50 max-h-52 overflow-y-auto">
+              {hazards.map((h) => (
+                <button
+                  key={h.id}
+                  onClick={() => {
+                    handleHazardClick(h)
+                    setPanelOpen(false)
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors text-left"
+                >
+                  <span className="text-base">{h.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{h.label}</span>
+                      {h.verified > 0 && <span className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-bold px-1.5 rounded">Verified</span>}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{h.distance} · {h.confidence}% confidence</div>
+                  </div>
+                  <StatusDot risk={h.severity} />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Map controls — bottom right ──────────────────────── */}
+      <div className="absolute right-3 sm:right-4 z-10 flex flex-col gap-2 pointer-events-none" style={{ bottom: appState === 'emergency' ? '150px' : '100px' }}>
+        <button
+          onClick={handleLocateMe}
+          title="Center on my location"
+          className="pointer-events-auto w-10 h-10 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-full shadow-md border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:text-cyan-500 dark:hover:text-cyan-400 hover:bg-white dark:hover:bg-slate-800 transition-all active:scale-95 group"
+        >
+          <Locate className={`w-4 h-4 transition-transform ${isLocationLoading ? 'animate-spin text-cyan-500' : 'group-hover:scale-110'}`} />
+        </button>
+        <button
+          onClick={() => setLayersOpen((l) => !l)}
+          className={`pointer-events-auto w-10 h-10 rounded-full shadow-md border flex items-center justify-center transition-all active:scale-95 backdrop-blur-md ${layersOpen ? 'bg-cyan-500/90 border-cyan-400 text-white' : 'bg-white/90 dark:bg-slate-800/90 border-slate-200/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-cyan-500 dark:hover:text-cyan-400'}`}
+        >
+          <Layers className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Layers dropdown */}
+      {layersOpen && (
+        <div className="absolute right-14 z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200/50 dark:border-slate-700/50 p-4 w-56 anim-slide-up" style={{ bottom: appState === 'emergency' ? '180px' : '130px' }}>
+          <label className="flex items-center gap-2.5 py-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showEstablishments}
+              onChange={(e) => setShowEstablishments(e.target.checked)}
+              className="w-3.5 h-3.5 accent-cyan-500"
+            />
+            <span className="text-xs text-slate-700 dark:text-slate-300 font-bold">Establishments & POIs</span>
+          </label>
+          <label className="flex items-center gap-2.5 py-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showRadar}
+              onChange={(e) => setShowRadar(e.target.checked)}
+              className="w-3.5 h-3.5 accent-cyan-500"
+            />
+            <span className="text-xs text-slate-700 dark:text-slate-300 font-bold">PAGASA Weather Radar</span>
+          </label>
+          {[{ id: 'hazards', label: 'Hazard Danger Zones' }, { id: 'evac', label: 'Evacuation Shelters' }, { id: '3d', label: '3D Buildings' }].map((l) => (
+            <label key={l.id} className="flex items-center gap-2.5 py-1.5 cursor-pointer">
+              <input type="checkbox" defaultChecked={l.id !== '3d'} className="w-3.5 h-3.5 accent-cyan-500" />
+              <span className="text-xs text-slate-700 dark:text-slate-300">{l.label}</span>
+            </label>
+          ))}
+        </div>
+      )}
+
+      {/* ── AI Bubble ────────────────────────────────────────── */}
+      {showBubble && (
+        <div
+          className="absolute left-1/2 z-20 -translate-x-1/2 w-[calc(100%-24px)] max-w-sm anim-slide-up pointer-events-none"
+          style={{ bottom: appState === 'emergency' ? '228px' : '176px' }}
+        >
+          <div className="pointer-events-auto bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 p-4">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="w-7 h-7 rounded-lg bg-cyan-500 flex items-center justify-center shrink-0">
+                {voice.state === 'processing' ? <Loader2 className="w-3.5 h-3.5 text-white animate-spin" strokeWidth={2.5} /> : <Shield className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />}
+              </div>
+              <div>
+                <div className="text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 mb-0.5">
+                  {voice.state === 'processing' ? 'GABAI is processing...' : 'GABAI Voice Assistant'}
+                </div>
+                <p className="text-sm text-slate-800 dark:text-slate-200 leading-snug">
+                  {voice.state === 'speaking' || voice.response 
+                    ? voice.response 
+                    : voice.transcript 
+                      ? <span className="italic text-slate-500">"{voice.transcript}"</span>
+                      : 'Listening to your report...'}
+                </p>
+              </div>
+              <button onClick={() => setShowBubble(false)} className="shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setActiveModal('routes'); setShowBubble(false) }}
+                className="flex-1 text-xs font-semibold bg-cyan-500 hover:bg-cyan-600 text-white py-2 rounded-lg transition-colors shadow-sm"
+              >
+                View Safe Route
+              </button>
+              <button
+                onClick={() => { setActiveModal('hazard'); setSelectedHazard(hazards[0]); setShowBubble(false) }}
+                className="flex-1 text-xs font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 py-2 rounded-lg transition-colors"
+              >
+                Inspect Hazard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Suggestion chips — above mic ─────────────────────── */}
+      {voice.state === 'idle' && !showBubble && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-10 flex gap-2 flex-wrap justify-center px-4 w-full pointer-events-none"
+          style={{ bottom: appState === 'emergency' ? '180px' : '128px' }}
+        >
+          {["May baha sa kalsada namin.", "Find nearest hospital safe route.", "Is it safe to go home?"].map((s) => (
+            <button
+              key={s}
+              onClick={() => handleSuggestion(s)}
+              className="pointer-events-auto text-[11px] font-semibold bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm text-slate-700 dark:text-slate-200 rounded-full px-3.5 py-2 shadow-sm border border-slate-200/50 dark:border-slate-700/50 hover:bg-cyan-50 dark:hover:bg-slate-700 transition-all active:scale-95 whitespace-nowrap"
+            >
+              🎙️ {s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Mic button ───────────────────────────────────────── */}
+      <div
+        className="absolute left-1/2 -translate-x-1/2 z-20 pointer-events-none transition-all duration-500"
+        style={{ bottom: appState === 'emergency' ? '108px' : '58px' }}
+      >
+        <div className="relative flex items-center justify-center">
+          <div className={`absolute w-16 h-16 rounded-full blur-xl transition-all duration-700 ${voice.state !== 'idle' ? 'bg-red-500/40 scale-150' : 'bg-cyan-500/30'}`} />
+
+          {voice.state === 'listening' && (
+            <>
+              <div className="absolute w-20 h-20 rounded-full border-2 border-red-400/30 mic-ring-1 pointer-events-none" />
+              <div className="absolute w-20 h-20 rounded-full border border-red-400/20 mic-ring-2 pointer-events-none" />
+            </>
+          )}
+
+          <button
+            onClick={handleMicPress}
+            title="Press to speak to GABAI"
+            className={`pointer-events-auto relative flex items-center justify-center rounded-full transition-all duration-300 ${
+              voice.state !== 'idle'
+                ? 'w-16 h-16 shadow-[0_8px_32px_rgba(239,68,68,0.5)] scale-105'
+                : 'w-14 h-14 shadow-[0_8px_24px_rgba(6,182,212,0.4)] hover:shadow-[0_12px_32px_rgba(6,182,212,0.6)] hover:scale-110 active:scale-95'
+            } ${voice.state === 'idle' ? 'mic-idle' : ''}`}
+          >
+            <div className={`absolute inset-0 rounded-full transition-all duration-500 ${
+              voice.state !== 'idle'
+                ? 'bg-gradient-to-b from-rose-400 to-red-600'
+                : 'bg-gradient-to-b from-cyan-400 to-blue-600'
+            }`} />
+            <div className="absolute inset-0 rounded-full border-[1.5px] border-white/40 mix-blend-overlay" />
+            <div className="relative z-10 transition-transform duration-300">
+              {voice.state === 'listening' || voice.state === 'processing'
+                ? <MicOff className="w-6 h-6 text-white drop-shadow-md" />
+                : <Mic className="w-6 h-6 text-white drop-shadow-md" />
+              }
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* ── Bottom Action Bar ────────────────────────────────── */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none">
+        <div className="bg-gradient-to-t from-white via-white/80 dark:from-slate-900 dark:via-slate-900/80 to-transparent pt-12 pb-4 px-3 sm:px-4">
+          <div className="flex items-center gap-2 max-w-lg mx-auto">
+            {[
+              { icon: Navigation, label: 'Safe Route', action: () => setActiveModal('routes'), primary: true },
+              { icon: TriangleAlert, label: 'Report Hazard', action: handleOpenReportModal },
+              { icon: Users, label: 'Family Safety', action: () => setActiveModal('family_safety') },
+              { icon: Zap, label: 'SOS Strobe', action: () => setIsSOSStrobeActive(true), danger: true },
+            ].map(({ icon: Icon, label, action, primary, danger }) => (
+              <button
+                key={label}
+                onClick={action}
+                className={`pointer-events-auto flex-1 flex flex-col items-center gap-1.5 py-3 rounded-2xl shadow-sm border border-slate-200/50 dark:border-slate-700/50 text-[11px] font-semibold transition-all active:scale-95 ${
+                  primary
+                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-transparent hover:bg-slate-800 dark:hover:bg-slate-100'
+                    : danger
+                    ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-100 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-900/50'
+                    : 'bg-white/80 dark:bg-slate-800/80 backdrop-blur-md text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Backdrop */}
+      {activeModal !== 'none' && (
+        <div className="fixed inset-0 z-40 bg-black/30 dark:bg-black/50 anim-fade-in" onClick={closeModal} />
+      )}
+
+      {/* ── 1. Hazard Detail Sheet (Tapped on Marker) ────────── */}
+      {activeModal === 'hazard' && selectedHazard && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bottom-sheet">
+          <div className="bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl border-t border-slate-200/60 dark:border-slate-700/50 max-w-lg mx-auto">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full" />
+            </div>
+            <div className="px-4 pt-2 pb-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">{selectedHazard.emoji}</span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-extrabold text-slate-900 dark:text-white text-base">{selectedHazard.label}</h3>
+                      {selectedHazard.verified > 0 && (
+                        <span className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full">
+                          LGU Verified ✅
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <StatusDot risk={selectedHazard.severity} />
+                      <span className="text-xs text-slate-500 dark:text-slate-400 capitalize">
+                        {selectedHazard.severity} Severity Danger Zone · {selectedHazard.distance}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={closeModal} className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Stats row */}
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {[
+                  { label: 'AI Confidence', val: `${selectedHazard.confidence}%` },
+                  { label: 'Citizen Reports', val: `${selectedHazard.reports}` },
+                  { label: 'LGU Status', val: selectedHazard.verified > 0 ? 'Verified' : 'Pending' },
+                ].map(({ label, val }) => (
+                  <div key={label} className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-3 text-center border border-slate-100 dark:border-slate-700/50">
+                    <div className="text-lg font-bold text-slate-900 dark:text-white">{val}</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400">{label}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 mb-4 text-xs text-slate-500 dark:text-slate-400">
+                <Clock className="w-3.5 h-3.5" />
+                Reported {selectedHazard.ago} · Road status:{' '}
+                <span className="font-semibold text-red-600 dark:text-red-400 ml-0.5">{selectedHazard.status}</span>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setActiveModal('routes'); setSelectedHazard(null) }}
+                  className="flex-1 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-3 rounded-xl text-xs hover:bg-slate-700 dark:hover:bg-slate-100 transition-colors shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  <span>Avoid & Calculate Safe Route</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 2. Establishment Detail Sheet (Tapped on POI) ────── */}
+      {activeModal === 'establishment' && selectedEstablishment && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bottom-sheet">
+          <div className="bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl border-t border-slate-200/60 dark:border-slate-700/50 max-w-lg mx-auto">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full" />
+            </div>
+            <div className="px-4 pt-2 pb-6">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">{selectedEstablishment.emoji}</span>
+                  <div>
+                    <h3 className="font-extrabold text-slate-900 dark:text-white text-base leading-tight">
+                      {selectedEstablishment.name}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        {selectedEstablishment.categoryLabel}
+                      </span>
+                      <span>·</span>
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                        {selectedEstablishment.distance} away
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={closeModal} className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Status & Capacity Card */}
+              <div className="bg-slate-50 dark:bg-slate-800/80 rounded-2xl p-3 border border-slate-100 dark:border-slate-700/60 mb-4 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Operational Status:</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/50">
+                    {selectedEstablishment.status}
+                  </span>
+                </div>
+                {selectedEstablishment.capacityInfo && (
+                  <div className="text-xs text-slate-700 dark:text-slate-300 font-medium pt-1 border-t border-slate-200/50 dark:border-slate-700/40">
+                    🛡️ {selectedEstablishment.capacityInfo}
+                  </div>
+                )}
+                <div className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1.5 pt-1">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span className="truncate">{selectedEstablishment.address}</span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                <a
+                  href={`tel:${selectedEstablishment.phone.replace(/[^0-9]/g, '')}`}
+                  className="px-4 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <PhoneCall className="w-3.5 h-3.5" />
+                  <span>Call Hotline</span>
+                </a>
+                <button
+                  onClick={() => handleNavigateToEstablishment(selectedEstablishment)}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all"
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  <span>Navigate Safe Route Here</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 3. Route Selection & Interactive Destination Sheet ── */}
+      {activeModal === 'routes' && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bottom-sheet">
+          <div className="bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl border-t border-slate-200/60 dark:border-slate-700/50 max-w-lg mx-auto max-h-[85vh] flex flex-col">
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full" />
+            </div>
+            <div className="px-4 pt-2 pb-5 overflow-y-auto flex-1 no-scrollbar">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                    <Navigation className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-slate-900 dark:text-white text-base">Safe Route Navigator</h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Real-time AI flood & hazard avoidance routing
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={closeModal}
+                  className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* ── Active Destination Card & Change Button ── */}
+              <div className="bg-slate-50 dark:bg-slate-800/80 rounded-2xl p-3 border border-slate-200/60 dark:border-slate-700/60 mb-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-emerald-500" />
+                    Target Destination
+                  </span>
+                  <button
+                    onClick={() => setIsChoosingDestination((prev) => !prev)}
+                    className="text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
+                  >
+                    {isChoosingDestination ? 'Done' : '✏️ Change Destination'}
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-300 font-bold shrink-0 text-xs">
+                    🏁
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
+                      {destination?.name || 'Nearest Evacuation Center'}
+                    </div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                      {destination
+                        ? `Coordinates: ${destination.lat.toFixed(4)}°N, ${destination.lng.toFixed(4)}°E`
+                        : 'Auto-routed to closest high-ground shelter'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Interactive Destination Chooser Drawer ── */}
+              {isChoosingDestination && (
+                <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-3 border-2 border-cyan-500/30 mb-4 shadow-sm anim-slide-down">
+                  <div className="text-xs font-bold text-slate-800 dark:text-white mb-2 flex items-center justify-between">
+                    <span>Choose Where You Want to Go:</span>
+                    <button
+                      onClick={() => {
+                        setIsMapClickDestinationMode(true)
+                        closeModal()
+                      }}
+                      className="text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 flex items-center gap-1 bg-cyan-50 dark:bg-cyan-950/40 px-2 py-0.5 rounded-md border border-cyan-200 dark:border-cyan-800"
+                    >
+                      <span>📍 Tap on Map</span>
+                    </button>
+                  </div>
+
+                  {/* Destination Search Box */}
+                  <div className="relative mb-2.5">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={destinationSearch}
+                      onChange={(e) => setDestinationSearch(e.target.value)}
+                      placeholder="Search destination, hospital, gas, clinic..."
+                      className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-cyan-500"
+                    />
+                  </div>
+
+                  {/* Quick Preset Buttons */}
+                  <div className="grid grid-cols-2 gap-1.5 mb-2.5">
+                    {[
+                      { label: '🏥 Nearest Hospital', cat: 'hospital' },
+                      { label: '🏫 Nearest Shelter', cat: 'school' },
+                      { label: '⛽ Nearest Gas Station', cat: 'gas_station' },
+                      { label: '👮 Nearest Police', cat: 'police' },
+                    ].map((btn) => (
+                      <button
+                        key={btn.label}
+                        onClick={() => {
+                          const matching = establishments.filter((e) => e.category === btn.cat)
+                          if (matching.length > 0) {
+                            const nearest = matching[0]
+                            setDestination({ name: nearest.name, lat: nearest.lat, lng: nearest.lng })
+                            setIsChoosingDestination(false)
+                            mapCanvasRef.current?.flyToCoords(nearest.lat, nearest.lng, 15)
+                          }
+                        }}
+                        className="py-1.5 px-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-[11px] font-bold text-center truncate transition-colors"
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Selectable Destination List */}
+                  <div className="max-h-44 overflow-y-auto space-y-1.5 no-scrollbar">
+                    {selectableDestinations.slice(0, 10).map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setDestination({ name: item.name, lat: item.lat, lng: item.lng })
+                          setIsChoosingDestination(false)
+                          mapCanvasRef.current?.flyToCoords(item.lat, item.lng, 15)
+                        }}
+                        className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-cyan-50 dark:hover:bg-slate-700/60 border border-slate-100 dark:border-slate-700/50 text-left transition-colors group"
+                      >
+                        <span className="text-base shrink-0">{item.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-cyan-600 dark:group-hover:text-cyan-400">
+                            {item.name}
+                          </div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                            {item.categoryLabel} · {item.distance} away
+                          </div>
+                        </div>
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0 group-hover:text-cyan-500" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Route Options Comparison ── */}
+              <div className="space-y-2 mb-4">
+                {(['safe', 'balanced', 'fast'] as const).map((rId) => {
+                  const r = routes[rId]
+                  return (
+                    <button
+                      key={r.id}
+                      onClick={() => setSelectedRoute(r.id)}
+                      className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all text-left ${
+                        selectedRoute === r.id
+                          ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 shadow-sm scale-[1.01]'
+                          : 'border-transparent bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <StatusDot risk={r.risk} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-sm font-extrabold text-slate-900 dark:text-white">{r.label}</span>
+                          <RiskBadge risk={r.risk} />
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{r.detail}</div>
+                      </div>
+                      <div className="text-sm font-extrabold text-slate-800 dark:text-slate-200">{r.time}</div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Start Driving Navigation HUD */}
+              <button
+                onClick={() => {
+                  closeModal()
+                  setIsDrivingHUDActive(true)
+                }}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg text-sm"
+              >
+                <Navigation className="w-4 h-4" />
+                <span>Start Turn-by-Turn Safe Navigation</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 4. Community Disaster Reporting with AI Vision ────── */}
+      {activeModal === 'report' && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bottom-sheet">
+          <div className="bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl border-t border-slate-200/60 dark:border-slate-700/50 max-w-lg mx-auto">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full" />
+            </div>
+            <div className="px-4 pt-2 pb-6">
+              {reportStep === 'form' && (
+                <>
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Community Disaster Report</h3>
+                    <button onClick={closeModal} className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                    Attach photo for Multimodal AI Flood-Depth Analysis & LGU response.
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {REPORT_TYPES.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setReportType(t.id)}
+                        className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 transition-all ${
+                          reportType === t.id
+                            ? 'border-cyan-500 bg-cyan-50/70 dark:bg-cyan-950/40 shadow-sm'
+                            : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <span className="text-2xl">{t.emoji}</span>
+                        <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 leading-tight text-center">{t.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Multimodal AI Photo Analyzer */}
+                  <div className="mb-3">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+
+                    {photoPreview ? (
+                      <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-2.5">
+                        <div className="flex items-center gap-3">
+                          <img src={photoPreview} alt="Flood Snapshot" className="w-16 h-16 rounded-xl object-cover" />
+                          <div className="flex-1 min-w-0 text-xs">
+                            <div className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-cyan-500" />
+                              <span>{isAnalyzingPhoto ? 'AI Analyzing Water Depth...' : 'AI Vision Assessed'}</span>
+                            </div>
+                            {photoAiAnalysis && (
+                              <div className="mt-1 text-[11px] text-cyan-600 dark:text-cyan-400 font-semibold">
+                                {photoAiAnalysis.waterDepthLevel}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => { setPhotoPreview(null); setPhotoAiAnalysis(null) }}
+                            className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full py-2.5 border-2 border-dashed border-cyan-500/50 rounded-2xl bg-cyan-50/40 dark:bg-cyan-950/20 flex items-center justify-center gap-2 text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 transition-colors"
+                      >
+                        <Camera className="w-4 h-4" />
+                        <span>Take Photo / Upload for AI Flood Depth Vision</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/80 rounded-xl px-3 py-2 mb-3 border border-slate-100 dark:border-slate-700/40">
+                    <MapPin className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate">
+                      Auto-GPS · {locationName}
+                    </span>
+                  </div>
+
+                  <textarea
+                    value={reportDesc}
+                    onChange={(e) => setReportDesc(e.target.value)}
+                    placeholder="Describe what you see (e.g. knee-deep flood, fallen power line)..."
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-700 dark:text-slate-300 placeholder-slate-400 outline-none focus:border-cyan-500 resize-none mb-3"
+                    rows={2}
+                  />
+
+                  <button
+                    onClick={submitReport}
+                    disabled={!reportType}
+                    className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-3.5 rounded-xl disabled:opacity-40 transition-all hover:bg-slate-800 dark:hover:bg-slate-100 shadow-md text-sm"
+                  >
+                    Submit Community Report
+                  </button>
+                </>
+              )}
+
+              {reportStep === 'analyzing' && (
+                <div className="py-8 flex flex-col items-center gap-4">
+                  <div className="w-12 h-12 rounded-full border-3 border-cyan-500 border-t-transparent animate-spin" />
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-slate-800 dark:text-white">Broadcasting Report to Map & LGU...</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">AI cross-referencing road telemetry and dispatching to OpCen</p>
+                  </div>
+                </div>
+              )}
+
+              {reportStep === 'done' && (
+                <div className="py-8 flex flex-col items-center gap-4">
+                  <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shadow-inner">
+                    <CheckCircle className="w-8 h-8 text-emerald-500" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-base font-bold text-slate-800 dark:text-white">Hazard Published to Live Map!</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      New marker active near {locationName.split(',')[0]}. Safe routes have been auto-rerouted to protect motorists.
+                    </p>
+                  </div>
+                  <button
+                    onClick={closeModal}
+                    className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold rounded-xl shadow"
+                  >
+                    Done & Return to Map
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 5. Family Safety Modal ───────────────────────────── */}
+      {activeModal === 'family_safety' && (
+        <FamilySafetyModal
+          currentLocationName={locationName}
+          onClose={closeModal}
+          onTriggerSOSStrobe={() => setIsSOSStrobeActive(true)}
+        />
+      )}
+    </div>
+  )
+}

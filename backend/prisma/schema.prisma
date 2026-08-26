@@ -1,0 +1,135 @@
+// GABAI Production Database Schema
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  CITIZEN
+  LGU_OFFICER
+  ADMIN
+  DISPATCH_RESPONDER
+}
+
+enum HazardType {
+  FLOOD
+  ROAD_BLOCK
+  FIRE
+  RAIN
+  POWER_OUTAGE
+  PERSON_DANGER
+  OTHER
+}
+
+enum SeverityLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ReportStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  RESOLVED
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         UserRole  @default(CITIZEN)
+  lguSector    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Hazard {
+  id            String        @id @default(uuid())
+  type          HazardType
+  emoji         String        @default("⚠️")
+  label         String
+  lat           Float
+  lng           Float
+  severity      SeverityLevel @default(HIGH)
+  confidence    Int           @default(90)
+  status        String        @default("Active")
+  reportsCount  Int           @default(1)
+  verifiedCount Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  reports       Report[]
+  dispatches    Dispatch[]
+
+  @@index([lat, lng])
+}
+
+model Report {
+  id           String        @id @default(uuid())
+  hazardId     String?
+  hazard       Hazard?       @relation(fields: [hazardId], references: [id], onDelete: SetNull)
+  type         HazardType
+  emoji        String        @default("⚠️")
+  description  String
+  lat          Float
+  lng          Float
+  severity     SeverityLevel @default(HIGH)
+  status       ReportStatus  @default(PENDING)
+  citizenName  String        @default("Anonymous Citizen")
+  locationName String?
+  photoUrl     String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  dispatches   Dispatch[]
+
+  @@index([lat, lng])
+}
+
+model EvacuationCenter {
+  id        String   @id @default(uuid())
+  name      String
+  lat       Float
+  lng       Float
+  capacity  Int
+  occupied  Int      @default(0)
+  isOpen    Boolean  @default(true)
+  contactNo String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lat, lng])
+}
+
+model Dispatch {
+  id         String    @id @default(uuid())
+  hazardId   String?
+  hazard     Hazard?   @relation(fields: [hazardId], references: [id])
+  reportId   String?
+  report     Report?   @relation(fields: [reportId], references: [id])
+  teamName   String
+  status     String    @default("EN_ROUTE") // EN_ROUTE, ON_SCENE, RESOLVED
+  notes      String?
+  assignedAt DateTime  @default(now())
+  resolvedAt DateTime?
+}
+
+model AiPatternAlert {
+  id                String        @id @default(uuid())
+  title             String
+  description       String
+  severity          SeverityLevel @default(HIGH)
+  clusterCount      Int           @default(1)
+  recommendedAction String
+  sector            String?
+  createdAt         DateTime      @default(now())
+}
