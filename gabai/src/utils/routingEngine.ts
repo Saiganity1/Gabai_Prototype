@@ -218,19 +218,36 @@ export async function fetchAccurateRealWorldRoutes(
     const primaryCoords: [number, number][] = primaryRoute.geometry?.coordinates || []
 
     // Check if the primary direct route intersects any active flood hazards
-    const hasHazardOnDirect = primaryCoords.some(([lng, lat]) => isNearHazard(lat, lng, activeHazards, 0.35))
+    const intersectingHazards = activeHazards.filter((h) => {
+      if (h.isRoadSegment && h.roadSegment && h.roadSegment.from && h.roadSegment.to) {
+        const seg = h.roadSegment
+        const coords =
+          seg.path && seg.path.length > 1
+            ? seg.path
+            : [
+                [seg.from.lng, seg.from.lat],
+                [seg.to.lng, seg.to.lat],
+              ]
+        return coords.some(([cLng, cLat]) =>
+          primaryCoords.some(([rLng, rLat]) => calculateDistanceKm(rLat, rLng, cLat, cLng) < 0.35)
+        )
+      }
+      return primaryCoords.some(([rLng, rLat]) => calculateDistanceKm(rLat, rLng, h.lat, h.lng) < ((h.radius || 120) / 1000 + 0.3))
+    })
 
-    // 2. Determine Safe Route: Check if any default OSRM alternative is 100% flood-free
+    const hasHazardOnDirect = intersectingHazards.length > 0
+
+    // 2. Check if any default OSRM alternative is already 100% flood-free
     let safeRouteObj = primaryRoute
     let safeSteps = directSteps
     let safeDistanceKm = directDistKm
     let safeDurationMin = directDurationMin
     let isDetourActive = false
 
-    // Check existing OSRM alternatives
-    for (const r of allOsrmRoutes) {
+    for (let i = 1; i < allOsrmRoutes.length; i++) {
+      const r = allOsrmRoutes[i]
       const coords = r.geometry?.coordinates || []
-      const touchesFlood = coords.some(([lng, lat]) => isNearHazard(lat, lng, activeHazards, 0.35))
+      const touchesFlood = coords.some(([lng, lat]) => isNearHazard(lat, lng, activeHazards, 0.3))
       if (!touchesFlood) {
         safeRouteObj = r
         safeDistanceKm = r.distance / 1000
@@ -241,27 +258,27 @@ export async function fetchAccurateRealWorldRoutes(
       }
     }
 
-    // 3. If primary route is flooded and no clean default alternative, find nearest road intersection bypass
-    if (!isDetourActive && hasHazardOnDirect && activeHazards.length > 0) {
-      const blockingHazard = activeHazards[0]
+    // 3. If primary route has flood and no default alternative is clean, find an alternate road bypass
+    if (!isDetourActive && hasHazardOnDirect) {
+      // Find the specific hazard that intersects the route
+      const blockingHazard = intersectingHazards[0] || activeHazards[0]
       const latDiff = destLat - originLat
       const lngDiff = destLng - originLng
       const len = Math.hypot(latDiff, lngDiff) || 1
       const perpLat = -lngDiff / len
       const perpLng = latDiff / len
 
-      // Offsets around the hazard
-      const rawCandidates = [
-        { lat: blockingHazard.lat + perpLat * 0.015, lng: blockingHazard.lng + perpLng * 0.015 },
-        { lat: blockingHazard.lat - perpLat * 0.015, lng: blockingHazard.lng - perpLng * 0.015 },
-        { lat: blockingHazard.lat + perpLat * 0.028, lng: blockingHazard.lng + perpLng * 0.028 },
-        { lat: blockingHazard.lat - perpLat * 0.028, lng: blockingHazard.lng - perpLng * 0.028 },
-      ]
+      // Generate multi-lateral offsets around the flood area
+      const offsetScales = [0.012, -0.012, 0.022, -0.022, 0.035, -0.035]
+      const candidateBypasses: Array<{ route: any; distanceKm: number; durationMin: number; hazardExposure: number }> = []
 
-      for (const cand of rawCandidates) {
+      for (const off of offsetScales) {
         try {
-          // Snap candidate to nearest actual asphalt road junction
-          const nearUrl = `https://router.project-osrm.org/nearest/v1/driving/${cand.lng},${cand.lat}`
+          const candLat = blockingHazard.lat + perpLat * off
+          const candLng = blockingHazard.lng + perpLng * off
+
+          // Snap candidate waypoint to nearest asphalt road intersection
+          const nearUrl = `https://router.project-osrm.org/nearest/v1/driving/${candLng},${candLat}`
           const nearRes = await fetch(nearUrl, { signal: AbortSignal.timeout(2000) })
           if (!nearRes.ok) continue
           const nearData = await nearRes.json()
@@ -270,7 +287,7 @@ export async function fetchAccurateRealWorldRoutes(
 
           const [snapLng, snapLat] = snappedLoc
 
-          // Route via this real road junction
+          // Query OSRM to route through the clean road intersection directly to Point B
           const detourUrl = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${snapLng},${snapLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`
           const detourRes = await fetch(detourUrl, { signal: AbortSignal.timeout(2500) })
           if (!detourRes.ok) continue
@@ -279,20 +296,43 @@ export async function fetchAccurateRealWorldRoutes(
           if (detourData.code === 'Ok' && detourData.routes?.[0]) {
             const candidateRoute = detourData.routes[0]
             const candidateCoords: [number, number][] = candidateRoute.geometry?.coordinates || []
-            const touchesFlood = candidateCoords.some(([lng, lat]) => isNearHazard(lat, lng, activeHazards, 0.3))
 
-            if (!touchesFlood) {
+            // Calculate flood exposure score (0 = 100% clean of flood)
+            const hazardExposure = candidateCoords.filter(([lng, lat]) =>
+              isNearHazard(lat, lng, activeHazards, 0.28)
+            ).length
+
+            candidateBypasses.push({
+              route: candidateRoute,
+              distanceKm: candidateRoute.distance / 1000,
+              durationMin: Math.max(1, Math.round(candidateRoute.duration / 60)),
+              hazardExposure,
+            })
+
+            // If 100% clean bypass found, select immediately!
+            if (hazardExposure === 0) {
               safeRouteObj = candidateRoute
               safeDistanceKm = candidateRoute.distance / 1000
               safeDurationMin = Math.max(1, Math.round(candidateRoute.duration / 60))
               safeSteps = parseSteps(candidateRoute, true)
               isDetourActive = true
-              break // Found 100% clean asphalt road bypass!
+              break
             }
           }
         } catch {
-          // Try next candidate
+          // Continue to next offset
         }
+      }
+
+      // If no 100% clean route was found, pick the candidate with lowest flood exposure
+      if (!isDetourActive && candidateBypasses.length > 0) {
+        candidateBypasses.sort((a, b) => a.hazardExposure - b.hazardExposure || a.distanceKm - b.distanceKm)
+        const bestCandidate = candidateBypasses[0]
+        safeRouteObj = bestCandidate.route
+        safeDistanceKm = bestCandidate.distanceKm
+        safeDurationMin = bestCandidate.durationMin
+        safeSteps = parseSteps(bestCandidate.route, true)
+        isDetourActive = bestCandidate.hazardExposure === 0
       }
     }
 
@@ -317,13 +357,17 @@ export async function fetchAccurateRealWorldRoutes(
     return {
       safe: {
         id: 'safe',
-        label: isDetourActive ? 'AI Flood-Free Route (Verified Bypass)' : 'AI Safe Route (Real Road)',
+        label: isDetourActive
+          ? 'AI Flood-Free Route (Safe Bypass to Point B)'
+          : hasHazardOnDirect
+          ? 'AI Alternate Route (Caution: Flood Nearby)'
+          : 'AI Safe Route (Flood-Free)',
         time: `${safeDurationMin} min (${safeDistanceKm.toFixed(1)} km)`,
         detail: isDetourActive
-          ? '100% Real Asphalt Road Trajectory · Bypassed flooded street'
+          ? `🛡️ Bypassed flooded street · 100% real road trajectory to Point B`
           : hasHazardOnDirect
-          ? '⚠️ Passes near low-lying flood zone — Drive with caution'
-          : '100% Real Asphalt Road Trajectory · Optimal route',
+          ? `⚠️ Passes near flood zone · Drive with caution`
+          : `100% Real Asphalt Road Trajectory · Optimal route`,
         risk: isDetourActive ? 'low' : hasHazardOnDirect ? 'medium' : 'low',
         geoJSON: safeGeoJSON,
         distanceKm: safeDistanceKm,
