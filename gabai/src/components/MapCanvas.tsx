@@ -99,25 +99,22 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const lightStyle: any = {
     version: 8,
     sources: {
-      'carto-voyager': {
+      'osm-standard': {
         type: 'raster',
         tiles: [
-          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-          'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
         ],
         tileSize: 256,
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       },
     },
     layers: [
       {
-        id: 'carto-voyager-layer',
+        id: 'osm-standard-layer',
         type: 'raster',
-        source: 'carto-voyager',
+        source: 'osm-standard',
         minzoom: 0,
-        maxzoom: 20,
+        maxzoom: 19,
       },
     ],
   }
@@ -125,25 +122,22 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const darkStyle: any = {
     version: 8,
     sources: {
-      'carto-dark': {
+      'esri-dark-gray': {
         type: 'raster',
         tiles: [
-          'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-          'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-          'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-          'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+          'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
         ],
         tileSize: 256,
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
       },
     },
     layers: [
       {
-        id: 'carto-dark-layer',
+        id: 'esri-dark-gray-layer',
         type: 'raster',
-        source: 'carto-dark',
+        source: 'esri-dark-gray',
         minzoom: 0,
-        maxzoom: 20,
+        maxzoom: 18,
       },
     ],
   }
@@ -269,42 +263,6 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       }}
     >
       <NavigationControl position={navPosition} />
-
-      {/* ── 3D Buildings Vector Source & Fill-Extrusion Layer ── */}
-      <Source
-        id="carto-buildings-source"
-        type="vector"
-        tiles={['https://tiles.basemaps.cartocdn.com/vectortiles/carto.streets/v1/{z}/{x}/{y}.mvt']}
-        minzoom={13}
-        maxzoom={20}
-      >
-        <Layer
-          id="3d-buildings"
-          source-layer="building"
-          type="fill-extrusion"
-          minzoom={13}
-          paint={{
-            'fill-extrusion-color': darkMode ? '#3b4252' : '#cbd5e1',
-            'fill-extrusion-height': [
-              'case',
-              ['has', 'render_height'],
-              ['get', 'render_height'],
-              ['has', 'height'],
-              ['get', 'height'],
-              ['has', 'levels'],
-              ['*', ['get', 'levels'], 3.8],
-              18,
-            ],
-            'fill-extrusion-base': [
-              'case',
-              ['has', 'render_min_height'],
-              ['get', 'render_min_height'],
-              0,
-            ],
-            'fill-extrusion-opacity': 0.85,
-          }}
-        />
-      </Source>
 
       {/* ── PAGASA Doppler Weather Radar Layer ── */}
       {showRadar && radarPrecipitationGeoJSON && (
