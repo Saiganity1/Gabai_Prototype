@@ -12,7 +12,7 @@ function CitizenApp() {
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('gabai-theme')
     if (saved !== null) return saved === 'dark'
-    return true // Default to signature Dark Disaster Map
+    return false // Default to Light Mode (Carto Voyager)
   })
 
   useEffect(() => {
@@ -29,7 +29,7 @@ function LGUApp() {
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('gabai-theme')
     if (saved !== null) return saved === 'dark'
-    return true
+    return false
   })
 
   useEffect(() => {
