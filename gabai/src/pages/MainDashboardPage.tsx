@@ -1333,13 +1333,25 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                     >
                       <StatusDot risk={r.risk} />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
+                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                           <span className="text-sm font-extrabold text-slate-900 dark:text-white">{r.label}</span>
                           <RiskBadge risk={r.risk} />
+                          {r.fuelSavingsPct && (
+                            <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 text-[9px] font-black px-1.5 py-0.5 rounded">
+                              🍃 -{r.fuelSavingsPct}% GAS
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{r.detail}</div>
                       </div>
-                      <div className="text-sm font-extrabold text-slate-800 dark:text-slate-200">{r.time}</div>
+                      <div className="text-right shrink-0">
+                        <div className="text-sm font-extrabold text-slate-800 dark:text-slate-200">{r.time}</div>
+                        {r.fuelEstLiters && (
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
+                            ⛽ ~{r.fuelEstLiters} L
+                          </div>
+                        )}
+                      </div>
                     </button>
                   )
                 })}
