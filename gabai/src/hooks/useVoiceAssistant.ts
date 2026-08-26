@@ -93,59 +93,43 @@ export function useVoiceAssistant(
     };
   };
 
-  // Initialize Web Speech API
+  // Initialize SpeechRecognition and SpeechSynthesis
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const SpeechRecognition =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.lang = 'tl-PH'; 
-        recognitionRef.current.interimResults = true;
-        recognitionRef.current.continuous = true;
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = 'fil-PH'; // Philippine Tagalog/Filipino
 
-        let silenceTimer: any = null;
+        recognition.onstart = () => setState('listening');
 
-        const startSilenceTimer = () => {
-          if (silenceTimer) clearTimeout(silenceTimer);
-          silenceTimer = setTimeout(() => {
-            recognitionRef.current?.stop();
-          }, 1600); // 1.6s of silence
-        };
-
-        recognitionRef.current.onstart = () => {
-          startSilenceTimer();
-        };
-
-        recognitionRef.current.onresult = (event: any) => {
+        recognition.onresult = (event: any) => {
           let currentTranscript = '';
           for (let i = event.resultIndex; i < event.results.length; i++) {
             currentTranscript += event.results[i][0].transcript;
           }
           setTranscript(currentTranscript);
-          startSilenceTimer();
         };
 
-        recognitionRef.current.onend = () => {
-          if (silenceTimer) clearTimeout(silenceTimer);
-          setState((prevState) => {
-            if (prevState === 'listening') {
-              processTranscript();
-              return 'processing';
-            }
-            return prevState;
-          });
-        };
-        
-        recognitionRef.current.onerror = (event: any) => {
-          if (silenceTimer) clearTimeout(silenceTimer);
-          console.error('Speech recognition error', event.error);
+        recognition.onerror = (event: any) => {
+          console.warn('Speech Recognition notice:', event.error);
           setState('idle');
         };
-      } else {
-        console.warn('Speech Recognition API not supported in this browser.');
+
+        recognition.onend = () => {
+          setState('processing');
+          processTranscript();
+        };
+
+        recognitionRef.current = recognition;
       }
 
-      synthesisRef.current = window.speechSynthesis;
+      if ('speechSynthesis' in window) {
+        synthesisRef.current = window.speechSynthesis;
+      }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -159,8 +143,32 @@ export function useVoiceAssistant(
 
         const localIntent = parseLocalIntent(finalTranscript);
 
-        // Send to backend
-        fetch('http://localhost:3000/api/ai/chat', {
+        const handleFallback = () => {
+          let fallbackReply = 'Narinig ko ang iyong ulat.';
+          if (localIntent.action === 'REPORT_HAZARD') {
+            fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
+          } else if (localIntent.action === 'SAFE_ROUTE') {
+            fallbackReply = 'Ipinapakita ang pinakaligtas na ruta sa evacuation shelter.';
+          }
+
+          setResponse(fallbackReply);
+          speakResponse(fallbackReply);
+
+          if (
+            onActionRef.current &&
+            (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE')
+          ) {
+            onActionRef.current(localIntent);
+          }
+        };
+
+        if (!API_BASE_URL) {
+          handleFallback();
+          return finalTranscript;
+        }
+
+        // Send to backend if available
+        fetch(`${API_BASE_URL}/ai/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -187,23 +195,10 @@ export function useVoiceAssistant(
               });
             }
           })
-          .catch((err) => {
-            console.warn('AI backend unavailable, using local disaster intent engine:', err);
-            let fallbackReply = 'Narinig ko ang iyong ulat.';
-            if (localIntent.action === 'REPORT_HAZARD') {
-              fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
-            } else if (localIntent.action === 'SAFE_ROUTE') {
-              fallbackReply = 'Ipinapakita ang pinakaligtas na ruta sa evacuation shelter.';
-            }
-
-            setResponse(fallbackReply);
-            speakResponse(fallbackReply);
-
-            if (onActionRef.current && (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE')) {
-              onActionRef.current(localIntent);
-            }
+          .catch(() => {
+            handleFallback();
           });
-          
+
         return finalTranscript;
       });
     }, 100);
@@ -219,7 +214,9 @@ export function useVoiceAssistant(
 
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = synthesisRef.current.getVoices();
-    const phVoice = voices.find((v) => v.lang.includes('tl') || v.lang.includes('ph') || v.lang.includes('PH'));
+    const phVoice = voices.find(
+      (v) => v.lang.includes('tl') || v.lang.includes('ph') || v.lang.includes('PH')
+    );
     if (phVoice) utterance.voice = phVoice;
 
     utterance.onstart = () => setState('speaking');
@@ -252,7 +249,31 @@ export function useVoiceAssistant(
     setState('processing');
     const localIntent = parseLocalIntent(text);
 
-    fetch('http://localhost:3000/api/ai/chat', {
+    const handleFallback = () => {
+      let fallbackReply = 'Narinig ko ang iyong tanong.';
+      if (localIntent.action === 'REPORT_HAZARD') {
+        fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
+      } else if (localIntent.action === 'SAFE_ROUTE') {
+        fallbackReply = 'Ipinapakita ang pinakaligtas na ruta sa evacuation shelter.';
+      }
+
+      setResponse(fallbackReply);
+      speakResponse(fallbackReply);
+
+      if (
+        onActionRef.current &&
+        (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE')
+      ) {
+        onActionRef.current(localIntent);
+      }
+    };
+
+    if (!API_BASE_URL) {
+      handleFallback();
+      return;
+    }
+
+    fetch(`${API_BASE_URL}/ai/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -280,19 +301,7 @@ export function useVoiceAssistant(
         }
       })
       .catch(() => {
-        let fallbackReply = 'Narinig ko ang iyong ulat.';
-        if (localIntent.action === 'REPORT_HAZARD') {
-          fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
-        } else if (localIntent.action === 'SAFE_ROUTE') {
-          fallbackReply = 'Ipinapakita ang pinakaligtas na ruta sa evacuation shelter.';
-        }
-
-        setResponse(fallbackReply);
-        speakResponse(fallbackReply);
-
-        if (onActionRef.current && (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE')) {
-          onActionRef.current(localIntent);
-        }
+        handleFallback();
       });
   }, []);
 

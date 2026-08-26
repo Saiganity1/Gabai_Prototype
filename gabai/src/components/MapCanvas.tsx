@@ -340,27 +340,146 @@ function interpolateSegment(
     }
   }, [showRadar, userLng, userLat])
 
-  return (
-    <Map
-      ref={mapRef}
-      mapLib={maplibregl}
-      initialViewState={{
-        longitude: userLng,
-        latitude: userLat,
-        zoom: 14,
-        pitch: 60,
-        bearing: 0,
-      }}
-      style={{ width: '100%', height: '100%' }}
-      mapStyle={darkMode ? darkStyle : lightStyle}
-      maxBounds={[[114.0, 4.0], [127.0, 22.0]]}
-      minZoom={5}
-      onClick={(e) => {
-        if (onMapClick && e.lngLat) {
-          onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng })
+  const [screenLines, setScreenLines] = useState<
+    Array<{
+      id: string | number
+      x1: number
+      y1: number
+      x2: number
+      y2: number
+      color: string
+    }>
+  >([])
+
+  const updateScreenLines = useCallback(() => {
+    if (!mapRef.current) return
+    const map = mapRef.current.getMap ? mapRef.current.getMap() : mapRef.current
+    if (!map || typeof map.project !== 'function') return
+
+    const roadHazards = hazards.filter(
+      (h) =>
+        h.isRoadSegment &&
+        h.roadSegment &&
+        h.roadSegment.from &&
+        h.roadSegment.to &&
+        typeof h.roadSegment.from.lng === 'number' &&
+        typeof h.roadSegment.from.lat === 'number' &&
+        typeof h.roadSegment.to.lng === 'number' &&
+        typeof h.roadSegment.to.lat === 'number' &&
+        h.status !== 'Resolved'
+    )
+
+    const lines = roadHazards
+      .map((h) => {
+        const seg = h.roadSegment!
+        const isVerified = Boolean(
+          (h.verified && h.verified > 0) ||
+            h.isVerified ||
+            h.status === 'Verified' ||
+            h.status?.includes('Verified')
+        )
+        const color = isVerified ? '#2563EB' : '#F97316'
+
+        try {
+          const p1 = map.project([seg.from.lng, seg.from.lat])
+          const p2 = map.project([seg.to.lng, seg.to.lat])
+          return {
+            id: h.id,
+            x1: p1.x,
+            y1: p1.y,
+            x2: p2.x,
+            y2: p2.y,
+            color,
+          }
+        } catch {
+          return null
         }
-      }}
-    >
+      })
+      .filter(Boolean) as Array<{
+      id: string | number
+      x1: number
+      y1: number
+      x2: number
+      y2: number
+      color: string
+    }>
+
+    setScreenLines(lines)
+  }, [hazards])
+
+  useEffect(() => {
+    updateScreenLines()
+  }, [hazards, updateScreenLines])
+
+  return (
+    <div className="relative w-full h-full overflow-hidden">
+      {/* ── Direct Visual SVG Road Flood Connector (Infallible Visibility) ── */}
+      {screenLines.length > 0 && (
+        <svg className="absolute inset-0 pointer-events-none z-10 w-full h-full overflow-visible">
+          {screenLines.map((line) => (
+            <g key={`svg-road-line-${line.id}`}>
+              {/* Outer Glow */}
+              <line
+                x1={line.x1}
+                y1={line.y1}
+                x2={line.x2}
+                y2={line.y2}
+                stroke={line.color}
+                strokeWidth="18"
+                strokeOpacity="0.45"
+                strokeLinecap="round"
+              />
+              {/* Main Solid Line */}
+              <line
+                x1={line.x1}
+                y1={line.y1}
+                x2={line.x2}
+                y2={line.y2}
+                stroke={line.color}
+                strokeWidth="8"
+                strokeOpacity="1"
+                strokeLinecap="round"
+              />
+              {/* Center White Stripes */}
+              <line
+                x1={line.x1}
+                y1={line.y1}
+                x2={line.x2}
+                y2={line.y2}
+                stroke="#FFFFFF"
+                strokeWidth="2.5"
+                strokeDasharray="8,8"
+                strokeLinecap="round"
+                strokeOpacity="0.9"
+              />
+            </g>
+          ))}
+        </svg>
+      )}
+
+      <Map
+        ref={mapRef}
+        mapLib={maplibregl}
+        initialViewState={{
+          longitude: userLng,
+          latitude: userLat,
+          zoom: 14,
+          pitch: 60,
+          bearing: 0,
+        }}
+        style={{ width: '100%', height: '100%' }}
+        mapStyle={darkMode ? darkStyle : lightStyle}
+        maxBounds={[[114.0, 4.0], [127.0, 22.0]]}
+        minZoom={5}
+        onMove={updateScreenLines}
+        onRender={updateScreenLines}
+        onLoad={updateScreenLines}
+        onClick={(e) => {
+          if (onMapClick && e.lngLat) {
+            onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng })
+          }
+        }}
+      >
       <NavigationControl position={navPosition} />
 
       {/* ── True 3D Extruded Buildings Vector Layer ── */}
@@ -807,6 +926,7 @@ function interpolateSegment(
         </Popup>
       )}
     </Map>
+    </div>
   )
 })
 
