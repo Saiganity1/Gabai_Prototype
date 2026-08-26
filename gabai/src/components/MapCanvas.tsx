@@ -355,8 +355,133 @@ function interpolateSegment(
 
 
 
+  const [screenLines, setScreenLines] = useState<
+    Array<{
+      id: string | number
+      points: string
+      color: string
+    }>
+  >([])
+
+  const updateScreenLines = useCallback(() => {
+    if (!showRoadLines) {
+      if (screenLines.length > 0) setScreenLines([])
+      return
+    }
+
+    if (!mapRef.current) return
+    const map = mapRef.current.getMap ? mapRef.current.getMap() : mapRef.current
+    if (!map || typeof map.project !== 'function') return
+
+    const roadHazards = hazards.filter(
+      (h) =>
+        h.isRoadSegment &&
+        h.roadSegment &&
+        h.roadSegment.from &&
+        h.roadSegment.to &&
+        typeof h.roadSegment.from.lng === 'number' &&
+        typeof h.roadSegment.from.lat === 'number' &&
+        typeof h.roadSegment.to.lng === 'number' &&
+        typeof h.roadSegment.to.lat === 'number' &&
+        h.status !== 'Resolved'
+    )
+
+    const lines = roadHazards
+      .map((h) => {
+        const seg = h.roadSegment!
+        const isVerified = Boolean(
+          (h.verified && h.verified > 0) ||
+            h.isVerified ||
+            h.status === 'Verified' ||
+            h.status?.includes('Verified')
+        )
+        const color = isVerified ? '#2563EB' : '#F97316'
+
+        const rawCoords: [number, number][] =
+          seg.path && seg.path.length > 1
+            ? seg.path
+            : interpolateSegment([seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat], 25)
+
+        try {
+          const projected = rawCoords.map(([lng, lat]) => {
+            const p = map.project([lng, lat])
+            return `${p.x.toFixed(1)},${p.y.toFixed(1)}`
+          })
+          return {
+            id: h.id,
+            points: projected.join(' '),
+            color,
+          }
+        } catch {
+          return null
+        }
+      })
+      .filter(Boolean) as Array<{
+      id: string | number
+      points: string
+      color: string
+    }>
+
+    setScreenLines(lines)
+  }, [hazards, showRoadLines, screenLines.length])
+
+  useEffect(() => {
+    updateScreenLines()
+  }, [hazards, showRoadLines, updateScreenLines])
+
   return (
     <div className="relative w-full h-full overflow-hidden">
+      {/* ── Direct Visual SVG Road Flood Connector (Always Crisp & Visible) ── */}
+      {showRoadLines && screenLines.length > 0 && (
+        <svg className="absolute inset-0 pointer-events-none z-10 w-full h-full overflow-visible">
+          {screenLines.map((line) => (
+            <g key={`svg-road-line-${line.id}`}>
+              {/* Outer Glow */}
+              <polyline
+                points={line.points}
+                fill="none"
+                stroke={line.color}
+                strokeWidth="18"
+                strokeOpacity="0.45"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {/* Road Dark Border */}
+              <polyline
+                points={line.points}
+                fill="none"
+                stroke="#0F172A"
+                strokeWidth="9"
+                strokeOpacity="0.85"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {/* Main Solid Line */}
+              <polyline
+                points={line.points}
+                fill="none"
+                stroke={line.color}
+                strokeWidth="6.5"
+                strokeOpacity="1"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {/* Center White Stripes */}
+              <polyline
+                points={line.points}
+                fill="none"
+                stroke="#FFFFFF"
+                strokeWidth="2"
+                strokeDasharray="4,4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeOpacity="0.95"
+              />
+            </g>
+          ))}
+        </svg>
+      )}
+
       {/* ── Floating 2D / 3D Perspective Switcher Pill ── */}
       {onToggle3D && (
         <div className="absolute top-28 right-2.5 z-20 pointer-events-auto shadow-xl">
@@ -391,6 +516,13 @@ function interpolateSegment(
         mapStyle={darkMode ? darkStyle : lightStyle}
         maxBounds={[[114.0, 4.0], [127.0, 22.0]]}
         minZoom={5}
+        onMove={updateScreenLines}
+        onMoveEnd={updateScreenLines}
+        onZoomEnd={updateScreenLines}
+        onPitchEnd={updateScreenLines}
+        onRotateEnd={updateScreenLines}
+        onRender={updateScreenLines}
+        onLoad={updateScreenLines}
         onClick={(e) => {
           if (onMapClick && e.lngLat) {
             onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng })
@@ -716,56 +848,21 @@ function interpolateSegment(
         </Marker>
       )}
 
-      {/* ── Road Flood Endpoint & LGU Badges (Visible ONLY When Tapped / Selected) ── */}
+      {/* ── Road Flood Endpoint & Center Badges ── */}
       {hazards
-        .filter((h) => h.isRoadSegment && h.roadSegment && h.status !== 'Resolved' && selectedHazard?.id === h.id)
+        .filter((h) => h.isRoadSegment && h.roadSegment && h.status !== 'Resolved')
         .map((h) => {
           const seg = h.roadSegment!
           const isVerified = Boolean((h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified' || h.status?.includes('Verified'))
           const color = isVerified ? '#2563EB' : '#F97316'
+          const isSelected = selectedHazard?.id === h.id
 
           const midLat = (seg.from.lat + seg.to.lat) / 2
           const midLng = (seg.from.lng + seg.to.lng) / 2
 
           return (
             <div key={`road-flood-markers-${h.id}`}>
-              {/* Point A (From) */}
-              <Marker longitude={seg.from.lng} latitude={seg.from.lat} anchor="center">
-                <div className="flex flex-col items-center pointer-events-none anim-scale-up">
-                  <div
-                    className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-1 whitespace-nowrap"
-                    style={{ backgroundColor: color }}
-                  >
-                    Start: {seg.from.name || 'Point A'}
-                  </div>
-                  <div
-                    className="w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-black shadow-lg"
-                    style={{ backgroundColor: color }}
-                  >
-                    A
-                  </div>
-                </div>
-              </Marker>
-
-              {/* Point B (To) */}
-              <Marker longitude={seg.to.lng} latitude={seg.to.lat} anchor="center">
-                <div className="flex flex-col items-center pointer-events-none anim-scale-up">
-                  <div
-                    className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-1 whitespace-nowrap"
-                    style={{ backgroundColor: color }}
-                  >
-                    End: {seg.to.name || 'Point B'}
-                  </div>
-                  <div
-                    className="w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-black shadow-lg"
-                    style={{ backgroundColor: color }}
-                  >
-                    B
-                  </div>
-                </div>
-              </Marker>
-
-              {/* Center Floating Passability Badge */}
+              {/* Center Floating Passability Badge (Always Visible & Tap-Friendly) */}
               <Marker longitude={midLng} latitude={midLat} anchor="center">
                 <button
                   type="button"
@@ -773,26 +870,67 @@ function interpolateSegment(
                     e.stopPropagation()
                     onHazardClick(h)
                   }}
-                  className="cursor-pointer focus:outline-none"
+                  className={`cursor-pointer focus:outline-none transition-transform hover:scale-110 active:scale-95 z-20 ${
+                    isSelected ? 'scale-110 ring-4 ring-cyan-400 rounded-full' : ''
+                  }`}
                 >
                   <div
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border-2 border-white text-white text-[11px] font-black shadow-2xl ring-4 ring-cyan-400 scale-105 anim-scale-up"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-white text-white text-[10px] font-black shadow-2xl"
                     style={{ backgroundColor: color }}
                   >
                     <span className="text-xs">🌊</span>
                     <span className="uppercase tracking-wider">
-                      {isVerified ? 'LGU VERIFIED' : 'PENDING LGU'}
+                      {isVerified ? 'VERIFIED' : 'ROAD FLOOD'}
                     </span>
-                    <span className="bg-black/35 px-1.5 py-0.5 rounded text-[9px] font-mono font-normal">
+                    <span className="bg-black/35 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold">
                       {h.passability === 'not_passable_all'
                         ? '⛔ CLOSED'
                         : h.passability === 'all_passable'
                         ? '🟢 PASSABLE'
-                        : '🚫 NO LIGHT VEHICLES'}
+                        : '🚫 NO LIGHT CARS'}
                     </span>
                   </div>
                 </button>
               </Marker>
+
+              {/* Point A and B Markers when Selected */}
+              {isSelected && (
+                <>
+                  {/* Point A (From) */}
+                  <Marker longitude={seg.from.lng} latitude={seg.from.lat} anchor="center">
+                    <div className="flex flex-col items-center pointer-events-none anim-scale-up z-20">
+                      <div
+                        className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-1 whitespace-nowrap bg-slate-900 border border-white/30"
+                      >
+                        Start: {seg.from.name || 'Point A'}
+                      </div>
+                      <div
+                        className="w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-black shadow-lg"
+                        style={{ backgroundColor: color }}
+                      >
+                        A
+                      </div>
+                    </div>
+                  </Marker>
+
+                  {/* Point B (To) */}
+                  <Marker longitude={seg.to.lng} latitude={seg.to.lat} anchor="center">
+                    <div className="flex flex-col items-center pointer-events-none anim-scale-up z-20">
+                      <div
+                        className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-1 whitespace-nowrap bg-slate-900 border border-white/30"
+                      >
+                        End: {seg.to.name || 'Point B'}
+                      </div>
+                      <div
+                        className="w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-black shadow-lg"
+                        style={{ backgroundColor: color }}
+                      >
+                        B
+                      </div>
+                    </div>
+                  </Marker>
+                </>
+              )}
             </div>
           )
         })}
