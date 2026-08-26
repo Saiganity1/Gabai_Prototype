@@ -305,6 +305,34 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
     window.print()
   }
 
+  const handleResolveHazardFromMap = (hazard: Hazard) => {
+    const matchedReport = reports.find(
+      (r) =>
+        r.hazardId === hazard.id ||
+        r.id === hazard.id ||
+        (r.isRoadSegment && hazard.isRoadSegment && Math.hypot(r.lat - hazard.lat, r.lng - hazard.lng) < 0.005)
+    )
+    if (matchedReport) {
+      resolveReport(matchedReport.id)
+    } else {
+      resolveReport(hazard.id)
+    }
+    setSelectedHazard(null)
+  }
+
+  const handleVerifyHazardFromMap = (hazard: Hazard) => {
+    const matchedReport = reports.find(
+      (r) =>
+        r.hazardId === hazard.id ||
+        r.id === hazard.id ||
+        Math.hypot(r.lat - hazard.lat, r.lng - hazard.lng) < 0.005
+    )
+    if (matchedReport) {
+      verifyReport(matchedReport.id)
+    }
+    setSelectedHazard(null)
+  }
+
   const toggle3DMode = () => {
     setIs3D((prev) => {
       const next = !prev
@@ -336,6 +364,8 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
           showEvacCenters={true}
           is3D={is3D}
           onToggle3D={toggle3DMode}
+          onResolveHazard={handleResolveHazardFromMap}
+          onVerifyHazard={handleVerifyHazardFromMap}
         />
       </div>
 
@@ -1039,6 +1069,104 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
           )}
         </div>
       </div>
+
+      {/* ── LGU Direct Map Tap Hazard Action Card ── */}
+      {selectedHazard && (
+        <div className="fixed bottom-20 sm:bottom-6 right-4 sm:right-20 z-40 max-w-sm w-[calc(100vw-32px)] anim-slide-up pointer-events-auto">
+          <div className="bg-slate-900/95 backdrop-blur-2xl rounded-3xl p-4 sm:p-4.5 border border-blue-500/60 shadow-[0_20px_60px_rgba(0,0,0,0.9)] text-slate-100">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2.5">
+                <span className="text-3xl">{selectedHazard.emoji}</span>
+                <div>
+                  <div className="font-black text-sm text-white leading-tight">
+                    {selectedHazard.label}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                    <span className="capitalize font-semibold text-slate-300">{selectedHazard.severity} Severity</span>
+                    <span>•</span>
+                    <span className="text-emerald-400 font-bold">{selectedHazard.status}</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedHazard(null)}
+                className="p-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Road Flood Metadata if applicable */}
+            {selectedHazard.isRoadSegment && selectedHazard.roadSegment && (
+              <div className="bg-slate-950/80 rounded-xl p-2 border border-slate-800 my-2 space-y-1 text-xs">
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-slate-400 font-bold">🛣️ Road: {selectedHazard.roadSegment.roadName || 'Corridor'}</span>
+                  <span className="font-bold text-amber-400">
+                    {selectedHazard.passability === 'not_passable_all'
+                      ? '⛔ CLOSED'
+                      : selectedHazard.passability === 'all_passable'
+                      ? '🟢 PASSABLE'
+                      : '🚫 NO LIGHT CARS'}
+                  </span>
+                </div>
+                {selectedHazard.waterDepth && (
+                  <div className="text-[10px] font-semibold text-cyan-300">
+                    🌊 Water Depth: {selectedHazard.waterDepth}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Quick Action Buttons for LGU Commander */}
+            <div className="grid grid-cols-2 gap-2 mt-2.5 pt-2 border-t border-slate-800">
+              {/* 1. Resolve Button (Instantly clears hazard from map) */}
+              <button
+                type="button"
+                onClick={() => handleResolveHazardFromMap(selectedHazard)}
+                className="col-span-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer"
+              >
+                <Flag className="w-4 h-4 text-white" />
+                <span>Resolve & Clear from Live Map</span>
+              </button>
+
+              {/* 2. Verify Button (If not verified yet) */}
+              {!selectedHazard.isVerified && selectedHazard.status !== 'Verified' && (
+                <button
+                  type="button"
+                  onClick={() => handleVerifyHazardFromMap(selectedHazard)}
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 rounded-xl text-xs flex items-center justify-center gap-1 cursor-pointer active:scale-95 shadow-md"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>Verify</span>
+                </button>
+              )}
+
+              {/* 3. Dispatch Rescue Unit */}
+              <button
+                type="button"
+                onClick={() => {
+                  const matchedReport = reports.find(
+                    (r) =>
+                      r.hazardId === selectedHazard.id ||
+                      r.id === selectedHazard.id ||
+                      Math.hypot(r.lat - selectedHazard.lat, r.lng - selectedHazard.lng) < 0.005
+                  )
+                  setDispatchTargetReport(matchedReport || { desc: selectedHazard.label, locationName: selectedHazard.label })
+                  setShowDispatchModal(true)
+                  setSelectedHazard(null)
+                }}
+                className={`${
+                  !selectedHazard.isVerified && selectedHazard.status !== 'Verified' ? '' : 'col-span-2'
+                } bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-1.5 rounded-xl text-xs flex items-center justify-center gap-1 cursor-pointer active:scale-95 shadow-md`}
+              >
+                <LifeBuoy className="w-3.5 h-3.5" />
+                <span>Deploy Fleet</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Map Action Controls (Bottom Right) ────────────────── */}
       <div className="absolute bottom-6 right-4 z-20 flex flex-col gap-2 pointer-events-none">

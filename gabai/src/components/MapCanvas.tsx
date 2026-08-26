@@ -68,6 +68,8 @@ interface Props {
   onToggle3D?: () => void
   isPickingRoadSegment?: 'from' | 'to' | null
   isPickingPoint?: boolean
+  onResolveHazard?: (h: Hazard) => void
+  onVerifyHazard?: (h: Hazard) => void
 }
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -128,6 +130,8 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     onToggle3D,
     isPickingRoadSegment,
     isPickingPoint,
+    onResolveHazard,
+    onVerifyHazard,
   },
   ref
 ) {
@@ -1178,12 +1182,43 @@ function interpolateSegment(
             <div className="text-xs text-slate-600 my-2 bg-slate-100 p-2 rounded-xl">
               Status: <span className="font-bold text-red-600">{selectedHazard.status}</span> · {selectedHazard.distance}
             </div>
-            <button
-              onClick={() => onHazardClick(selectedHazard)}
-              className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2 rounded-xl transition-colors shadow-sm"
-            >
-              Open Full Report Sheet
-            </button>
+
+            {onResolveHazard ? (
+              <div className="flex flex-col gap-1.5 mt-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onResolveHazard(selectedHazard)
+                  }}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+                >
+                  <span>🏁</span>
+                  <span>Resolve & Clear Flood</span>
+                </button>
+                {onVerifyHazard && !selectedHazard.isVerified && selectedHazard.status !== 'Verified' && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onVerifyHazard(selectedHazard)
+                    }}
+                    className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 px-3 rounded-xl flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+                  >
+                    <span>✓</span>
+                    <span>Verify Incident</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onHazardClick(selectedHazard)}
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2 rounded-xl transition-colors shadow-sm cursor-pointer"
+              >
+                Open Full Report Sheet
+              </button>
+            )}
           </div>
         </Popup>
       )}
