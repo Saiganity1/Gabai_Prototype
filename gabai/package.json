@@ -10,6 +10,7 @@
     "format": "oxfmt"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.4",
     "lucide-react": "^1.33.0",
     "maplibre-gl": "^6.5.0",
     "react": "^19.0.0",
