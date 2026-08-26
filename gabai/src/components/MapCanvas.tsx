@@ -102,6 +102,9 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   },
   ref
 ) {
+  const mapRef = useRef<any>(null)
+  const initialCentered = useRef(false)
+
   const lightStyle: any = {
     version: 8,
     sources: {
