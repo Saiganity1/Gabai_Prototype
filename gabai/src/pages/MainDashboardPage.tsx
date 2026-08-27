@@ -21,7 +21,7 @@ import { GabaiChatbot } from '../components/GabaiChatbot'
 import { searchRealWorldPlaces } from '../utils/placeSearch'
 import { fetchRoadSegmentPath } from '../utils/routingEngine'
 import { analyzeRouteWithAI } from '../utils/aiRouteAdvisor'
-import { geminiAnalyzeFloodPhoto, geminiAnalyzeRoute, geminiChatAssistant } from '../utils/geminiClient'
+import { geminiAnalyzeFloodPhoto, geminiAnalyzeRoute, geminiChatAssistant, geminiGeocodePlace } from '../utils/geminiClient'
 import { calculateDistanceKm } from '../hooks/useUserLocation'
 
 const isLocalhost =
@@ -452,7 +452,18 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         .trim()
 
       // Exhaustive Directory of all 21 Pampanga LGUs, Major Hospitals, Specific Malls, and Parks
+      // Exhaustive Directory of all 21 Pampanga LGUs, Major Hospitals, Universities, Schools, Malls, and Parks
       const KNOWN_PAMPANGA_PLACES = [
+        // Schools, Colleges & Universities
+        { name: "St. Mary's Angels College of Pampanga (SMACP)", address: 'Sto. Domingo, Santa Ana / Mexico, Pampanga', lat: 15.0850, lng: 120.7620, keywords: ['smacp', 'saint mary', 'st mary', 'st. mary', 'saint marys', 'st marys', 'smacp sto domingo', 'saint mary school', "saint mary's", 'saint mary school on sto', 'smacp santo domingo', 'saint marys angels'] },
+        { name: 'Holy Angel University (HAU)', address: 'Sto. Rosario, Angeles City, Pampanga', lat: 15.1348, lng: 120.5898, keywords: ['hau', 'holy angel university', 'holy angel'] },
+        { name: 'Angeles University Foundation (AUF)', address: 'MacArthur Highway, Angeles City, Pampanga', lat: 15.1509, lng: 120.5960, keywords: ['auf', 'angeles university foundation', 'auf medical center'] },
+        { name: 'Don Honorio Ventura State University (DHVSU)', address: 'Bacolor, Pampanga', lat: 14.9975, lng: 120.6540, keywords: ['dhvsu', 'don honorio', 'dhvtsu', 'dhvsu bacolor', 'dhvsu mexico'] },
+        { name: 'University of the Assumption', address: 'Unisite Subd, San Fernando, Pampanga', lat: 15.0442, lng: 120.6865, keywords: ['ua', 'university of the assumption', 'assumption san fernando'] },
+        { name: 'San Luis National High School', address: 'San Luis, Pampanga', lat: 15.0380, lng: 120.7950, keywords: ['san luis national high school', 'san luis high school', 'slnhs'] },
+        { name: 'Pampanga High School', address: 'High School Blvd, San Fernando, Pampanga', lat: 15.0270, lng: 120.6930, keywords: ['pampanga high school', 'phs', 'phs san fernando'] },
+        { name: 'San Sebastian Elementary School', address: 'San Sebastian, San Luis, Pampanga', lat: 15.0425, lng: 120.7913, keywords: ['san sebastian elementary school', 'san sebastian school'] },
+
         // Specific Malls & Commercial Hubs
         { name: 'SM City Pampanga', address: 'Jose Abad Santos Ave, San Fernando, Pampanga', lat: 15.0475, lng: 120.6970, keywords: ['sm city pampanga', 'sm pampanga', 'sm mall pampanga', 'sm city san fernando pampanga'] },
         { name: 'SM City San Fernando Downtown', address: 'Consunji St, San Fernando, Pampanga', lat: 15.0286, lng: 120.6903, keywords: ['sm downtown', 'sm city downtown', 'sm san fernando downtown', 'sm downtown san fernando'] },
@@ -499,7 +510,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
       let target: { name: string; address?: string; lat: number; lng: number } | null = null
 
-      // Tier 1: High-precision match against known verified Pampanga landmarks first (prevents OSM branch confusion)
+      // Tier 1: High-precision match against known verified Pampanga landmarks first
       const exactLandmarkMatch = KNOWN_PAMPANGA_PLACES.find((p) =>
         p.keywords.some((k) => cleanedTarget.includes(k) || k.includes(cleanedTarget) || q.includes(k) || k.includes(q))
       )
@@ -532,7 +543,17 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         } catch {}
       }
 
-      // Tier 4: Generic shelter / emergency request fallback
+      // Tier 4: Precision AI Geocoding Resolver (resolves any school, college, acronym, or local venue in Pampanga)
+      if (!target && (cleanedTarget.length >= 2 || lower.includes('route') || lower.includes('daan') || lower.includes('punta'))) {
+        try {
+          const aiResolved = await geminiGeocodePlace(targetQuery || text, userLocation)
+          if (aiResolved) {
+            target = aiResolved
+          }
+        } catch {}
+      }
+
+      // Tier 5: Generic shelter / emergency request fallback
       if (!target && (lower.includes('shelter') || lower.includes('evac') || lower.includes('ligtas') || lower.includes('emergency') || lower.includes('hospital'))) {
         if (evacCenters.length > 0) {
           target = { name: evacCenters[0].name, address: evacCenters[0].address, lat: evacCenters[0].lat, lng: evacCenters[0].lng }

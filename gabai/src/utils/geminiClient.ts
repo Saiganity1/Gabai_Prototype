@@ -226,3 +226,56 @@ Task: Provide a concise (1-2 sentences), accurate, reassuring response in the us
   }
 }
 
+/**
+ * AI Geocoding Resolver: Resolves any school, building, acronym (SMACP, AUF, HAU), or local venue in Pampanga to exact GPS coordinates
+ */
+export async function geminiGeocodePlace(
+  placeQuery: string,
+  userLocation?: { lat: number; lng: number }
+): Promise<{ name: string; address: string; lat: number; lng: number } | null> {
+  if (!GEMINI_API_KEY) return null
+
+  const prompt = `You are a precision geographic entity resolver for Pampanga, Philippines.
+Resolve this user query: "${placeQuery}"
+Context: User is currently near ${userLocation ? `${userLocation.lat}, ${userLocation.lng}` : 'Pampanga'}.
+Identify the real-world venue, school, university, hospital, church, barangay, or landmark in Pampanga (e.g. "SMACP" = "St. Mary's Angels College of Pampanga" in Sto. Domingo, Mexico/Santa Ana, Pampanga).
+
+Respond ONLY in valid JSON:
+{
+  "name": "Official Full Name of the Venue",
+  "address": "Specific Barangay, Municipality, Pampanga",
+  "lat": 15.0850,
+  "lng": 120.7620,
+  "confidence": 0.95
+}`
+
+  try {
+    const res = await fetch(GEMINI_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json' },
+      }),
+    })
+
+    if (!res.ok) return null
+    const data = await res.json()
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text
+    if (!rawText) return null
+
+    const parsed = JSON.parse(rawText)
+    if (parsed && parsed.lat && parsed.lng && parsed.lat > 14.5 && parsed.lat < 16.0 && parsed.lng > 120.0 && parsed.lng < 121.5) {
+      return {
+        name: parsed.name || placeQuery,
+        address: parsed.address || 'Pampanga, Philippines',
+        lat: Number(parsed.lat),
+        lng: Number(parsed.lng),
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
