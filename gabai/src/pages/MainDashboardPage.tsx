@@ -965,7 +965,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             <option value="en">English</option>
             <option value="pam">Kapampangan</option>
           </select>
-          {voice.language === 'auto' && voice.detectedLanguage && (
+          {voice.language === 'auto' && typeof voice.detectedLanguage === 'string' && voice.detectedLanguage && (
             <div className="text-[9px] text-cyan-400 mt-1 text-center font-bold absolute -bottom-4 w-full">
               Detected: {voice.detectedLanguage.toUpperCase()}
             </div>
