@@ -1216,7 +1216,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
       {/* ── Floating Water Depth Legend ("WATER DEPTH") ── */}
       {showLegend && (
-        <div className="absolute bottom-6 left-4 z-20 w-56 bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/90 rounded-2xl p-3.5 shadow-2xl text-white pointer-events-auto anim-slide-up">
+        <div className={`absolute bottom-6 transition-all duration-300 z-20 w-56 bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/90 rounded-2xl p-3.5 shadow-2xl text-white pointer-events-auto anim-slide-up ${conditionsOpen ? 'left-[300px] sm:left-[352px]' : 'left-4'}`}>
           <div className="flex items-center justify-between mb-2.5">
             <span className="text-[10px] font-mono tracking-widest text-slate-400 font-bold uppercase">WATER DEPTH</span>
             <button
