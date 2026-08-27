@@ -677,7 +677,10 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       return
     }
     setSelectedHazard(h)
-    setActiveModal('hazard')
+    // Keep Safe Route Navigator open if currently comparing routes or navigating
+    if (activeModal !== 'routes') {
+      setActiveModal('hazard')
+    }
     mapCanvasRef.current?.flyToCoords(h.lat, h.lng, 16)
   }
 
