@@ -342,8 +342,10 @@ function interpolateSegment(
         typeof h.roadSegment.from.lng === 'number' &&
         typeof h.roadSegment.from.lat === 'number' &&
         typeof h.roadSegment.to.lng === 'number' &&
-        typeof h.roadSegment.to.lat === 'number' &&
-        h.status !== 'Resolved'
+        h.status !== 'Resolved' &&
+        h.status !== 'Rejected by LGU' &&
+        !h.status?.toLowerCase().includes('resolve') &&
+        !h.status?.toLowerCase().includes('reject')
     )
 
     return {

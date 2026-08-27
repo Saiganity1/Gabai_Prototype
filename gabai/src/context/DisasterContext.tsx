@@ -229,14 +229,37 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [userLoc.coords.lat, userLoc.coords.lng, userLoc.locationName]
   )
 
+  const [resolvedIds, setResolvedIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('gabai-resolved-ids')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) return parsed
+      }
+    } catch {}
+    return []
+  })
+
+  const [rejectedIds, setRejectedIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('gabai-rejected-ids')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) return parsed
+      }
+    } catch {}
+    return []
+  })
+
   const [hazards, setHazards] = useState<Hazard[]>(() => {
     const defaults = getContextualHazards(15.074, 120.781)
+    let initialList = defaults
     try {
       const saved = localStorage.getItem('gabai-live-hazards')
       if (saved) {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((item: any) => {
+          initialList = parsed.map((item: any) => {
             const match = defaults.find((d) => d.id === item.id)
             if (match && match.isRoadSegment && match.roadSegment) {
               return { ...item, roadSegment: match.roadSegment }
@@ -246,18 +269,39 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       }
     } catch {}
-    return defaults
+
+    const resIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-resolved-ids') || '[]'))
+    const rejIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-rejected-ids') || '[]'))
+
+    return initialList.filter((h) => {
+      if (h.status === 'Resolved' || h.status === 'Rejected by LGU') return false
+      if (resIds.has(String(h.id)) || rejIds.has(String(h.id))) return false
+      return true
+    })
   })
 
   const [reports, setReports] = useState<CitizenReport[]>(() => {
+    let initialReports = DEFAULT_SEED_REPORTS
     try {
       const saved = localStorage.getItem('gabai-live-reports')
       if (saved) {
         const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+        if (Array.isArray(parsed) && parsed.length > 0) initialReports = parsed
       }
     } catch {}
-    return DEFAULT_SEED_REPORTS
+
+    const resIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-resolved-ids') || '[]'))
+    const rejIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-rejected-ids') || '[]'))
+
+    return initialReports.map((r) => {
+      if (resIds.has(String(r.id)) || (r.hazardId && resIds.has(String(r.hazardId)))) {
+        return { ...r, status: 'resolved' as const }
+      }
+      if (rejIds.has(String(r.id)) || (r.hazardId && rejIds.has(String(r.hazardId)))) {
+        return { ...r, status: 'rejected' as const }
+      }
+      return r
+    })
   })
 
   const [myReportIds, setMyReportIds] = useState<string[]>(() => {
@@ -277,8 +321,10 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       localStorage.setItem('gabai-live-reports', JSON.stringify(reports))
       localStorage.setItem('gabai-live-hazards', JSON.stringify(hazards))
       localStorage.setItem('gabai-my-reported-ids', JSON.stringify(myReportIds))
+      localStorage.setItem('gabai-resolved-ids', JSON.stringify(resolvedIds))
+      localStorage.setItem('gabai-rejected-ids', JSON.stringify(rejectedIds))
     } catch {}
-  }, [reports, hazards, myReportIds])
+  }, [reports, hazards, myReportIds, resolvedIds, rejectedIds])
 
   // Multi-tab real-time listener (Cross-tab broadcast channel)
   useEffect(() => {
@@ -332,6 +378,9 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     async (event: {
       type: 'REPORT_SUBMITTED' | 'REPORT_VERIFIED' | 'REPORT_REJECTED' | 'REPORT_RESOLVED'
       reportId?: number | string
+      hazardId?: number | string
+      roadName?: string
+      coords?: { lat: number; lng: number }
       report?: CitizenReport
       hazard?: Hazard
       timestamp?: number
@@ -355,14 +404,29 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const applyCloudEvent = useCallback((payload: any) => {
     if (!payload || !payload.type) return
 
+    const resIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-resolved-ids') || '[]'))
+    const rejIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-rejected-ids') || '[]'))
+
     if (payload.type === 'REPORT_SUBMITTED' && payload.report) {
-      const rep = payload.report
-      const haz = payload.hazard
+      const rep: CitizenReport = payload.report
+      const haz: Hazard = payload.hazard
+
+      // Do not add if already resolved or rejected
+      if (
+        resIds.has(String(rep.id)) ||
+        (rep.hazardId && resIds.has(String(rep.hazardId))) ||
+        rejIds.has(String(rep.id)) ||
+        (rep.hazardId && rejIds.has(String(rep.hazardId)))
+      ) {
+        return
+      }
+
       setReports((prev) => {
         if (prev.some((r) => r.id === rep.id)) return prev
         return [rep, ...prev]
       })
-      if (haz) {
+
+      if (haz && !resIds.has(String(haz.id)) && !rejIds.has(String(haz.id))) {
         setHazards((prev) => {
           if (prev.some((h) => h.id === haz.id)) return prev
           return [haz, ...prev]
@@ -372,8 +436,16 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     if (payload.type === 'REPORT_VERIFIED') {
       const repId = payload.reportId
+      const hazId = payload.hazardId || payload.hazard?.id
       const haz = payload.hazard
       const rep = payload.report
+
+      if (
+        (repId && (resIds.has(String(repId)) || rejIds.has(String(repId)))) ||
+        (hazId && (resIds.has(String(hazId)) || rejIds.has(String(hazId))))
+      ) {
+        return
+      }
 
       setReports((prev) => {
         const exists = prev.some((r) => r.id === repId)
@@ -387,7 +459,6 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       })
 
       setHazards((prev) => {
-        const hazId = haz?.id || payload.hazardId
         const exists = prev.some(
           (h) =>
             (hazId && h.id === hazId) ||
@@ -424,24 +495,64 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     if (payload.type === 'REPORT_REJECTED') {
-      const repId = payload.reportId
+      const repId = String(payload.reportId || '')
+      const hazId = String(payload.hazardId || '')
+      const roadName = String(payload.roadName || '').toLowerCase().trim()
+
+      setRejectedIds((prev) => {
+        const updated = Array.from(new Set([...prev, repId, hazId].filter(Boolean)))
+        localStorage.setItem('gabai-rejected-ids', JSON.stringify(updated))
+        return updated
+      })
+
       setReports((prev) =>
-        prev.map((r) => (r.id === repId ? { ...r, status: 'rejected' as const } : r))
+        prev.map((r) =>
+          r.id === repId || (hazId && r.hazardId === hazId)
+            ? { ...r, status: 'rejected' as const }
+            : r
+        )
       )
+
       setHazards((prev) =>
-        prev.filter((h) => h.id !== repId && (h as any).hazardId !== repId)
+        prev.filter((h) => {
+          if (String(h.id) === repId || String(h.id) === hazId) return false
+          if (roadName && h.isRoadSegment) {
+            const hRoad = (h.roadSegment?.roadName || h.label || '').toLowerCase().trim()
+            if (hRoad && (hRoad.includes(roadName) || roadName.includes(hRoad))) return false
+          }
+          return true
+        })
       )
     }
 
     if (payload.type === 'REPORT_RESOLVED') {
-      const repId = payload.reportId
+      const repId = String(payload.reportId || '')
+      const hazId = String(payload.hazardId || '')
+      const roadName = String(payload.roadName || '').toLowerCase().trim()
+
+      setResolvedIds((prev) => {
+        const updated = Array.from(new Set([...prev, repId, hazId].filter(Boolean)))
+        localStorage.setItem('gabai-resolved-ids', JSON.stringify(updated))
+        return updated
+      })
+
       setReports((prev) =>
-        prev.map((r) => (r.id === repId ? { ...r, status: 'resolved' as const } : r))
-      )
-      setHazards((prev) =>
-        prev.filter(
-          (h) => h.id !== repId && (h as any).hazardId !== repId && h.status !== 'Resolved'
+        prev.map((r) =>
+          r.id === repId || (hazId && r.hazardId === hazId)
+            ? { ...r, status: 'resolved' as const }
+            : r
         )
+      )
+
+      setHazards((prev) =>
+        prev.filter((h) => {
+          if (String(h.id) === repId || String(h.id) === hazId) return false
+          if (roadName && h.isRoadSegment) {
+            const hRoad = (h.roadSegment?.roadName || h.label || '').toLowerCase().trim()
+            if (hRoad && (hRoad.includes(roadName) || roadName.includes(hRoad))) return false
+          }
+          return true
+        })
       )
     }
   }, [])
@@ -818,20 +929,35 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const rejectReport = useCallback(
     async (reportId: number | string) => {
       const matched = reports.find((r) => r.id === reportId)
+      const hazId = matched?.hazardId ? String(matched.hazardId) : String(reportId)
+      const repId = String(reportId)
+      const roadName = matched?.roadSegment?.roadName || matched?.locationName || ''
+
+      setRejectedIds((prev) => {
+        const updated = Array.from(new Set([...prev, repId, hazId].filter(Boolean)))
+        localStorage.setItem('gabai-rejected-ids', JSON.stringify(updated))
+        return updated
+      })
 
       setReports((prev) =>
         prev.map((r) => (r.id === reportId ? { ...r, status: 'rejected' as const } : r))
       )
 
       setHazards((prev) =>
-        prev
-          .map((h) => {
-            if (matched && (matched.hazardId === h.id || matched.id === h.id)) {
-              return { ...h, status: 'Rejected by LGU', isVerified: false }
+        prev.filter((h) => {
+          if (String(h.id) === repId || String(h.id) === hazId) return false
+          if (roadName && h.isRoadSegment) {
+            const hRoad = (h.roadSegment?.roadName || h.label || '').toLowerCase().trim()
+            if (hRoad && (hRoad.includes(roadName.toLowerCase()) || roadName.toLowerCase().includes(hRoad))) {
+              return false
             }
-            return h
-          })
-          .filter((h) => h.status !== 'Rejected by LGU')
+          }
+          if (matched) {
+            const dist = Math.hypot(h.lat - matched.lat, h.lng - matched.lng)
+            if (dist < 0.004) return false
+          }
+          return true
+        })
       )
 
       setLastActionMessage('❌ Report rejected by LGU Dispatch (marked as false alarm / spam).')
@@ -839,7 +965,9 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Global Cross-Device Cloud Broadcast
       broadcastCloudEvent({
         type: 'REPORT_REJECTED',
-        reportId,
+        reportId: repId,
+        hazardId: hazId,
+        roadName,
       })
 
       if (API_BASE_URL) {
@@ -852,36 +980,35 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const resolveReport = useCallback(
     async (reportId: number | string) => {
       const matched = reports.find((r) => r.id === reportId)
+      const hazId = matched?.hazardId ? String(matched.hazardId) : String(reportId)
+      const repId = String(reportId)
+      const roadName = matched?.roadSegment?.roadName || matched?.locationName || ''
+
+      setResolvedIds((prev) => {
+        const updated = Array.from(new Set([...prev, repId, hazId].filter(Boolean)))
+        localStorage.setItem('gabai-resolved-ids', JSON.stringify(updated))
+        return updated
+      })
 
       setReports((prev) =>
         prev.map((r) => (r.id === reportId ? { ...r, status: 'resolved' as const } : r))
       )
 
       setHazards((prev) =>
-        prev
-          .map((h) => {
-            if (matched && (h.id === matched.hazardId || h.id === matched.id)) {
-              return { ...h, status: 'Resolved' }
+        prev.filter((h) => {
+          if (String(h.id) === repId || String(h.id) === hazId) return false
+          if (roadName && h.isRoadSegment) {
+            const hRoad = (h.roadSegment?.roadName || h.label || '').toLowerCase().trim()
+            if (hRoad && (hRoad.includes(roadName.toLowerCase()) || roadName.toLowerCase().includes(hRoad))) {
+              return false
             }
-            if (matched && matched.isRoadSegment && h.isRoadSegment) {
-              const hRoadName = h.roadSegment?.roadName || h.label || ''
-              const mRoadName = matched.roadSegment?.roadName || matched.locationName || ''
-              if (
-                (hRoadName && mRoadName && hRoadName.toLowerCase().includes(mRoadName.toLowerCase().slice(0, 8))) ||
-                (mRoadName && hRoadName && mRoadName.toLowerCase().includes(hRoadName.toLowerCase().slice(0, 8)))
-              ) {
-                return { ...h, status: 'Resolved' }
-              }
-            }
-            if (matched) {
-              const dist = Math.hypot(h.lat - matched.lat, h.lng - matched.lng)
-              if (dist < 0.004) {
-                return { ...h, status: 'Resolved' }
-              }
-            }
-            return h
-          })
-          .filter((h) => h.status !== 'Resolved')
+          }
+          if (matched) {
+            const dist = Math.hypot(h.lat - matched.lat, h.lng - matched.lng)
+            if (dist < 0.004) return false
+          }
+          return true
+        })
       )
 
       setLastActionMessage('🏁 Incident resolved! Flood corridor cleared from live citizen map.')
@@ -889,7 +1016,9 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Global Cross-Device Cloud Broadcast
       broadcastCloudEvent({
         type: 'REPORT_RESOLVED',
-        reportId,
+        reportId: repId,
+        hazardId: hazId,
+        roadName,
       })
 
       if (API_BASE_URL) {
