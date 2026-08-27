@@ -1045,6 +1045,16 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
               About
             </button>
 
+            {/* LGU Command Center Link Button */}
+            <Link
+              to="/lgu"
+              className="px-3 py-1 rounded-xl bg-slate-800/80 hover:bg-blue-900/40 text-slate-200 hover:text-white text-xs font-bold border border-slate-700/60 transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Open Official LGU Emergency Operations Center"
+            >
+              <span>🏢</span>
+              <span>LGU</span>
+            </Link>
+
             {/* Theme & 3D Toggles */}
             <div className="flex items-center gap-1">
               <button
