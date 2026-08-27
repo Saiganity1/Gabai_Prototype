@@ -1029,11 +1029,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         style={{ bottom: appState === 'emergency' ? '184px' : '134px' }}
       >
         <div className="flex flex-col items-center justify-center">
-          <select
-            value={voice.language}
-            onChange={(e) => voice.setLanguage(e.target.value as any)}
-            className="bg-slate-900/90 text-slate-200 text-[11px] font-semibold py-1.5 px-3 rounded-full border border-slate-700 shadow-[0_4px_12px_rgba(0,0,0,0.5)] backdrop-blur-md outline-none focus:border-cyan-500 appearance-none text-center min-w-[110px]"
-          >
             <option value="auto">Auto Detect</option>
             <option value="fil">Filipino</option>
             <option value="en">English</option>
@@ -1047,38 +1042,39 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         </div>
       </div>
 
-      {/* ── Mic button ───────────────────────────────────────── */}
+      {/* 🎙️ GABAI AI Chatbot Entry 🎙️ */}
       <div
         className="absolute left-1/2 -translate-x-1/2 z-20 pointer-events-none transition-all duration-500"
         style={{ bottom: appState === 'emergency' ? '108px' : '58px' }}
       >
-        <div className="relative flex items-center justify-center">
-          <div className={`absolute w-16 h-16 rounded-full blur-xl transition-all duration-700 ${voice.state !== 'idle' ? 'bg-red-500/40 scale-150' : 'bg-cyan-500/30'}`} />
+        <div className="relative flex items-center justify-center group">
+          {/* Ambient Glow */}
+          <div className={`absolute w-[110%] h-[130%] rounded-full blur-xl transition-all duration-700 ${voice.state !== 'idle' ? 'bg-red-500/40 scale-125' : 'bg-cyan-500/30 group-hover:bg-cyan-400/50 group-hover:scale-110'}`} />
 
           {voice.state === 'listening' && (
             <>
-              <div className="absolute w-20 h-20 rounded-full border-2 border-red-400/30 mic-ring-1 pointer-events-none" />
-              <div className="absolute w-20 h-20 rounded-full border border-red-400/20 mic-ring-2 pointer-events-none" />
+              <div className="absolute w-[130%] h-[150%] rounded-full border-2 border-red-400/30 mic-ring-1 pointer-events-none" />
+              <div className="absolute w-[130%] h-[150%] rounded-full border border-red-400/20 mic-ring-2 pointer-events-none" />
             </>
           )}
 
           <button
             onClick={handleMicPress}
             title="Press to speak to GABAI"
-            className={`pointer-events-auto relative flex items-center justify-center rounded-full transition-all duration-300 ${
+            className={`pointer-events-auto relative flex items-center gap-2.5 px-6 py-3.5 rounded-full transition-all duration-300 ${
               voice.state !== 'idle'
-                ? 'w-16 h-16 shadow-[0_8px_32px_rgba(239,68,68,0.5)] scale-105'
-                : 'w-14 h-14 shadow-[0_8px_24px_rgba(6,182,212,0.4)] hover:shadow-[0_12px_32px_rgba(6,182,212,0.6)] hover:scale-110 active:scale-95'
+                ? 'shadow-[0_8px_32px_rgba(239,68,68,0.5)] scale-105'
+                : 'shadow-[0_8px_24px_rgba(6,182,212,0.4)] hover:shadow-[0_12px_32px_rgba(6,182,212,0.6)] hover:scale-105 active:scale-95'
             } ${voice.state === 'idle' ? 'mic-idle' : ''}`}
           >
+            {/* Background Gradients */}
             <div className={`absolute inset-0 rounded-full transition-all duration-500 ${
               voice.state !== 'idle'
                 ? 'bg-gradient-to-b from-rose-400 to-red-600'
-                : 'bg-gradient-to-b from-cyan-400 to-blue-600'
+                : 'bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600'
             }`} />
+            
             <div className="absolute inset-0 rounded-full border-[1.5px] border-white/40 mix-blend-overlay" />
-            <div className="relative z-10 transition-transform duration-300">
-              {voice.state === 'listening' || voice.state === 'processing'
                 ? <MicOff className="w-6 h-6 text-white drop-shadow-md" />
                 : <Mic className="w-6 h-6 text-white drop-shadow-md" />
               }
