@@ -1271,7 +1271,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                     <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800/50 px-1.5 py-0.5 rounded">GPS Active</span>
                   </div>
                   <p className={`text-[10px] mb-2 ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                    Emergency contacts for <strong className={darkMode ? 'text-slate-200' : 'text-slate-800'}>{(locationName || 'San Vicente, Pampanga').split(',')[0]}</strong>:
+                    Emergency contacts for <strong className={darkMode ? 'text-slate-200' : 'text-slate-800'}>{locationName.split(',')[0]}</strong>:
                   </p>
 
                   <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
@@ -2100,7 +2100,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                   <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/80 rounded-xl px-3 py-2 mb-3 border border-slate-100 dark:border-slate-700/40">
                     <MapPin className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
                     <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate">
-                      Auto-GPS · {locationName || 'San Vicente, Pampanga'}
+                      Auto-GPS · {locationName}
                     </span>
                   </div>
 
@@ -2147,7 +2147,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                   <div className="text-center px-4">
                     <p className="text-base font-bold text-slate-800 dark:text-white">Report Queued for LGU Verification</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Your incident report near {(locationName || 'San Vicente, Pampanga').split(',')[0]} has been submitted. It is now in the LGU triage queue and will be published to all motorists once verified by dispatch.
+                      Your incident report near {locationName.split(',')[0]} has been submitted. It is now in the LGU triage queue and will be published to all motorists once verified by dispatch.
                     </p>
                   </div>
                   <button
