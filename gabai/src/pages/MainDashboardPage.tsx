@@ -592,7 +592,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           darkMode={darkMode}
           isSatellite={isSatellite}
           selectedHazard={selectedHazard}
-          showRoutes={activeModal === 'routes' || isDrivingHUDActive}
+          showRoutes={activeModal === 'routes' || isDrivingHUDActive || pendingAutoNavigate}
           selectedRoute={selectedRoute}
           onHazardClick={handleHazardClick}
           emergencyMode={appState === 'emergency'}
