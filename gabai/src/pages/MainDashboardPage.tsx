@@ -1099,154 +1099,157 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         )}
       </div>
 
-      {/* ── Left Floating Panel ("CONDITIONS") ── */}
-      {conditionsOpen ? (
-        <div className="absolute top-20 left-4 z-20 w-72 sm:w-80 bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/90 rounded-2xl p-4 shadow-2xl text-white pointer-events-auto anim-slide-up">
-          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
-            <span className="text-[10px] font-mono tracking-widest text-slate-400 font-bold uppercase">CONDITIONS</span>
-            <button
-              onClick={() => setConditionsOpen(false)}
-              className="w-7 h-7 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center border border-slate-700/50 transition-all cursor-pointer"
-              title="Collapse CONDITIONS panel"
-            >
-              <PanelLeftClose className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between py-1 cursor-pointer hover:text-blue-400 transition-colors">
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
-                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                <span>River levels</span>
-              </div>
-              <span className="text-[9px] font-bold tracking-widest text-slate-400 uppercase bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700/50">PAGASA</span>
+      {/* ── Left Sidebar Column (CONDITIONS & WATER DEPTH Legend) ── */}
+      <div className="absolute top-20 left-4 z-20 w-72 sm:w-80 flex flex-col gap-3 pointer-events-none max-h-[calc(100vh-100px)]">
+        {/* Floating CONDITIONS Panel */}
+        {conditionsOpen ? (
+          <div className="bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/90 rounded-2xl p-4 shadow-2xl text-white pointer-events-auto anim-slide-up max-h-[calc(100vh-280px)] overflow-y-auto shrink">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+              <span className="text-[10px] font-mono tracking-widest text-slate-400 font-bold uppercase">CONDITIONS</span>
+              <button
+                onClick={() => setConditionsOpen(false)}
+                className="w-7 h-7 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center border border-slate-700/50 transition-all cursor-pointer"
+                title="Collapse CONDITIONS panel"
+              >
+                <PanelLeftClose className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="py-1">
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-200 cursor-pointer">
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                <span>Community reports</span>
-              </div>
-              <div className="text-[11px] text-slate-400 ml-5 mt-1">1 active report near you.</div>
-            </div>
-
-            {/* Access Emergency Hotlines Card */}
-            {!locationAllowedForHotlines ? (
-              <div className="bg-[#151e32] border border-slate-800/90 rounded-xl p-3.5 mt-3 shadow-inner">
-                <div className="flex items-center gap-2 font-bold text-xs text-white mb-1.5">
-                  <MapPin className="w-4 h-4 text-blue-400 shrink-0" />
-                  <span>Access Local Emergency Hotlines</span>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-1 cursor-pointer hover:text-blue-400 transition-colors">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                  <span>River levels</span>
                 </div>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                  Allow location access to show emergency hotlines specific to your area. This helps you get the most relevant emergency contacts during flood situations.
-                </p>
-                <button
-                  onClick={() => {
-                    handleLocateMe()
-                    setLocationAllowedForHotlines(true)
-                  }}
-                  className="w-full mt-3 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
-                >
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  <span>Allow Location</span>
-                </button>
+                <span className="text-[9px] font-bold tracking-widest text-slate-400 uppercase bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700/50">PAGASA</span>
               </div>
-            ) : (
-              <div className="bg-[#151e32] border border-blue-900/50 rounded-xl p-3.5 mt-3 shadow-inner anim-slide-up">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Local Emergency Hotlines</span>
+
+              <div className="py-1">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-200 cursor-pointer">
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Community reports</span>
+                </div>
+                <div className="text-[11px] text-slate-400 ml-5 mt-1">1 active report near you.</div>
+              </div>
+
+              {/* Access Emergency Hotlines Card */}
+              {!locationAllowedForHotlines ? (
+                <div className="bg-[#151e32] border border-slate-800/90 rounded-xl p-3.5 mt-3 shadow-inner">
+                  <div className="flex items-center gap-2 font-bold text-xs text-white mb-1.5">
+                    <MapPin className="w-4 h-4 text-blue-400 shrink-0" />
+                    <span>Access Local Emergency Hotlines</span>
                   </div>
-                  <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-1.5 py-0.5 rounded">GPS Active</span>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Allow location access to show emergency hotlines specific to your area. This helps you get the most relevant emergency contacts during flood situations.
+                  </p>
+                  <button
+                    onClick={() => {
+                      handleLocateMe()
+                      setLocationAllowedForHotlines(true)
+                    }}
+                    className="w-full mt-3 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>Allow Location</span>
+                  </button>
                 </div>
-                <p className="text-[10px] text-slate-400 mb-2">
-                  Emergency contacts for <strong className="text-slate-200">{locationName.split(',')[0]}</strong>:
-                </p>
+              ) : (
+                <div className="bg-[#151e32] border border-blue-900/50 rounded-xl p-3.5 mt-3 shadow-inner anim-slide-up">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Local Emergency Hotlines</span>
+                    </div>
+                    <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-1.5 py-0.5 rounded">GPS Active</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mb-2">
+                    Emergency contacts for <strong className="text-slate-200">{locationName.split(',')[0]}</strong>:
+                  </p>
 
-                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
-                  {[
-                    { name: 'National Emergency Line', number: '911', icon: '🚨' },
-                    { name: 'Pampanga PDRRMO Rescue', number: '(045) 961-2468', icon: '🏢' },
-                    { name: 'Red Cross Ambulance', number: '(045) 961-4682', icon: '🚑' },
-                    { name: 'BFP Fire & Rescue Services', number: '(045) 961-2244', icon: '🚒' },
-                    { name: 'PNP Police Operations', number: '(045) 961-3434', icon: '🚓' },
-                  ].map((h, idx) => (
-                    <a
-                      key={idx}
-                      href={`tel:${h.number.replace(/[^0-9]/g, '')}`}
-                      className="flex items-center justify-between p-2 rounded-lg bg-slate-900/90 hover:bg-blue-950/80 border border-slate-800 hover:border-blue-700/60 transition-all text-xs group cursor-pointer"
-                      title={`Tap to call ${h.name}`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm">{h.icon}</span>
-                        <div className="truncate">
-                          <div className="font-bold text-white truncate text-[11px]">{h.name}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">{h.number}</div>
+                  <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
+                    {[
+                      { name: 'National Emergency Line', number: '911', icon: '🚨' },
+                      { name: 'Pampanga PDRRMO Rescue', number: '(045) 961-2468', icon: '🏢' },
+                      { name: 'Red Cross Ambulance', number: '(045) 961-4682', icon: '🚑' },
+                      { name: 'BFP Fire & Rescue Services', number: '(045) 961-2244', icon: '🚒' },
+                      { name: 'PNP Police Operations', number: '(045) 961-3434', icon: '🚓' },
+                    ].map((h, idx) => (
+                      <a
+                        key={idx}
+                        href={`tel:${h.number.replace(/[^0-9]/g, '')}`}
+                        className="flex items-center justify-between p-2 rounded-lg bg-slate-900/90 hover:bg-blue-950/80 border border-slate-800 hover:border-blue-700/60 transition-all text-xs group cursor-pointer"
+                        title={`Tap to call ${h.name}`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm">{h.icon}</span>
+                          <div className="truncate">
+                            <div className="font-bold text-white truncate text-[11px]">{h.name}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">{h.number}</div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="w-7 h-7 rounded-lg bg-blue-600/20 group-hover:bg-blue-600 text-blue-400 group-hover:text-white flex items-center justify-center transition-all shrink-0 ml-1">
-                        <PhoneCall className="w-3.5 h-3.5" />
-                      </div>
-                    </a>
-                  ))}
+                        <div className="w-7 h-7 rounded-lg bg-blue-600/20 group-hover:bg-blue-600 text-blue-400 group-hover:text-white flex items-center justify-center transition-all shrink-0 ml-1">
+                          <PhoneCall className="w-3.5 h-3.5" />
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={handleLocateMe}
+                    className="w-full mt-2.5 text-[10px] text-slate-400 hover:text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <MapPin className="w-3 h-3 text-cyan-400" />
+                    <span>Recenter & Update Location</span>
+                  </button>
                 </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Collapsed Panel Floating Toggle Button */
+          <button
+            onClick={() => setConditionsOpen(true)}
+            className="w-11 h-11 rounded-2xl bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center shadow-2xl hover:bg-slate-800 transition-all cursor-pointer pointer-events-auto anim-scale-up shrink-0"
+            title="Expand CONDITIONS panel"
+          >
+            <PanelLeftOpen className="w-5 h-5" />
+          </button>
+        )}
 
-                <button
-                  onClick={handleLocateMe}
-                  className="w-full mt-2.5 text-[10px] text-slate-400 hover:text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                >
-                  <MapPin className="w-3 h-3 text-cyan-400" />
-                  <span>Recenter & Update Location</span>
-                </button>
+        {/* ── Floating Water Depth Legend ("WATER DEPTH") Stacked Under CONDITIONS ── */}
+        {showLegend && (
+          <div className="w-56 bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/90 rounded-2xl p-3.5 shadow-2xl text-white pointer-events-auto anim-slide-up shrink-0">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-[10px] font-mono tracking-widest text-slate-400 font-bold uppercase">WATER DEPTH</span>
+              <button
+                onClick={() => setShowLegend(false)}
+                className="text-slate-500 hover:text-slate-300 transition-colors p-0.5 cursor-pointer"
+                title="Close legend"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="space-y-2 text-xs font-medium text-slate-300">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-teal-400 shadow-xs shadow-teal-400/50" />
+                <span>Ankle deep</span>
               </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        /* Collapsed Panel Floating Toggle Button */
-        <button
-          onClick={() => setConditionsOpen(true)}
-          className="absolute top-20 left-4 z-20 w-11 h-11 rounded-2xl bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center shadow-2xl hover:bg-slate-800 transition-all cursor-pointer pointer-events-auto anim-scale-up"
-          title="Expand CONDITIONS panel"
-        >
-          <PanelLeftOpen className="w-5 h-5" />
-        </button>
-      )}
-
-      {/* ── Floating Water Depth Legend ("WATER DEPTH") ── */}
-      {showLegend && (
-        <div className={`absolute bottom-6 transition-all duration-300 z-20 w-56 bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/90 rounded-2xl p-3.5 shadow-2xl text-white pointer-events-auto anim-slide-up ${conditionsOpen ? 'left-[300px] sm:left-[352px]' : 'left-4'}`}>
-          <div className="flex items-center justify-between mb-2.5">
-            <span className="text-[10px] font-mono tracking-widest text-slate-400 font-bold uppercase">WATER DEPTH</span>
-            <button
-              onClick={() => setShowLegend(false)}
-              className="text-slate-500 hover:text-slate-300 transition-colors p-0.5 cursor-pointer"
-              title="Close legend"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <div className="space-y-2 text-xs font-medium text-slate-300">
-            <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-teal-400 shadow-xs shadow-teal-400/50" />
-              <span>Ankle deep</span>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-xs shadow-amber-400/50" />
-              <span>Knee deep</span>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-xs shadow-orange-500/50" />
-              <span>Waist deep</span>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-xs shadow-red-500/50" />
-              <span>Chest deep or higher</span>
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-xs shadow-amber-400/50" />
+                <span>Knee deep</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-xs shadow-orange-500/50" />
+                <span>Waist deep</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-xs shadow-red-500/50" />
+                <span>Chest deep or higher</span>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ── Map controls — Right Stack ──────────────────────── */}
       <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2 pointer-events-auto">
