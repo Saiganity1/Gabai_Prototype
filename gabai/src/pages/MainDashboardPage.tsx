@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Search, Sun, Moon, Mic, MicOff, Layers, Locate,
-  ChevronUp, ChevronDown, X, Shield, Navigation,
+  ChevronUp, ChevronDown, X, Shield, ShieldAlert, Navigation,
   MapPin, TriangleAlert, Users,
   PhoneCall, CheckCircle, Clock, ChevronRight, Loader2, Sparkles,
   Camera, Upload, Zap, CloudRain, Radio
@@ -12,7 +12,7 @@ import DrivingHUD from '../components/DrivingHUD'
 import FamilySafetyModal from '../components/FamilySafetyModal'
 import SOSRescueStrobe from '../components/SOSRescueStrobe'
 import { useVoiceAssistant, VoiceActionPayload } from '../hooks/useVoiceAssistant'
-import { useDisaster } from '../context/DisasterContext'
+import { useDisaster, isHazardPubliclyVisible } from '../context/DisasterContext'
 import { REPORT_TYPES } from '../constants'
 import { ActiveModal, AppState } from '../types'
 import { StatusDot } from '../components/ui/StatusDot'
@@ -36,6 +36,7 @@ interface Props {
 export default function MainApp({ darkMode, toggleDark }: Props) {
   const {
     hazards,
+    myReportIds,
     evacCenters,
     userLocation,
     locationName,
@@ -107,20 +108,25 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const mapCanvasRef = useRef<MapCanvasHandle>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Anti-Spam Public Visibility Filter: Unverified citizen reports from other users are hidden until LGU verifies them
+  const publicHazards = useMemo(() => {
+    return hazards.filter((h) => isHazardPubliclyVisible(h, myReportIds))
+  }, [hazards, myReportIds])
+
   const filteredHazards = useMemo(() => {
-    return hazards.filter((h) => {
+    return publicHazards.filter((h) => {
       if (hazardFilter === 'flood') return h.type === 'flood' || h.isRoadSegment
       if (hazardFilter === 'closure') return h.type === 'closure' || h.type === 'road_block' || h.type === 'road'
-      if (hazardFilter === 'verified') return Boolean((h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified')
+      if (hazardFilter === 'verified') return Boolean((h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified' || h.status === 'Verified by LGU')
       if (hazardFilter === 'no_light') return h.passability === 'not_passable_light' || h.passability === 'not_passable_all'
       return true
     })
-  }, [hazards, hazardFilter])
+  }, [publicHazards, hazardFilter])
 
-  const floodCount = useMemo(() => hazards.filter((h) => h.type === 'flood' || h.isRoadSegment).length, [hazards])
-  const closureCount = useMemo(() => hazards.filter((h) => h.type === 'closure' || h.type === 'road_block' || h.type === 'road').length, [hazards])
-  const verifiedCount = useMemo(() => hazards.filter((h) => (h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified').length, [hazards])
-  const noLightCount = useMemo(() => hazards.filter((h) => h.passability === 'not_passable_light' || h.passability === 'not_passable_all').length, [hazards])
+  const floodCount = useMemo(() => publicHazards.filter((h) => h.type === 'flood' || h.isRoadSegment).length, [publicHazards])
+  const closureCount = useMemo(() => publicHazards.filter((h) => h.type === 'closure' || h.type === 'road_block' || h.type === 'road').length, [publicHazards])
+  const verifiedCount = useMemo(() => publicHazards.filter((h) => (h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified' || h.status === 'Verified by LGU').length, [publicHazards])
+  const noLightCount = useMemo(() => publicHazards.filter((h) => h.passability === 'not_passable_light' || h.passability === 'not_passable_all').length, [publicHazards])
 
   const toggle3DMode = () => {
     setIs3D((prev) => {
@@ -1702,12 +1708,19 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                     rows={2}
                   />
 
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2.5 mb-3 flex items-start gap-2 text-left">
+                    <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="text-[11px] text-amber-900 dark:text-amber-200">
+                      <span className="font-bold">Anti-Spam LGU Verification:</span> To prevent false reports, your submission will be reviewed and verified by the LGU Command Center before appearing on other motorists' live maps.
+                    </div>
+                  </div>
+
                   <button
                     onClick={submitReport}
                     disabled={!reportType}
                     className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-3.5 rounded-xl disabled:opacity-40 transition-all hover:bg-slate-800 dark:hover:bg-slate-100 shadow-md text-sm"
                   >
-                    Submit Report ({isRoadSegmentMode ? 'Draws Orange Line ➔ Pending LGU' : 'Publishes to Map'})
+                    Submit Report to LGU Command Center
                   </button>
                 </>
               )}
@@ -1716,21 +1729,21 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                 <div className="py-8 flex flex-col items-center gap-4">
                   <div className="w-12 h-12 rounded-full border-3 border-cyan-500 border-t-transparent animate-spin" />
                   <div className="text-center">
-                    <p className="text-sm font-bold text-slate-800 dark:text-white">Broadcasting Report to Map & LGU...</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">AI cross-referencing road telemetry and dispatching to OpCen</p>
+                    <p className="text-sm font-bold text-slate-800 dark:text-white">Submitting to LGU Command Center...</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Routing report into municipal triage queue for verification</p>
                   </div>
                 </div>
               )}
 
               {reportStep === 'done' && (
                 <div className="py-8 flex flex-col items-center gap-4">
-                  <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shadow-inner">
-                    <CheckCircle className="w-8 h-8 text-emerald-500" />
+                  <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shadow-inner">
+                    <Shield className="w-8 h-8 text-amber-500" />
                   </div>
-                  <div className="text-center">
-                    <p className="text-base font-bold text-slate-800 dark:text-white">Hazard Published to Live Map!</p>
+                  <div className="text-center px-4">
+                    <p className="text-base font-bold text-slate-800 dark:text-white">Report Queued for LGU Verification</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      New marker active near {locationName.split(',')[0]}. Safe routes have been auto-rerouted to protect motorists.
+                      Your incident report near {locationName.split(',')[0]} has been submitted. It is now in the LGU triage queue and will be published to all motorists once verified by dispatch.
                     </p>
                   </div>
                   <button

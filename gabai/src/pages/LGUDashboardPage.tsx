@@ -789,9 +789,10 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                                   verifyReport(report.id)
                                 }}
                                 className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 rounded-xl text-xs flex items-center justify-center gap-1 transition-all shadow-md active:scale-95 cursor-pointer"
+                                title="Verify incident and publish to all motorists on the live map"
                               >
                                 <CheckCircle className="w-3.5 h-3.5" />
-                                <span>Verify Incident</span>
+                                <span>Verify & Publish</span>
                               </button>
                               <button
                                 type="button"
@@ -812,7 +813,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                                   rejectReport(report.id)
                                 }}
                                 className="px-2.5 bg-slate-800 hover:bg-red-950/60 hover:text-red-400 text-slate-400 font-bold py-1.5 rounded-xl text-xs cursor-pointer"
-                                title="Dismiss / Reject Report"
+                                title="Reject (Spam / False Alarm) - Permanently hides from map"
                               >
                                 <XCircle className="w-3.5 h-3.5" />
                               </button>

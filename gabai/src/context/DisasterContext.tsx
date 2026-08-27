@@ -29,6 +29,7 @@ export interface CitizenReport {
   roadSegment?: RoadSegment
   passability?: PassabilityType
   waterDepth?: string
+  isMine?: boolean
 }
 
 export interface AIPatternInsight {
@@ -40,9 +41,44 @@ export interface AIPatternInsight {
   timestamp: string
 }
 
+/**
+ * Anti-Spam Filter: Determines if a hazard is visible to the public.
+ * Unverified citizen reports are hidden from other users until verified by the LGU.
+ */
+export function isHazardPubliclyVisible(h: Hazard, myReportIds: string[] = []): boolean {
+  if (!h || h.status === 'Resolved' || h.status === 'rejected' || h.status?.includes('Rejected')) {
+    return false
+  }
+
+  // 1. Officially verified by LGU (published to all motorists)
+  if (
+    h.isVerified ||
+    (h.verified && h.verified > 0) ||
+    h.status === 'Verified' ||
+    h.status === 'Verified by LGU' ||
+    h.status?.includes('Verified')
+  ) {
+    return true
+  }
+
+  // 2. Pre-seeded baseline official LGU hazards
+  if (typeof h.id === 'string' && h.id.startsWith('haz-pamp-')) {
+    return true
+  }
+
+  // 3. User's own report (visible to creator with Pending status)
+  if (h.isMine || myReportIds.includes(String(h.id))) {
+    return true
+  }
+
+  // Hide unverified reports from other users to reduce spam and false reports
+  return false
+}
+
 interface DisasterContextType {
   hazards: Hazard[]
   reports: CitizenReport[]
+  myReportIds: string[]
   evacCenters: ReturnType<typeof getContextualEvacCenters>
   userLocation: UserCoordinates
   locationName: string
@@ -224,13 +260,25 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return DEFAULT_SEED_REPORTS
   })
 
+  const [myReportIds, setMyReportIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('gabai-my-reported-ids')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) return parsed
+      }
+    } catch {}
+    return []
+  })
+
   // Auto-sync state to localStorage and broadcast to other tabs
   useEffect(() => {
     try {
       localStorage.setItem('gabai-live-reports', JSON.stringify(reports))
       localStorage.setItem('gabai-live-hazards', JSON.stringify(hazards))
+      localStorage.setItem('gabai-my-reported-ids', JSON.stringify(myReportIds))
     } catch {}
-  }, [reports, hazards])
+  }, [reports, hazards, myReportIds])
 
   // Multi-tab real-time listener (Cross-tab broadcast channel)
   useEffect(() => {
@@ -300,15 +348,14 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setReports(
               apiReports.map((r: any) => ({
                 id: r.id,
-                hazardId: r.hazardId,
-                citizen: r.citizen || r.citizenName || 'Citizen Report',
-                type: r.type,
-                emoji: r.emoji || EMOJI_MAP[r.type] || '⚠️',
+                citizen: r.citizen || 'Resident',
+                type: r.type || 'flood',
+                emoji: r.type === 'flood' ? '🌊' : '⚠️',
                 desc: r.desc || r.description,
                 lat: r.lat,
                 lng: r.lng,
                 severity: r.severity || 'medium',
-                time: r.time || 'just now',
+                time: r.createdAt ? new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently',
                 status: r.status || 'pending',
                 locationName: r.locationName,
               }))
@@ -316,94 +363,63 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         }
       } catch (err) {
-        console.warn('REST API offline fallback:', err)
+        console.log('REST initial fetch skipped:', err)
       }
     }
 
     fetchInitialData()
   }, [])
 
-  // ── 2. Real-Time WebSockets Gateway Connection ────────────────────
+  // ── 2. WebSocket Real-Time Integration ────────────────────────────
   useEffect(() => {
     if (!WS_URL) return
 
-    const socket = io(WS_URL, {
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: 3,
-      reconnectionDelay: 2000,
-    })
-    socketRef.current = socket
-
-    socket.on('connect', () => {
-      setIsWsConnected(true)
-      console.log('⚡ Connected to GABAI Realtime Gateway')
-    })
-
-    socket.on('disconnect', () => {
-      setIsWsConnected(false)
-    })
-
-    socket.on('hazard:new', (newHazard: Hazard) => {
-      setHazards((prev) => {
-        if (prev.some((h) => h.id === newHazard.id)) return prev
-        return [newHazard, ...prev]
+    try {
+      const socket = io(WS_URL, {
+        transports: ['websocket', 'polling'],
+        reconnectionAttempts: 5,
+        reconnectionDelay: 2000,
       })
-      setLastActionMessage(`🚨 New live hazard broadcast: ${newHazard.label}`)
-    })
 
-    socket.on('hazard:updated', (updatedHazard: Hazard) => {
-      setHazards((prev) =>
-        prev.map((h) => (h.id === updatedHazard.id ? { ...h, ...updatedHazard } : h))
-      )
-    })
+      socketRef.current = socket
 
-    socket.on('report:new', (newReport: any) => {
-      setReports((prev) => {
-        if (prev.some((r) => r.id === newReport.id)) return prev
-        return [newReport, ...prev]
+      socket.on('connect', () => {
+        setIsWsConnected(true)
+        console.log('⚡ Connected to GABAI Live Disaster Engine WebSocket')
       })
-    })
 
-    socket.on('report:status_changed', ({ reportId, status }: { reportId: string; status: any }) => {
-      setReports((prev) =>
-        prev.map((r) => (r.id === reportId ? { ...r, status } : r))
-      )
-    })
+      socket.on('disconnect', () => {
+        setIsWsConnected(false)
+      })
 
-    return () => {
-      socket.disconnect()
+      socket.on('report:new', (newReport: CitizenReport) => {
+        setReports((prev) => {
+          if (prev.some((r) => r.id === newReport.id)) return prev
+          return [newReport, ...prev]
+        })
+      })
+
+      socket.on('report:verified', ({ reportId }: { reportId: number | string }) => {
+        setReports((prev) =>
+          prev.map((r) => (r.id === reportId ? { ...r, status: 'verified' as const } : r))
+        )
+      })
+
+      socket.on('hazard:update', (updatedHazards: Hazard[]) => {
+        if (Array.isArray(updatedHazards)) {
+          setHazards(updatedHazards)
+        }
+      })
+
+      return () => {
+        socket.disconnect()
+      }
+    } catch (err) {
+      console.log('WebSocket connection error (using mock state):', err)
     }
   }, [])
 
-  // Update base hazards on GPS change
-  useEffect(() => {
-    setHazards((prev) => {
-      if (prev.length === 0 || prev === baseHazards) {
-        return baseHazards
-      }
-      return prev
-    })
-  }, [baseHazards])
-
-  // ── AI Pattern Detection ──────────────────────────────────────────
-  const aiPatternInsight: AIPatternInsight | null = useMemo(() => {
-    const highSeverityReports = reports.filter(
-      (r) => r.severity === 'high' && r.status !== 'rejected'
-    )
-    if (highSeverityReports.length >= 2) {
-      return {
-        title: `Flooding Cluster Detected (${highSeverityReports.length} Reports)`,
-        description: `Multiple flood reports registered near ${userLoc.locationName}. Rising water level detected. Roads are impassable for light vehicles.`,
-        severity: 'high',
-        clusterCount: highSeverityReports.length,
-        recommendedAction: 'Reroute traffic to higher ground corridors immediately.',
-        timestamp: 'Active Now',
-      }
-    }
-    return null
-  }, [reports, userLoc.locationName])
-
-  // ── Add Community Hazard Report ───────────────────────────────────
+  // ── 3. Citizen Actions (Add Report with Anti-Spam LGU Verification) ─
   const addHazardReport = useCallback(
     ({
       type,
@@ -475,6 +491,7 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         passability: passability || 'not_passable_light',
         waterDepth: waterDepth || 'Flood on Road',
         isVerified: false,
+        isMine: true,
       }
 
       const newReport: CitizenReport = {
@@ -494,11 +511,15 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         roadSegment,
         passability: passability || 'not_passable_light',
         waterDepth: waterDepth || 'Flood on Road',
+        isMine: true,
       }
+
+      // Record in local reporting ID list
+      setMyReportIds((prev) => [...prev, String(newReportId), String(newHazardId)])
 
       setHazards((prev) => [newHazard, ...prev])
       setReports((prev) => [newReport, ...prev])
-      setLastActionMessage(`📢 Report submitted and broadcast to GABAI Live Map!`)
+      setLastActionMessage(`📢 Report submitted! Awaiting LGU verification before broadcasting to all motorists.`)
 
       // Sync via REST
       if (API_BASE_URL) {
@@ -534,13 +555,14 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // ── LGU Verification Mutations ────────────────────────────────────
   const verifyReport = useCallback(
     async (reportId: number | string) => {
+      const matched = reports.find((r) => r.id === reportId)
+
       setReports((prev) =>
         prev.map((r) => (r.id === reportId ? { ...r, status: 'verified' as const } : r))
       )
       setHazards((prev) =>
         prev.map((h) => {
-          const matched = reports.find((r) => r.id === reportId)
-          if (matched && matched.hazardId === h.id) {
+          if (matched && (matched.hazardId === h.id || matched.id === h.id)) {
             return {
               ...h,
               verified: (h.verified || 0) + 1,
@@ -549,10 +571,26 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               confidence: Math.min(99, (h.confidence || 80) + 15),
             }
           }
+          if (matched && matched.isRoadSegment && h.isRoadSegment) {
+            const hRoadName = h.roadSegment?.roadName || h.label || ''
+            const mRoadName = matched.roadSegment?.roadName || matched.locationName || ''
+            if (
+              (hRoadName && mRoadName && hRoadName.toLowerCase().includes(mRoadName.toLowerCase().slice(0, 8))) ||
+              (mRoadName && hRoadName && mRoadName.toLowerCase().includes(hRoadName.toLowerCase().slice(0, 8)))
+            ) {
+              return {
+                ...h,
+                verified: (h.verified || 0) + 1,
+                isVerified: true,
+                status: 'Verified by LGU',
+                confidence: Math.min(99, (h.confidence || 80) + 15),
+              }
+            }
+          }
           return h
         })
       )
-      setLastActionMessage('✅ Report verified and published to official alert channels.')
+      setLastActionMessage('✅ Report verified by LGU! Now published to all motorists on the live map.')
 
       if (API_BASE_URL) {
         fetch(`${API_BASE_URL}/reports/${reportId}/verify`, { method: 'PATCH' }).catch(() => {})
@@ -565,10 +603,22 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   )
 
   const rejectReport = useCallback(async (reportId: number | string) => {
+    const matched = reports.find((r) => r.id === reportId)
+
     setReports((prev) =>
       prev.map((r) => (r.id === reportId ? { ...r, status: 'rejected' as const } : r))
     )
-    setLastActionMessage('❌ Report rejected by LGU Dispatch.')
+
+    setHazards((prev) =>
+      prev.map((h) => {
+        if (matched && (matched.hazardId === h.id || matched.id === h.id)) {
+          return { ...h, status: 'Rejected by LGU', isVerified: false }
+        }
+        return h
+      }).filter((h) => h.status !== 'Rejected by LGU')
+    )
+
+    setLastActionMessage('❌ Report rejected by LGU Dispatch (marked as false alarm / spam).')
 
     if (API_BASE_URL) {
       fetch(`${API_BASE_URL}/reports/${reportId}/reject`, { method: 'PATCH' }).catch(() => {})
@@ -668,6 +718,7 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       value={{
         hazards,
         reports,
+        myReportIds,
         evacCenters,
         userLocation: userLoc.coords,
         locationName: userLoc.locationName,
