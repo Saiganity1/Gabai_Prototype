@@ -1038,49 +1038,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         </div>
       )}
 
-      {/* ── Suggestion chips — above mic ─────────────────────── */}
-      {voice.state === 'idle' && !showBubble && (
-        <div
-          className="absolute left-1/2 -translate-x-1/2 z-10 flex gap-2 flex-wrap justify-center px-4 w-full pointer-events-none"
-          style={{ bottom: appState === 'emergency' ? '180px' : '128px' }}
-        >
-          {["May baha sa kalsada namin.", "Find nearest hospital safe route.", "Is it safe to go home?"].map((s) => (
-            <button
-              key={s}
-              onClick={() => handleSuggestion(s)}
-              className="pointer-events-auto text-[11px] font-semibold bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm text-slate-700 dark:text-slate-200 rounded-full px-3.5 py-2 shadow-sm border border-slate-200/50 dark:border-slate-700/50 hover:bg-cyan-50 dark:hover:bg-slate-700 transition-all active:scale-95 whitespace-nowrap"
-            >
-              🎙️ {s}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* ── Language Selector ───────────────────────────────── */}
-      <div
-        className="absolute left-1/2 -translate-x-1/2 z-20 pointer-events-auto"
-        style={{ bottom: appState === 'emergency' ? '184px' : '134px' }}
-      >
-        <div className="flex flex-col items-center justify-center">
-          <select
-            value={voice.language}
-            onChange={(e) => voice.setLanguage(e.target.value as any)}
-            className="bg-slate-900/90 text-slate-200 text-[11px] font-semibold py-1.5 px-3 rounded-full border border-slate-700 shadow-[0_4px_12px_rgba(0,0,0,0.5)] backdrop-blur-md outline-none focus:border-cyan-500 appearance-none text-center min-w-[110px]"
-          >
-            <option value="auto">Auto Detect</option>
-            <option value="fil">Filipino</option>
-            <option value="en">English</option>
-            <option value="pam">Kapampangan</option>
-          </select>
-          {voice.language === 'auto' && typeof voice.detectedLanguage === 'string' && voice.detectedLanguage && (
-            <div className="text-[9px] text-cyan-400 mt-1 text-center font-bold absolute -bottom-4 w-full">
-              Detected: {voice.detectedLanguage.toUpperCase()}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 🎙️ GABAI AI Chatbot Entry 🎙️ */}
+      {/* 🎙️ GABAI AI Chatbot Button 🎙️ */}
       <div
         className="absolute left-1/2 -translate-x-1/2 z-20 pointer-events-none transition-all duration-500"
         style={{ bottom: appState === 'emergency' ? '108px' : '58px' }}
@@ -1141,7 +1099,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             {[
               { icon: Navigation, label: 'Safe Route', action: () => setActiveModal('routes'), primary: true },
               { icon: TriangleAlert, label: 'Report Hazard', action: handleOpenReportModal },
-              { icon: Users, label: 'Family Safety', action: () => setActiveModal('family_safety') },
               { icon: Zap, label: 'SOS Strobe', action: () => setIsSOSStrobeActive(true), danger: true },
             ].map(({ icon: Icon, label, action, primary, danger }) => (
               <button

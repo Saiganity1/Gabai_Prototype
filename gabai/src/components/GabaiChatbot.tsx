@@ -124,17 +124,6 @@ export function GabaiChatbot({ onClose, voice }: GabaiChatbotProps) {
       {/* Input Area */}
       <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0">
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-full border border-slate-200 dark:border-slate-700">
-          <button
-            onClick={() => voice.toggleListening()}
-            className={`p-2.5 rounded-full transition-colors flex shrink-0 ${
-              voice.state === 'listening' 
-                ? 'bg-red-500 text-white' 
-                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-cyan-600 dark:hover:text-cyan-400'
-            }`}
-          >
-            {voice.state === 'listening' ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-          </button>
-          
           <input
             type="text"
             value={inputText}
