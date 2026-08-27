@@ -348,169 +348,215 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
   // Intelligent Chatbot Message Processor
   const handleProcessChatMessage = async (text: string): Promise<{ text: string; routeCard?: any }> => {
-    const lower = text.toLowerCase().trim()
+    try {
+      const lower = text.toLowerCase().trim()
 
-    // 1. Check if user is reporting a hazard
-    if (
-      (lower.includes('baha') || lower.includes('flood') || lower.includes('lubog') || lower.includes('tubig')) &&
-      !lower.includes('iwas') &&
-      !lower.includes('avoid') &&
-      !lower.includes('may daan ba') &&
-      !lower.includes('saan') &&
-      !lower.includes('baha ba')
-    ) {
-      const { hazard } = addHazardReport({
-        type: 'flood',
-        description: `Chatbot Report: ${text}`,
-        severity: 'high',
-        citizenName: 'Chatbot (Live Citizen)',
-      })
-      setSelectedHazard(hazard)
-      return {
-        text: '📢 Naitala ko na ang flood report mo. Naipasa na ito sa LGU Command Center para sa agarang beripikasyon at aksyon.',
-      }
-    }
-
-    // 2. Check if user is asking about flood status / hazards in an area
-    if (
-      lower.includes('baha ba') ||
-      lower.includes('may baha') ||
-      lower.includes('saan may baha') ||
-      lower.includes('safe ba ang daan') ||
-      lower.includes('baha sa')
-    ) {
-      const activeFloods = publicHazards.filter((h) => h.status !== 'Resolved' && h.status !== 'Rejected by LGU')
-      if (activeFloods.length === 0) {
+      // 1. Check if user is reporting a hazard
+      if (
+        (lower.includes('baha') || lower.includes('flood') || lower.includes('lubog') || lower.includes('tubig')) &&
+        !lower.includes('iwas') &&
+        !lower.includes('avoid') &&
+        !lower.includes('may daan ba') &&
+        !lower.includes('saan') &&
+        !lower.includes('baha ba')
+      ) {
+        const { hazard } = addHazardReport({
+          type: 'flood',
+          description: `Chatbot Report: ${text}`,
+          severity: 'high',
+          citizenName: 'Chatbot (Live Citizen)',
+        })
+        setSelectedHazard(hazard)
         return {
-          text: '✅ Magandang balita! Sa kasalukuyan, walang naiulat na aktibong baha sa mga pangunahing kalsada sa Pampanga. Ligtas ang mga daanan.',
+          text: '📢 Naitala ko na ang flood report mo. Naipasa na ito sa LGU Command Center para sa agarang beripikasyon at aksyon.',
         }
       }
 
-      // Check if user mentioned a specific location
-      const matching = activeFloods.filter((h) => {
-        const road = (h.roadSegment?.roadName || h.label || '').toLowerCase()
-        return road && lower.includes(road.slice(0, 6))
-      })
+      // 2. Check if user is asking about flood status / hazards in an area
+      if (
+        lower.includes('baha ba') ||
+        lower.includes('may baha') ||
+        lower.includes('saan may baha') ||
+        lower.includes('safe ba ang daan') ||
+        lower.includes('baha sa')
+      ) {
+        const activeFloods = publicHazards.filter((h) => h.status !== 'Resolved' && h.status !== 'Rejected by LGU')
+        if (activeFloods.length === 0) {
+          return {
+            text: '✅ Magandang balita! Sa kasalukuyan, walang naiulat na aktibong baha sa mga pangunahing kalsada sa Pampanga. Ligtas ang mga daanan.',
+          }
+        }
 
-      if (matching.length > 0) {
-        const m = matching[0]
+        // Check if user mentioned a specific location
+        const matching = activeFloods.filter((h) => {
+          const road = (h.roadSegment?.roadName || h.label || '').toLowerCase()
+          return road && lower.includes(road.slice(0, 6))
+        })
+
+        if (matching.length > 0) {
+          const m = matching[0]
+          return {
+            text: `⚠️ Mag-ingat! May naiulat na baha sa ${m.roadSegment?.roadName || m.label} (${m.waterDepth || 'Knee Deep'}). Katayuan: ${m.status || 'Not Passable to Light Vehicles'}. Inirerekomenda ang paggamit ng alternate bypass route.`,
+          }
+        }
+
+        const floodNames = activeFloods
+          .slice(0, 3)
+          .map((h) => `• ${h.roadSegment?.roadName || h.label} (${h.waterDepth || 'Baha'})`)
+          .join('\n')
+
         return {
-          text: `⚠️ Mag-ingat! May naiulat na baha sa ${m.roadSegment?.roadName || m.label} (${m.waterDepth || 'Knee Deep'}). Katayuan: ${m.status || 'Not Passable to Light Vehicles'}. Inirerekomenda ang paggamit ng alternate bypass route.`,
+          text: `⚠️ Narito ang mga kasalukuyang bahang kalsada sa Pampanga:\n${floodNames}\n\nLahat ng safe routes sa GABAI ay awtomatikong iniiwasan ang mga lugar na ito.`,
         }
       }
 
-      const floodNames = activeFloods
-        .slice(0, 3)
-        .map((h) => `• ${h.roadSegment?.roadName || h.label} (${h.waterDepth || 'Baha'})`)
-        .join('\n')
+      // 3. Extract destination query
+      const dest =
+        lower
+          .replace(/^(?:find\s+|show\s+|give\s+|get\s+)?(?:a\s+)?(?:safe\s+)?(?:route|direction|directions|way|path)\s+(?:to|going to|towards|for)\s+/i, '')
+          .replace(/^(?:navigate|nav|drive|take me|bring me|go|guide me|lead me|route)\s+(?:to|towards)?\s*/i, '')
+          .replace(/^(?:how\s+(?:do\s+i|to|can\s+i)\s+(?:get|go|reach|drive)\s+(?:to|at))\s+/i, '')
+          .replace(/^(?:maghanap|hanap|ipakita|bigyan|alamin)\s+(?:ng\s+)?(?:ligtas\s+na\s+)?(?:ruta|daan|direksyon)\s+(?:papunta|papuntang|patungo|patungong|para\s+sa|sa)\s+/i, '')
+          .replace(/^(?:paano\s+(?:pumunta|makapunta|makarating|dumaan))\s+(?:sa|papuntang|patungong)\s+/i, '')
+          .replace(/^(?:pupunta|punta|papunta|papuntang|patungo|patungong|biyahe|byahe|byaheng)\s+(?:ako\s+)?(?:sa|kay|nang)?\s*/i, '')
+          .replace(/^(?:daan|ruta|direksyon)\s+(?:papunta|papuntang|patungo|patungong|sa)\s+/i, '')
+          .replace(/^(?:dalhin\s+mo\s+ako|ihatid\s+ako)\s+(?:sa|papuntang)\s+/i, '')
+          .replace(/^(?:munta|muntang|magpunta|dalan|dala)\s+(?:ku\s+)?(?:king|king\s+lugar|papuntang|karin|king)\s+/i, '')
+          .replace(/[\?\.\!]+$/, '')
+          .trim()
 
-      return {
-        text: `⚠️ Narito ang mga kasalukuyang bahang kalsada sa Pampanga:\n${floodNames}\n\nLahat ng safe routes sa GABAI ay awtomatikong iniiwasan ang mga lugar na ito.`,
-      }
-    }
+      const targetQuery = dest || (lower.includes('hospital') ? 'Hospital' : lower.includes('shelter') || lower.includes('evac') ? 'Evacuation Center' : text)
+      const q = targetQuery.toLowerCase()
 
-    // 3. Check for specific destination / directions request
-    const dest =
-      lower.replace(/^(?:find\s+|show\s+|give\s+|get\s+)?(?:a\s+)?(?:safe\s+)?(?:route|direction|directions|way|path)\s+(?:to|going to|towards|for)\s+/i, '')
-        .replace(/^(?:navigate|nav|drive|take me|bring me|go|guide me|lead me)\s+(?:to|towards)\s+/i, '')
-        .replace(/^(?:how\s+(?:do\s+i|to|can\s+i)\s+(?:get|go|reach|drive)\s+(?:to|at))\s+/i, '')
-        .replace(/^(?:maghanap|hanap|ipakita|bigyan|alamin)\s+(?:ng\s+)?(?:ligtas\s+na\s+)?(?:ruta|daan|direksyon)\s+(?:papunta|papuntang|patungo|patungong|para\s+sa|sa)\s+/i, '')
-        .replace(/^(?:paano\s+(?:pumunta|makapunta|makarating|dumaan))\s+(?:sa|papuntang|patungong)\s+/i, '')
-        .replace(/^(?:pupunta|punta|papunta|papuntang|patungo|patungong|biyahe|byahe|byaheng)\s+(?:ako\s+)?(?:sa|kay|nang)?\s*/i, '')
-        .replace(/^(?:daan|ruta|direksyon)\s+(?:papunta|papuntang|patungo|patungong|sa)\s+/i, '')
-        .replace(/^(?:dalhin\s+mo\s+ako|ihatid\s+ako)\s+(?:sa|papuntang)\s+/i, '')
-        .replace(/^(?:munta|muntang|magpunta|dalan|dala)\s+(?:ku\s+)?(?:king|king\s+lugar|papuntang|karin|king)\s+/i, '')
-        .replace(/[\?\.\!]+$/, '')
-        .trim()
+      // Comprehensive Directory of Pampanga Municipalities, Parks, Plazas, Hospitals, and Civic Landmarks
+      const KNOWN_PAMPANGA_PLACES = [
+        { name: 'San Luis Freedom Park & Municipal Complex', address: 'San Luis, Pampanga', lat: 15.0412, lng: 120.7935, keywords: ['san luis freedom park', 'freedom park', 'san luis park', 'san luis', 'san luis municipal', 'san luis plaza', 'san luis hall'] },
+        { name: 'SM City Pampanga', address: 'Jose Abad Santos Ave, San Fernando, Pampanga', lat: 15.0475, lng: 120.6970, keywords: ['sm pampanga', 'sm city', 'sm san fernando', 'sm mall', 'sm'] },
+        { name: 'Clark International Airport', address: 'Clark Freeport Zone, Mabalacat, Pampanga', lat: 15.1859, lng: 120.5596, keywords: ['clark airport', 'clark', 'crk', 'airport', 'clark field'] },
+        { name: 'Clark Parade Grounds', address: 'Clark Freeport Zone, Pampanga', lat: 15.1769, lng: 120.5312, keywords: ['clark parade grounds', 'parade grounds', 'cdc grounds'] },
+        { name: 'Bayanihan Park (Astro Park)', address: 'Balibago, Angeles City, Pampanga', lat: 15.1663, lng: 120.5901, keywords: ['bayanihan park', 'astro park', 'balibago park'] },
+        { name: 'Mexico Community Hospital', address: 'San Carlos, Mexico, Pampanga', lat: 15.0645, lng: 120.7225, keywords: ['mexico hospital', 'mexico community hospital', 'hospital sa mexico', 'hospital', 'mexico clinic'] },
+        { name: 'Jose B. Lingad Memorial General Hospital', address: 'Dolores, San Fernando, Pampanga', lat: 15.0385, lng: 120.6848, keywords: ['jbl', 'jblmgh', 'lingad', 'jose b lingad', 'regional hospital'] },
+        { name: 'San Fernando City Hall', address: 'City Hall, Poblacion, San Fernando, Pampanga', lat: 15.0298, lng: 120.6895, keywords: ['san fernando city hall', 'san fernando munisipyo', 'san fernando hall', 'city hall'] },
+        { name: 'Angeles City Hall', address: 'Pulung Maragul, Angeles City, Pampanga', lat: 15.1450, lng: 120.5887, keywords: ['angeles city hall', 'angeles munisipyo', 'angeles hall'] },
+        { name: 'Pampanga Provincial Capitol', address: 'Capitol Compound, San Fernando, Pampanga', lat: 15.0343, lng: 120.6868, keywords: ['capitol', 'pampanga capitol', 'provincial capitol'] },
+        { name: 'Santa Maria Barangay Hall', address: 'Santa Maria, Mexico, Pampanga', lat: 15.0740, lng: 120.7810, keywords: ['santa maria', 'sta maria', 'brgy santa maria', 'santa maria hall'] },
+        { name: 'San Sebastian Elementary School', address: 'San Sebastian, San Luis, Pampanga', lat: 15.0425, lng: 120.7913, keywords: ['san sebastian', 'san sebastian school'] },
+        { name: 'MacArthur Highway Commercial Strip', address: 'MacArthur Highway, San Fernando, Pampanga', lat: 15.0390, lng: 120.6840, keywords: ['macarthur', 'macarthur highway', 'dolores flyover'] },
+        { name: 'Candaba Municipal Hall & Park', address: 'Candaba, Pampanga', lat: 15.0933, lng: 120.8267, keywords: ['candaba', 'candaba park', 'candaba hall'] },
+        { name: 'San Simon Municipal Hall', address: 'San Simon, Pampanga', lat: 14.9961, lng: 120.7788, keywords: ['san simon', 'san simon hall'] },
+        { name: 'Arayat Town Plaza & National Park', address: 'Arayat, Pampanga', lat: 15.1583, lng: 120.7417, keywords: ['arayat', 'arayat national park', 'mount arayat'] },
+        { name: 'Guagua Town Plaza', address: 'Guagua, Pampanga', lat: 14.9669, lng: 120.6334, keywords: ['guagua', 'guagua plaza', 'guagua hall'] },
+        { name: 'Lubao Bamboo Hub & Park', address: 'Lubao, Pampanga', lat: 14.9403, lng: 120.5975, keywords: ['lubao', 'lubao bamboo hub', 'lubao park'] },
+        { name: 'Bacolor Municipal Hall & Shrine', address: 'Bacolor, Pampanga', lat: 14.9984, lng: 120.6517, keywords: ['bacolor', 'sunken church', 'bacolor shrine'] },
+        { name: 'Mabalacat City Hall', address: 'Mabalacat, Pampanga', lat: 15.2217, lng: 120.5750, keywords: ['mabalacat', 'mabalacat hall'] },
+        { name: 'Apalit Municipal Hall', address: 'Apalit, Pampanga', lat: 14.9547, lng: 120.7583, keywords: ['apalit', 'apalit hall'] },
+        { name: 'Masantol Municipal Hall', address: 'Masantol, Pampanga', lat: 14.9017, lng: 120.7100, keywords: ['masantol', 'masantol hall'] },
+        { name: 'Macabebe Municipal Hall', address: 'Macabebe, Pampanga', lat: 14.9075, lng: 120.7139, keywords: ['macabebe', 'macabebe hall'] },
+        { name: 'Minalin Municipal Hall', address: 'Minalin, Pampanga', lat: 14.9719, lng: 120.6861, keywords: ['minalin', 'minalin hall', 'minalin church'] },
+        { name: 'Santo Tomas Municipal Hall', address: 'Santo Tomas, Pampanga', lat: 15.0069, lng: 120.7147, keywords: ['santo tomas', 'sto tomas'] },
+        { name: 'Santa Ana Municipal Hall', address: 'Santa Ana, Pampanga', lat: 15.0978, lng: 120.7681, keywords: ['santa ana', 'sta ana'] },
+        { name: 'Santa Rita Municipal Hall', address: 'Santa Rita, Pampanga', lat: 15.0008, lng: 120.6139, keywords: ['santa rita', 'sta rita'] },
+        { name: 'Sasmuan Municipal Hall & Port', address: 'Sasmuan, Pampanga', lat: 14.9392, lng: 120.6272, keywords: ['sasmuan', 'sasmuan port'] },
+        { name: 'Porac Municipal Hall', address: 'Porac, Pampanga', lat: 15.0711, lng: 120.5422, keywords: ['porac', 'porac hall'] },
+        { name: 'Floridablanca Municipal Hall', address: 'Floridablanca, Pampanga', lat: 14.9722, lng: 120.5333, keywords: ['floridablanca', 'floridablanca hall'] },
+      ]
 
-    const targetQuery = dest || (lower.includes('hospital') ? 'Hospital' : lower.includes('shelter') || lower.includes('evac') ? 'Evacuation Center' : text)
-    const q = targetQuery.toLowerCase()
+      let target: { name: string; address?: string; lat: number; lng: number } | null = null
 
-    // Common Pampanga emergency & civic landmarks
-    const KNOWN_PAMPANGA_PLACES = [
-      { name: 'SM City Pampanga', address: 'Jose Abad Santos Ave, San Fernando, Pampanga', lat: 15.0475, lng: 120.6970, keywords: ['sm pampanga', 'sm city', 'sm san fernando', 'sm mall', 'sm'] },
-      { name: 'Clark International Airport', address: 'Clark Freeport Zone, Mabalacat, Pampanga', lat: 15.1859, lng: 120.5596, keywords: ['clark', 'clark airport', 'crk', 'airport'] },
-      { name: 'Mexico Community Hospital', address: 'San Carlos, Mexico, Pampanga', lat: 15.0645, lng: 120.7225, keywords: ['mexico hospital', 'mexico community hospital', 'hospital sa mexico', 'hospital'] },
-      { name: 'San Fernando City Hall', address: 'City Hall, Poblacion, San Fernando, Pampanga', lat: 15.0298, lng: 120.6895, keywords: ['san fernando city hall', 'san fernando munisipyo', 'san fernando hall', 'city hall'] },
-      { name: 'Angeles City Hall', address: 'Pulung Maragul, Angeles City, Pampanga', lat: 15.1450, lng: 120.5887, keywords: ['angeles city hall', 'angeles munisipyo'] },
-      { name: 'Santa Maria Barangay Hall', address: 'Santa Maria, Mexico, Pampanga', lat: 15.0740, lng: 120.7810, keywords: ['santa maria', 'sta maria', 'brgy santa maria', 'santa maria hall'] },
-      { name: 'San Sebastian Elementary School', address: 'San Sebastian, San Luis, Pampanga', lat: 15.0425, lng: 120.7913, keywords: ['san sebastian', 'san sebastian school'] },
-      { name: 'MacArthur Highway Commercial Strip', address: 'MacArthur Highway, San Fernando, Pampanga', lat: 15.0390, lng: 120.6840, keywords: ['macarthur', 'macarthur highway', 'dolores flyover'] },
-    ]
-
-    let target: { name: string; address?: string; lat: number; lng: number } | null = null
-
-    // Check known landmarks
-    const landmarkMatch = KNOWN_PAMPANGA_PLACES.find((p) =>
-      p.keywords.some((k) => q.includes(k) || k.includes(q))
-    )
-    if (landmarkMatch) {
-      target = { name: landmarkMatch.name, address: landmarkMatch.address, lat: landmarkMatch.lat, lng: landmarkMatch.lng }
-    }
-
-    // Check local evacuation centers
-    if (!target) {
-      const localMatch = evacCenters.find(
-        (e) => e.name.toLowerCase().includes(q) || e.address.toLowerCase().includes(q)
+      // Tier 1: Keyword match against Pampanga directory
+      const landmarkMatch = KNOWN_PAMPANGA_PLACES.find((p) =>
+        p.keywords.some((k) => q.includes(k) || k.includes(q))
       )
-      if (localMatch) {
-        target = { name: localMatch.name, address: localMatch.address, lat: localMatch.lat, lng: localMatch.lng }
+      if (landmarkMatch) {
+        target = { name: landmarkMatch.name, address: landmarkMatch.address, lat: landmarkMatch.lat, lng: landmarkMatch.lng }
       }
-    }
 
-    // Check OpenStreetMap Nominatim Live Search
-    if (!target && targetQuery.length > 2) {
+      // Tier 2: Check local evacuation centers
+      if (!target) {
+        const localMatch = evacCenters.find(
+          (e) => e.name.toLowerCase().includes(q) || e.address.toLowerCase().includes(q)
+        )
+        if (localMatch) {
+          target = { name: localMatch.name, address: localMatch.address, lat: localMatch.lat, lng: localMatch.lng }
+        }
+      }
+
+      // Tier 3: OpenStreetMap Nominatim Live Search
+      if (!target && targetQuery.length > 2) {
+        try {
+          const osmMatches = await searchRealWorldPlaces(targetQuery, userLocation.lat, userLocation.lng)
+          if (osmMatches && osmMatches.length > 0) {
+            target = { name: osmMatches[0].name, address: osmMatches[0].address, lat: osmMatches[0].lat, lng: osmMatches[0].lng }
+          }
+        } catch {}
+      }
+
+      // Tier 4: Fuzzy Token Substring Match (e.g. matches town names inside the query)
+      if (!target) {
+        const words = q.split(/\s+/).filter((w) => w.length >= 4)
+        for (const w of words) {
+          const match = KNOWN_PAMPANGA_PLACES.find((p) =>
+            p.keywords.some((k) => k.includes(w) || w.includes(k))
+          )
+          if (match) {
+            target = { name: match.name, address: match.address, lat: match.lat, lng: match.lng }
+            break
+          }
+        }
+      }
+
+      // Tier 5: Generic shelter / emergency fallback
+      if (!target && (lower.includes('shelter') || lower.includes('evac') || lower.includes('ligtas') || lower.includes('emergency'))) {
+        if (evacCenters.length > 0) {
+          target = { name: evacCenters[0].name, address: evacCenters[0].address, lat: evacCenters[0].lat, lng: evacCenters[0].lng }
+        }
+      }
+
+      if (target) {
+        setDestination(target)
+        const distKm = calculateDistanceKm(userLocation.lat, userLocation.lng, target.lat, target.lng)
+        const estMin = Math.max(3, Math.round((distKm / 35) * 60))
+        const activeBypassedCount = publicHazards.filter(
+          (h) => h.status !== 'Resolved' && h.status !== 'Rejected by LGU'
+        ).length
+
+        return {
+          text: `🧭 Nakahanap ako ng pinakaligtas na ruta papuntang ${target.name} (${distKm.toFixed(1)} km · humigit-kumulang ${estMin} mins). Awtomatikong iniiwasan ang mga bahang kalsada.`,
+          routeCard: {
+            destinationName: target.name,
+            address: target.address,
+            distanceKm: distKm,
+            durationMin: estMin,
+            riskLevel: 'LOW',
+            bypassedHazardsCount: activeBypassedCount,
+            lat: target.lat,
+            lng: target.lng,
+          },
+        }
+      }
+
+      // 4. General conversational AI query fallback
       try {
-        const osmMatches = await searchRealWorldPlaces(targetQuery, userLocation.lat, userLocation.lng)
-        if (osmMatches && osmMatches.length > 0) {
-          target = { name: osmMatches[0].name, address: osmMatches[0].address, lat: osmMatches[0].lat, lng: osmMatches[0].lng }
+        const aiAnswer = await geminiChatAssistant(text, {
+          currentLocation: locationName || 'Pampanga',
+          activeHazardsCount: publicHazards.filter((h) => h.status !== 'Resolved').length,
+          evacuationCenters: evacCenters.map((e) => e.name),
+        })
+
+        if (aiAnswer) {
+          return { text: aiAnswer }
         }
       } catch {}
-    }
-
-    // If generic shelter request
-    if (!target && (lower.includes('shelter') || lower.includes('evac') || lower.includes('ligtas'))) {
-      if (evacCenters.length > 0) {
-        target = { name: evacCenters[0].name, address: evacCenters[0].address, lat: evacCenters[0].lat, lng: evacCenters[0].lng }
-      }
-    }
-
-    if (target) {
-      setDestination(target)
-      const distKm = calculateDistanceKm(userLocation.lat, userLocation.lng, target.lat, target.lng)
-      const estMin = Math.max(3, Math.round((distKm / 35) * 60))
-      const activeBypassedCount = publicHazards.filter(
-        (h) => h.status !== 'Resolved' && h.status !== 'Rejected by LGU'
-      ).length
 
       return {
-        text: `🧭 Nakahanap ako ng pinakaligtas na ruta papuntang ${target.name} (${distKm.toFixed(1)} km · humigit-kumulang ${estMin} mins). Awtomatikong iniiwasan ang mga bahang kalsada.`,
-        routeCard: {
-          destinationName: target.name,
-          address: target.address,
-          distanceKm: distKm,
-          durationMin: estMin,
-          riskLevel: 'LOW',
-          bypassedHazardsCount: activeBypassedCount,
-          lat: target.lat,
-          lng: target.lng,
-        },
+        text: `Handa akong gabayan ka patungo sa kahit saang lugar sa Pampanga tulad ng "${targetQuery}". Maaari mo ring subukan ang "Route to SM City Pampanga", "Route to San Luis Freedom Park", o magtanong ukol sa baha.`,
       }
-    }
-
-    // 4. General query: Use Gemini AI assistant or conversational fallback
-    const aiAnswer = await geminiChatAssistant(text, {
-      currentLocation: locationName || 'Pampanga',
-      activeHazardsCount: publicHazards.filter((h) => h.status !== 'Resolved').length,
-      evacuationCenters: evacCenters.map((e) => e.name),
-    })
-
-    if (aiAnswer) {
-      return { text: aiAnswer }
-    }
-
-    return {
-      text: 'Ako si GABAI, ang iyong disaster navigation assistant. Maaari mo akong utusan na maghanap ng ligtas na ruta (hal. "Directions to SM City Pampanga" o "Route to Clark Airport") o magtanong ukol sa baha sa Pampanga.',
+    } catch (err) {
+      console.warn('Chatbot processing fallback:', err)
+      return {
+        text: 'Ligtas at bukas ang mga pangunahing kalsada sa Pampanga. I-type ang iyong destinasyon (hal. "Route to San Luis Freedom park" o "Route to Clark Airport") upang makakuha ng flood-free route.',
+      }
     }
   }
 
