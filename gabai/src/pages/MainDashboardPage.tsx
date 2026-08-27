@@ -998,6 +998,24 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         </div>
       )}
 
+      {/* ── Map Point Picking Active Bar ── */}
+      {(isPickingPointMode || isPickingRoadSegment) && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 bg-blue-600 text-white px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/20 pointer-events-auto anim-slide-down">
+          <MapPin className="w-4 h-4 text-amber-300 animate-pulse shrink-0" />
+          <span className="text-xs font-extrabold">Tap anywhere on map to select location</span>
+          <button
+            type="button"
+            onClick={() => {
+              setIsPickingPointMode(null)
+              setActiveModal('report')
+            }}
+            className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-extrabold transition-all cursor-pointer"
+          >
+            ← Back to Form
+          </button>
+        </div>
+      )}
+
       {/* ── Top Floating Header Dock (BAHABA Inspired UI) ── */}
       <div className={`absolute left-0 right-0 z-10 px-3 pt-3 sm:px-5 sm:pt-4 flex flex-col gap-2 pointer-events-none ${appState === 'emergency' ? 'top-12' : 'top-0'}`}>
         <div className="flex items-center gap-3 pointer-events-auto w-full justify-between">
@@ -1836,20 +1854,38 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
       {/* ── 4. Community Disaster Reporting with AI Vision ────── */}
       {activeModal === 'report' && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 bottom-sheet">
-          <div className="bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl border-t border-slate-200/60 dark:border-slate-700/50 max-w-lg mx-auto">
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full" />
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all">
+          {/* Backdrop Click to Close */}
+          <div className="absolute inset-0" onClick={closeModal} />
+
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 flex flex-col max-h-[85vh] sm:max-h-[90vh] overflow-hidden anim-slide-up z-10">
+            {/* Sticky Modal Header with Back & Close Buttons */}
+            <div className="sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-5 pt-4 pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between z-20 shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer flex items-center gap-1 text-xs font-bold"
+                  title="Go Back"
+                >
+                  <span>← Back</span>
+                </button>
+                <h3 className="font-extrabold text-slate-900 dark:text-white text-sm sm:text-base truncate">Community Disaster Report</h3>
+              </div>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer shrink-0"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <div className="px-4 pt-2 pb-6">
+
+            {/* Scrollable Modal Content */}
+            <div className="px-5 py-4 overflow-y-auto flex-1">
               {reportStep === 'form' && (
                 <>
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Community Disaster Report</h3>
-                    <button onClick={closeModal} className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
                     Attach photo for Multimodal AI Flood-Depth Analysis & LGU response.
                   </p>
@@ -1918,10 +1954,10 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
                       {/* Start Point (Point A) */}
                       <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200/70 dark:border-slate-700/60">
-                        <div className="min-w-0 flex-1 pr-2">
-                          <div className="text-[10px] text-slate-400 font-bold uppercase">Start of Flood (Point A)</div>
-                          <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
-                            {floodStartPoint?.name || 'Tap on Map'}
+                        <div className="min-w-0 pr-2">
+                          <div className="text-[9px] font-black uppercase text-slate-400">Start of Flood (Point A)</div>
+                          <div className="text-xs font-bold text-slate-800 dark:text-white truncate">
+                            {floodStartPoint ? floodStartPoint.name : 'Not set (defaults to your location)'}
                           </div>
                         </div>
                         <button
@@ -1938,10 +1974,10 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
                       {/* End Point (Point B) */}
                       <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200/70 dark:border-slate-700/60">
-                        <div className="min-w-0 flex-1 pr-2">
-                          <div className="text-[10px] text-slate-400 font-bold uppercase">End of Flood (Point B)</div>
-                          <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
-                            {floodEndPoint?.name || 'Tap on Map'}
+                        <div className="min-w-0 pr-2">
+                          <div className="text-[9px] font-black uppercase text-slate-400">End of Flood (Point B)</div>
+                          <div className="text-xs font-bold text-slate-800 dark:text-white truncate">
+                            {floodEndPoint ? floodEndPoint.name : 'Not set (click map to specify end)'}
                           </div>
                         </div>
                         <button
@@ -2026,18 +2062,20 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
                     {photoPreview ? (
                       <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-2.5">
-                        <div className="flex items-center gap-3">
-                          <img src={photoPreview} alt="Flood Snapshot" className="w-16 h-16 rounded-xl object-cover" />
-                          <div className="flex-1 min-w-0 text-xs">
-                            <div className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
-                              <Sparkles className="w-3.5 h-3.5 text-cyan-500" />
-                              <span>{isAnalyzingPhoto ? 'AI Analyzing Water Depth...' : 'AI Vision Assessed'}</span>
-                            </div>
-                            {photoAiAnalysis && (
-                              <div className="mt-1 text-[11px] text-cyan-600 dark:text-cyan-400 font-semibold">
-                                {photoAiAnalysis.waterDepthLevel}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <img src={photoPreview} alt="Flood Snapshot" className="w-16 h-16 rounded-xl object-cover" />
+                            <div className="flex-1 min-w-0 text-xs">
+                              <div className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                                <Sparkles className="w-3.5 h-3.5 text-cyan-500" />
+                                <span>{isAnalyzingPhoto ? 'AI Analyzing Water Depth...' : 'AI Vision Assessed'}</span>
                               </div>
-                            )}
+                              {photoAiAnalysis && (
+                                <div className="mt-1 text-[11px] text-cyan-600 dark:text-cyan-400 font-semibold">
+                                  {photoAiAnalysis.waterDepthLevel}
+                                </div>
+                              )}
+                            </div>
                           </div>
                           <button
                             onClick={() => { setPhotoPreview(null); setPhotoAiAnalysis(null) }}
@@ -2051,7 +2089,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="w-full py-2.5 border-2 border-dashed border-cyan-500/50 rounded-2xl bg-cyan-50/40 dark:bg-cyan-950/20 flex items-center justify-center gap-2 text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 transition-colors"
+                        className="w-full py-2.5 border-2 border-dashed border-cyan-500/50 rounded-2xl bg-cyan-50/40 dark:bg-cyan-950/20 flex items-center justify-center gap-2 text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 transition-colors cursor-pointer"
                       >
                         <Camera className="w-4 h-4" />
                         <span>Take Photo / Upload for AI Flood Depth Vision</span>
@@ -2062,7 +2100,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                   <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/80 rounded-xl px-3 py-2 mb-3 border border-slate-100 dark:border-slate-700/40">
                     <MapPin className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
                     <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate">
-                      Auto-GPS · {locationName}
+                      Auto-GPS · {locationName || 'San Vicente, Pampanga'}
                     </span>
                   </div>
 
@@ -2084,7 +2122,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                   <button
                     onClick={submitReport}
                     disabled={!reportType}
-                    className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-3.5 rounded-xl disabled:opacity-40 transition-all hover:bg-slate-800 dark:hover:bg-slate-100 shadow-md text-sm"
+                    className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-3.5 rounded-xl disabled:opacity-40 transition-all hover:bg-slate-800 dark:hover:bg-slate-100 shadow-md text-sm cursor-pointer"
                   >
                     Submit Report to LGU Command Center
                   </button>
@@ -2109,12 +2147,12 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                   <div className="text-center px-4">
                     <p className="text-base font-bold text-slate-800 dark:text-white">Report Queued for LGU Verification</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Your incident report near {locationName.split(',')[0]} has been submitted. It is now in the LGU triage queue and will be published to all motorists once verified by dispatch.
+                      Your incident report near {(locationName || 'San Vicente, Pampanga').split(',')[0]} has been submitted. It is now in the LGU triage queue and will be published to all motorists once verified by dispatch.
                     </p>
                   </div>
                   <button
                     onClick={closeModal}
-                    className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold rounded-xl shadow"
+                    className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold rounded-xl shadow cursor-pointer"
                   >
                     Done & Return to Map
                   </button>
