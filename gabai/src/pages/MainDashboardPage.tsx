@@ -57,7 +57,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const [selectedHazard, setSelectedHazard] = useState<Hazard | null>(null)
   const [selectedRoute, setSelectedRoute] = useState<'safe' | 'balanced' | 'fast'>('safe')
   const [panelOpen, setPanelOpen] = useState(false)
-  const [showBubble, setShowBubble] = useState(false)
+
   const [showRadar, setShowRadar] = useState(true)
 
   // Destination Choosing States
@@ -325,15 +325,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
   const voice = useVoiceAssistant(mapContext, handleVoiceAction)
 
-  // Auto-show bubble when speaking or processing
-  useEffect(() => {
-    if (voice.state === 'speaking' || voice.state === 'processing') {
-      setShowBubble(true)
-    } else if (voice.state === 'idle' && !voice.response && !voice.transcript) {
-      setShowBubble(false)
-    }
-  }, [voice.state, voice.response, voice.transcript])
-
   // Clear action toast after 4 seconds
   useEffect(() => {
     if (lastActionMessage) {
@@ -387,12 +378,10 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   }, [routes, pendingAutoNavigate, userLocation, voice]);
 
   const handleMicPress = () => {
-    setShowBubble(false)
     setIsChatbotOpen(true)
   }
 
   const handleSuggestion = (s: string) => {
-    setShowBubble(true)
     voice.triggerTextPrompt(s)
   }
 
@@ -995,50 +984,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         </div>
       )}
 
-      {/* ── AI Bubble ────────────────────────────────────────── */}
-      {showBubble && (
-        <div
-          className="absolute left-1/2 z-20 -translate-x-1/2 w-[calc(100%-24px)] max-w-sm anim-slide-up pointer-events-none"
-          style={{ bottom: appState === 'emergency' ? '228px' : '176px' }}
-        >
-          <div className="pointer-events-auto bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 p-4">
-            <div className="flex items-start gap-3 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-cyan-500 flex items-center justify-center shrink-0">
-                {voice.state === 'processing' ? <Loader2 className="w-3.5 h-3.5 text-white animate-spin" strokeWidth={2.5} /> : <Shield className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />}
-              </div>
-              <div>
-                <div className="text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 mb-0.5">
-                  {voice.state === 'processing' ? 'GABAI is processing...' : 'GABAI Voice Assistant'}
-                </div>
-                <p className="text-sm text-slate-800 dark:text-slate-200 leading-snug">
-                  {voice.state === 'speaking' || voice.response 
-                    ? voice.response 
-                    : voice.transcript 
-                      ? <span className="italic text-slate-500">"{voice.transcript}"</span>
-                      : 'Listening to your report...'}
-                </p>
-              </div>
-              <button onClick={() => setShowBubble(false)} className="shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => { setActiveModal('routes'); setShowBubble(false) }}
-                className="flex-1 text-xs font-semibold bg-cyan-500 hover:bg-cyan-600 text-white py-2 rounded-lg transition-colors shadow-sm"
-              >
-                View Safe Route
-              </button>
-              <button
-                onClick={() => { setActiveModal('hazard'); setSelectedHazard(hazards[0]); setShowBubble(false) }}
-                className="flex-1 text-xs font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 py-2 rounded-lg transition-colors"
-              >
-                Inspect Hazard
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* 🎙️ GABAI AI Chatbot Button 🎙️ */}
       <div
