@@ -1002,22 +1002,30 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       <div className={`absolute left-0 right-0 z-10 px-3 pt-3 sm:px-5 sm:pt-4 flex flex-col gap-2 pointer-events-none ${appState === 'emergency' ? 'top-12' : 'top-0'}`}>
         <div className="flex items-center gap-3 pointer-events-auto w-full justify-between">
           {/* Left Brand Badge */}
-          <div className="bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/80 rounded-2xl p-2 px-3.5 shadow-2xl flex items-center gap-3 shrink-0">
+          <div className={`backdrop-blur-2xl border rounded-2xl p-2 px-3.5 flex items-center gap-3 shrink-0 transition-all ${
+            darkMode
+              ? 'bg-[#0f172a]/95 border-slate-800/80 shadow-2xl text-white'
+              : 'bg-white/95 border-slate-200/90 shadow-xl text-slate-900'
+          }`}>
             <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-600/30 shrink-0">
               <Shield className="w-4.5 h-4.5 text-white" strokeWidth={2.5} />
             </div>
             <div className="flex flex-col">
-              <span className="font-black text-sm text-white tracking-tight leading-none">GABAI</span>
-              <span className="text-[10px] font-medium text-slate-400 mt-1 leading-none hidden sm:inline">Live flood conditions, Philippines</span>
+              <span className={`font-black text-sm tracking-tight leading-none ${darkMode ? 'text-white' : 'text-slate-900'}`}>GABAI</span>
+              <span className={`text-[10px] font-medium mt-1 leading-none hidden sm:inline ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Live flood conditions, Philippines</span>
             </div>
           </div>
 
           {/* Center Search / Route Pill ("Plan a route") */}
-          <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2.5 bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/80 rounded-2xl p-2 px-4 shadow-2xl transition-all max-w-md mx-auto focus-within:border-blue-500/60 focus-within:ring-1 focus-within:ring-blue-500/30">
+          <form onSubmit={handleSearchSubmit} className={`flex-1 flex items-center gap-2.5 backdrop-blur-2xl border rounded-2xl p-2 px-4 transition-all max-w-md mx-auto focus-within:border-blue-500/60 focus-within:ring-1 focus-within:ring-blue-500/30 ${
+            darkMode
+              ? 'bg-[#0f172a]/95 border-slate-800/80 shadow-2xl text-slate-100'
+              : 'bg-white/95 border-slate-200/90 shadow-xl text-slate-900'
+          }`}>
             <button
               type="button"
               onClick={() => setActiveModal('routes')}
-              className="text-slate-400 hover:text-blue-400 transition-colors shrink-0 cursor-pointer p-0.5"
+              className={`transition-colors shrink-0 cursor-pointer p-0.5 ${darkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-500 hover:text-blue-600'}`}
               title="Open Safe Route Planner"
             >
               <Navigation className="w-4 h-4" />
@@ -1028,14 +1036,16 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Plan a route..."
               onFocus={() => setSearchFocused(true)}
-              className="flex-1 bg-transparent text-xs font-medium text-slate-100 placeholder-slate-400 outline-none truncate"
+              className={`flex-1 bg-transparent text-xs font-medium outline-none truncate ${
+                darkMode ? 'text-slate-100 placeholder-slate-400' : 'text-slate-900 placeholder-slate-400'
+              }`}
             />
             {isSearching && <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin shrink-0" />}
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => { setSearchQuery(''); setSearchResults([]) }}
-                className="text-slate-400 hover:text-white p-0.5 shrink-0"
+                className={`p-0.5 shrink-0 ${darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -1043,7 +1053,9 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             <button
               type="button"
               onClick={() => setActiveModal('routes')}
-              className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer shrink-0"
+              className={`p-1 rounded-lg transition-all cursor-pointer shrink-0 ${
+                darkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-900'
+              }`}
               title="Select Evacuation Route"
             >
               <ChevronDown className="w-3.5 h-3.5" />
@@ -1051,27 +1063,42 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           </form>
 
           {/* Right Weather & Control Pills (Pushed to far right edge) */}
-          <div className="bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/80 rounded-2xl p-2 px-3.5 shadow-2xl flex items-center gap-3 text-xs font-semibold text-slate-300 shrink-0 ml-auto">
-            <div className="flex items-center gap-1.5 text-cyan-400">
+          <div className={`backdrop-blur-2xl border rounded-2xl p-2 px-3.5 flex items-center gap-3 text-xs font-semibold shrink-0 ml-auto transition-all ${
+            darkMode
+              ? 'bg-[#0f172a]/95 border-slate-800/80 shadow-2xl text-slate-300'
+              : 'bg-white/95 border-slate-200/90 shadow-xl text-slate-700'
+          }`}>
+            <div className="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
               <CloudRain className="w-3.5 h-3.5" />
               <span className="hidden md:inline">100% rain</span>
             </div>
-            <span className="text-slate-700 hidden md:inline">|</span>
-            <div className="flex items-center gap-1.5 text-slate-300 hidden lg:flex">
-              <Radio className="w-3.5 h-3.5 text-slate-400" />
+            <span className={darkMode ? 'text-slate-700 hidden md:inline' : 'text-slate-300 hidden md:inline'}>|</span>
+            <div className={`flex items-center gap-1.5 hidden lg:flex ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+              <Radio className={`w-3.5 h-3.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`} />
               <span>22 km/h</span>
             </div>
-            <span className="text-slate-700 hidden lg:inline">|</span>
-            <span className="text-slate-400 hidden lg:inline">Partly cloudy</span>
+            <span className={darkMode ? 'text-slate-700 hidden lg:inline' : 'text-slate-300 hidden lg:inline'}>|</span>
+            <span className={`hidden lg:inline ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Partly cloudy</span>
             
-            <button onClick={() => setActiveModal('about')} className="px-3 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-200 text-xs font-semibold border border-slate-700/60 transition-all cursor-pointer">
+            <button
+              onClick={() => setActiveModal('about')}
+              className={`px-3 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                darkMode
+                  ? 'bg-slate-800/80 hover:bg-slate-800 text-slate-200 border-slate-700/60'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
+              }`}
+            >
               About
             </button>
 
             {/* LGU Command Center Link Button */}
             <Link
               to="/lgu"
-              className="px-3 py-1 rounded-xl bg-slate-800/80 hover:bg-blue-900/40 text-slate-200 hover:text-white text-xs font-bold border border-slate-700/60 transition-all flex items-center gap-1.5 cursor-pointer"
+              className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                darkMode
+                  ? 'bg-slate-800/80 hover:bg-blue-900/40 text-slate-200 hover:text-white border-slate-700/60'
+                  : 'bg-slate-100 hover:bg-blue-50 text-slate-800 hover:text-blue-900 border-slate-200'
+              }`}
               title="Open Official LGU Emergency Operations Center"
             >
               <span>🏢</span>
@@ -1083,14 +1110,22 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
               <button
                 type="button"
                 onClick={toggle3DMode}
-                className="px-2.5 py-1 rounded-xl bg-slate-800/80 text-slate-300 border border-slate-700/60 hover:text-white text-xs font-bold transition-all cursor-pointer"
+                className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                  darkMode
+                    ? 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:text-white'
+                    : 'bg-slate-100 text-slate-700 border-slate-200 hover:text-slate-900'
+                }`}
               >
                 {is3D ? '3D' : '2D'}
               </button>
               <button
                 type="button"
                 onClick={toggleDark}
-                className="w-7 h-7 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer"
+                className={`w-7 h-7 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
+                  darkMode
+                    ? 'bg-slate-800/80 border-slate-700/60 text-amber-400 hover:text-amber-300'
+                    : 'bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900'
+                }`}
               >
                 {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
               </button>
@@ -1100,22 +1135,34 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
         {/* Live Search Autocomplete Dropdown */}
         {searchFocused && searchResults.length > 0 && (
-          <div className="max-w-md mx-auto w-full pointer-events-auto bg-[#0f172a]/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-800 overflow-hidden z-50 anim-slide-up max-h-72 overflow-y-auto">
-            <div className="px-3 py-2 bg-slate-900/80 border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          <div className={`max-w-md mx-auto w-full pointer-events-auto backdrop-blur-2xl rounded-2xl border overflow-hidden z-50 anim-slide-up max-h-72 overflow-y-auto ${
+            darkMode
+              ? 'bg-[#0f172a]/95 border-slate-800 shadow-2xl text-white'
+              : 'bg-white/95 border-slate-200 shadow-xl text-slate-900'
+          }`}>
+            <div className={`px-3 py-2 border-b text-[10px] font-bold uppercase tracking-wider ${
+              darkMode
+                ? 'bg-slate-900/80 border-slate-800 text-slate-400'
+                : 'bg-slate-100 border-slate-200 text-slate-500'
+            }`}>
               Locations & Landmarks
             </div>
             {searchResults.map((res, i) => (
               <button
                 key={`${res.name}-${i}`}
                 onMouseDown={() => handleSelectSearchResult(res)}
-                className="w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 hover:bg-slate-800/60 transition-colors border-b border-slate-800/40 last:border-0"
+                className={`w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 transition-colors border-b last:border-0 ${
+                  darkMode
+                    ? 'hover:bg-slate-800/60 border-slate-800/40 text-white'
+                    : 'hover:bg-slate-100 border-slate-200/60 text-slate-900'
+                }`}
               >
                 <span className="text-lg">{res.emoji || '📍'}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-white truncate">{res.name}</div>
-                  <div className="text-[10px] text-slate-400 truncate mt-0.5">{res.address}</div>
+                  <div className={`text-xs font-bold truncate ${darkMode ? 'text-white' : 'text-slate-900'}`}>{res.name}</div>
+                  <div className={`text-[10px] truncate mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{res.address}</div>
                 </div>
-                <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <ChevronRight className={`w-3.5 h-3.5 shrink-0 ${darkMode ? 'text-slate-400' : 'text-slate-400'}`} />
               </button>
             ))}
           </div>
@@ -1126,12 +1173,20 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       <div className="absolute top-20 left-4 z-20 w-72 sm:w-80 flex flex-col gap-3 pointer-events-none max-h-[calc(100vh-100px)]">
         {/* Floating CONDITIONS Panel */}
         {conditionsOpen ? (
-          <div className="bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/90 rounded-2xl p-4 shadow-2xl text-white pointer-events-auto anim-slide-up max-h-[calc(100vh-280px)] overflow-y-auto shrink">
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
-              <span className="text-[10px] font-mono tracking-widest text-slate-400 font-bold uppercase">CONDITIONS</span>
+          <div className={`backdrop-blur-2xl border rounded-2xl p-4 anim-slide-up max-h-[calc(100vh-280px)] overflow-y-auto shrink transition-all pointer-events-auto ${
+            darkMode
+              ? 'bg-[#0f172a]/95 border-slate-800/90 shadow-2xl text-white'
+              : 'bg-white/95 border-slate-200/90 shadow-xl text-slate-900'
+          }`}>
+            <div className={`flex items-center justify-between mb-3 pb-2 border-b ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
+              <span className={`text-[10px] font-mono tracking-widest font-bold uppercase ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>CONDITIONS</span>
               <button
                 onClick={() => setConditionsOpen(false)}
-                className="w-7 h-7 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center border border-slate-700/50 transition-all cursor-pointer"
+                className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-all cursor-pointer ${
+                  darkMode
+                    ? 'bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-white border-slate-700/50'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border-slate-200'
+                }`}
                 title="Collapse CONDITIONS panel"
               >
                 <PanelLeftClose className="w-4 h-4" />
@@ -1139,30 +1194,38 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between py-1 cursor-pointer hover:text-blue-400 transition-colors">
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              <div className="flex items-center justify-between py-1 cursor-pointer hover:text-blue-500 transition-colors">
+                <div className={`flex items-center gap-2 text-xs font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                  <ChevronRight className={`w-3.5 h-3.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`} />
                   <span>River levels</span>
                 </div>
-                <span className="text-[9px] font-bold tracking-widest text-slate-400 uppercase bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700/50">PAGASA</span>
+                <span className={`text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded border ${
+                  darkMode
+                    ? 'text-slate-400 bg-slate-800/80 border-slate-700/50'
+                    : 'text-slate-500 bg-slate-100 border-slate-200'
+                }`}>PAGASA</span>
               </div>
 
               <div className="py-1">
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-200 cursor-pointer">
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <div className={`flex items-center gap-2 text-xs font-semibold cursor-pointer ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                  <ChevronDown className={`w-3.5 h-3.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`} />
                   <span>Community reports</span>
                 </div>
-                <div className="text-[11px] text-slate-400 ml-5 mt-1">1 active report near you.</div>
+                <div className={`text-[11px] ml-5 mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>1 active report near you.</div>
               </div>
 
               {/* Access Emergency Hotlines Card */}
               {!locationAllowedForHotlines ? (
-                <div className="bg-[#151e32] border border-slate-800/90 rounded-xl p-3.5 mt-3 shadow-inner">
-                  <div className="flex items-center gap-2 font-bold text-xs text-white mb-1.5">
-                    <MapPin className="w-4 h-4 text-blue-400 shrink-0" />
+                <div className={`border rounded-xl p-3.5 mt-3 shadow-inner ${
+                  darkMode
+                    ? 'bg-[#151e32] border-slate-800/90 text-white'
+                    : 'bg-slate-50 border-slate-200 text-slate-900'
+                }`}>
+                  <div className={`flex items-center gap-2 font-bold text-xs mb-1.5 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                    <MapPin className="w-4 h-4 text-blue-500 shrink-0" />
                     <span>Access Local Emergency Hotlines</span>
                   </div>
-                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                  <p className={`text-[11px] leading-relaxed ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                     Allow location access to show emergency hotlines specific to your area. This helps you get the most relevant emergency contacts during flood situations.
                   </p>
                   <button
@@ -1177,16 +1240,20 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                   </button>
                 </div>
               ) : (
-                <div className="bg-[#151e32] border border-blue-900/50 rounded-xl p-3.5 mt-3 shadow-inner anim-slide-up">
+                <div className={`border rounded-xl p-3.5 mt-3 shadow-inner anim-slide-up ${
+                  darkMode
+                    ? 'bg-[#151e32] border-blue-900/50'
+                    : 'bg-blue-50/60 border-blue-200'
+                }`}>
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <div className={`flex items-center gap-1.5 text-xs font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                      <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
                       <span>Local Emergency Hotlines</span>
                     </div>
-                    <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-1.5 py-0.5 rounded">GPS Active</span>
+                    <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800/50 px-1.5 py-0.5 rounded">GPS Active</span>
                   </div>
-                  <p className="text-[10px] text-slate-400 mb-2">
-                    Emergency contacts for <strong className="text-slate-200">{locationName.split(',')[0]}</strong>:
+                  <p className={`text-[10px] mb-2 ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                    Emergency contacts for <strong className={darkMode ? 'text-slate-200' : 'text-slate-800'}>{locationName.split(',')[0]}</strong>:
                   </p>
 
                   <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
@@ -1200,17 +1267,21 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                       <a
                         key={idx}
                         href={`tel:${h.number.replace(/[^0-9]/g, '')}`}
-                        className="flex items-center justify-between p-2 rounded-lg bg-slate-900/90 hover:bg-blue-950/80 border border-slate-800 hover:border-blue-700/60 transition-all text-xs group cursor-pointer"
+                        className={`flex items-center justify-between p-2 rounded-lg border transition-all text-xs group cursor-pointer ${
+                          darkMode
+                            ? 'bg-slate-900/90 hover:bg-blue-950/80 border-slate-800 hover:border-blue-700/60 text-white'
+                            : 'bg-white hover:bg-blue-100/80 border-slate-200 hover:border-blue-300 text-slate-900'
+                        }`}
                         title={`Tap to call ${h.name}`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-sm">{h.icon}</span>
                           <div className="truncate">
-                            <div className="font-bold text-white truncate text-[11px]">{h.name}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">{h.number}</div>
+                            <div className={`font-bold truncate text-[11px] ${darkMode ? 'text-white' : 'text-slate-900'}`}>{h.name}</div>
+                            <div className={`text-[10px] font-mono ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{h.number}</div>
                           </div>
                         </div>
-                        <div className="w-7 h-7 rounded-lg bg-blue-600/20 group-hover:bg-blue-600 text-blue-400 group-hover:text-white flex items-center justify-center transition-all shrink-0 ml-1">
+                        <div className="w-7 h-7 rounded-lg bg-blue-600/20 group-hover:bg-blue-600 text-blue-500 group-hover:text-white flex items-center justify-center transition-all shrink-0 ml-1">
                           <PhoneCall className="w-3.5 h-3.5" />
                         </div>
                       </a>
@@ -1219,9 +1290,11 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
                   <button
                     onClick={handleLocateMe}
-                    className="w-full mt-2.5 text-[10px] text-slate-400 hover:text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                    className={`w-full mt-2.5 text-[10px] flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                      darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'
+                    }`}
                   >
-                    <MapPin className="w-3 h-3 text-cyan-400" />
+                    <MapPin className="w-3 h-3 text-cyan-500" />
                     <span>Recenter & Update Location</span>
                   </button>
                 </div>
@@ -1232,7 +1305,11 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           /* Collapsed Panel Floating Toggle Button */
           <button
             onClick={() => setConditionsOpen(true)}
-            className="w-11 h-11 rounded-2xl bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center shadow-2xl hover:bg-slate-800 transition-all cursor-pointer pointer-events-auto anim-scale-up shrink-0"
+            className={`w-11 h-11 rounded-2xl backdrop-blur-2xl border flex items-center justify-center transition-all cursor-pointer pointer-events-auto anim-scale-up shrink-0 ${
+              darkMode
+                ? 'bg-[#0f172a]/95 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 shadow-2xl'
+                : 'bg-white/95 border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 shadow-xl'
+            }`}
             title="Expand CONDITIONS panel"
           >
             <PanelLeftOpen className="w-5 h-5" />
@@ -1241,18 +1318,22 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
         {/* ── Floating Water Depth Legend ("WATER DEPTH") Stacked Under CONDITIONS ── */}
         {showLegend && (
-          <div className="w-56 bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/90 rounded-2xl p-3.5 shadow-2xl text-white pointer-events-auto anim-slide-up shrink-0">
+          <div className={`w-56 backdrop-blur-2xl border rounded-2xl p-3.5 anim-slide-up shrink-0 transition-all pointer-events-auto ${
+            darkMode
+              ? 'bg-[#0f172a]/95 border-slate-800/90 shadow-2xl text-white'
+              : 'bg-white/95 border-slate-200/90 shadow-xl text-slate-900'
+          }`}>
             <div className="flex items-center justify-between mb-2.5">
-              <span className="text-[10px] font-mono tracking-widest text-slate-400 font-bold uppercase">WATER DEPTH</span>
+              <span className={`text-[10px] font-mono tracking-widest font-bold uppercase ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>WATER DEPTH</span>
               <button
                 onClick={() => setShowLegend(false)}
-                className="text-slate-500 hover:text-slate-300 transition-colors p-0.5 cursor-pointer"
+                className={`transition-colors p-0.5 cursor-pointer ${darkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-700'}`}
                 title="Close legend"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
-            <div className="space-y-2 text-xs font-medium text-slate-300">
+            <div className={`space-y-2 text-xs font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
               <div className="flex items-center gap-2.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-teal-400 shadow-xs shadow-teal-400/50" />
                 <span>Ankle deep</span>
@@ -1278,22 +1359,38 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2 pointer-events-auto">
         <button
           onClick={() => setLayersOpen(!layersOpen)}
-          className="w-10 h-10 rounded-2xl bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center shadow-xl hover:bg-slate-800 transition-all cursor-pointer"
+          className={`w-10 h-10 rounded-2xl backdrop-blur-2xl border flex items-center justify-center transition-all cursor-pointer ${
+            darkMode
+              ? 'bg-[#0f172a]/95 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 shadow-2xl'
+              : 'bg-white/95 border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 shadow-xl'
+          }`}
           title="Map Layers"
         >
           <Layers className="w-4 h-4" />
         </button>
-        <div className="flex flex-col bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800 rounded-2xl shadow-xl overflow-hidden divide-y divide-slate-800">
+        <div className={`flex flex-col backdrop-blur-2xl border rounded-2xl shadow-xl overflow-hidden divide-y ${
+          darkMode
+            ? 'bg-[#0f172a]/95 border-slate-800 divide-slate-800 shadow-2xl'
+            : 'bg-white/95 border-slate-200 divide-slate-200 shadow-xl'
+        }`}>
           <button
             onClick={() => mapCanvasRef.current?.zoomIn()}
-            className="w-10 h-10 text-slate-300 hover:text-white flex items-center justify-center hover:bg-slate-800 transition-all cursor-pointer font-bold text-lg"
+            className={`w-10 h-10 flex items-center justify-center transition-all cursor-pointer font-bold text-lg ${
+              darkMode
+                ? 'text-slate-300 hover:text-white hover:bg-slate-800'
+                : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+            }`}
             title="Zoom In"
           >
             +
           </button>
           <button
             onClick={() => mapCanvasRef.current?.zoomOut()}
-            className="w-10 h-10 text-slate-300 hover:text-white flex items-center justify-center hover:bg-slate-800 transition-all cursor-pointer font-bold text-lg"
+            className={`w-10 h-10 flex items-center justify-center transition-all cursor-pointer font-bold text-lg ${
+              darkMode
+                ? 'text-slate-300 hover:text-white hover:bg-slate-800'
+                : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+            }`}
             title="Zoom Out"
           >
             -
@@ -1301,7 +1398,11 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         </div>
         <button
           onClick={handleLocateMe}
-          className="w-10 h-10 rounded-2xl bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center shadow-xl hover:bg-slate-800 transition-all cursor-pointer"
+          className={`w-10 h-10 rounded-2xl backdrop-blur-2xl border flex items-center justify-center transition-all cursor-pointer ${
+            darkMode
+              ? 'bg-[#0f172a]/95 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 shadow-2xl'
+              : 'bg-white/95 border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 shadow-xl'
+          }`}
           title="Recenter Location"
         >
           <Locate className="w-4 h-4" />
