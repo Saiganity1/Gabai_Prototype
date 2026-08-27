@@ -430,84 +430,68 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
       // Comprehensive Directory of Pampanga Municipalities, Parks, Plazas, Hospitals, and Civic Landmarks
       const KNOWN_PAMPANGA_PLACES = [
-        { name: 'San Luis Freedom Park & Municipal Complex', address: 'San Luis, Pampanga', lat: 15.0412, lng: 120.7935, keywords: ['san luis freedom park', 'freedom park', 'san luis park', 'san luis', 'san luis municipal', 'san luis plaza', 'san luis hall'] },
-        { name: 'SM City Pampanga', address: 'Jose Abad Santos Ave, San Fernando, Pampanga', lat: 15.0475, lng: 120.6970, keywords: ['sm pampanga', 'sm city', 'sm san fernando', 'sm mall', 'sm'] },
-        { name: 'Clark International Airport', address: 'Clark Freeport Zone, Mabalacat, Pampanga', lat: 15.1859, lng: 120.5596, keywords: ['clark airport', 'clark', 'crk', 'airport', 'clark field'] },
-        { name: 'Clark Parade Grounds', address: 'Clark Freeport Zone, Pampanga', lat: 15.1769, lng: 120.5312, keywords: ['clark parade grounds', 'parade grounds', 'cdc grounds'] },
+        { name: 'San Luis Freedom Park', address: 'San Luis, Pampanga', lat: 15.0412, lng: 120.7935, keywords: ['san luis freedom park', 'freedom park san luis', 'san luis park', 'san luis plaza', 'san luis freedom'] },
+        { name: 'SM City Pampanga', address: 'Jose Abad Santos Ave, San Fernando, Pampanga', lat: 15.0475, lng: 120.6970, keywords: ['sm city pampanga', 'sm pampanga', 'sm san fernando', 'sm mall pampanga'] },
+        { name: 'Clark International Airport', address: 'Clark Freeport Zone, Mabalacat, Pampanga', lat: 15.1859, lng: 120.5596, keywords: ['clark international airport', 'clark airport', 'crk airport', 'clark field'] },
+        { name: 'Clark Parade Grounds', address: 'Clark Freeport Zone, Pampanga', lat: 15.1769, lng: 120.5312, keywords: ['clark parade grounds', 'parade grounds', 'cdc parade grounds'] },
         { name: 'Bayanihan Park (Astro Park)', address: 'Balibago, Angeles City, Pampanga', lat: 15.1663, lng: 120.5901, keywords: ['bayanihan park', 'astro park', 'balibago park'] },
-        { name: 'Mexico Community Hospital', address: 'San Carlos, Mexico, Pampanga', lat: 15.0645, lng: 120.7225, keywords: ['mexico hospital', 'mexico community hospital', 'hospital sa mexico', 'hospital', 'mexico clinic'] },
-        { name: 'Jose B. Lingad Memorial General Hospital', address: 'Dolores, San Fernando, Pampanga', lat: 15.0385, lng: 120.6848, keywords: ['jbl', 'jblmgh', 'lingad', 'jose b lingad', 'regional hospital'] },
-        { name: 'San Fernando City Hall', address: 'City Hall, Poblacion, San Fernando, Pampanga', lat: 15.0298, lng: 120.6895, keywords: ['san fernando city hall', 'san fernando munisipyo', 'san fernando hall', 'city hall'] },
+        { name: 'Mexico Community Hospital', address: 'San Carlos, Mexico, Pampanga', lat: 15.0645, lng: 120.7225, keywords: ['mexico community hospital', 'mexico hospital', 'hospital sa mexico'] },
+        { name: 'Jose B. Lingad Memorial General Hospital', address: 'Dolores, San Fernando, Pampanga', lat: 15.0385, lng: 120.6848, keywords: ['jose b lingad memorial', 'jblmgh', 'lingad hospital', 'jose b lingad'] },
+        { name: 'San Fernando City Hall', address: 'City Hall, Poblacion, San Fernando, Pampanga', lat: 15.0298, lng: 120.6895, keywords: ['san fernando city hall', 'san fernando munisipyo', 'san fernando hall'] },
         { name: 'Angeles City Hall', address: 'Pulung Maragul, Angeles City, Pampanga', lat: 15.1450, lng: 120.5887, keywords: ['angeles city hall', 'angeles munisipyo', 'angeles hall'] },
-        { name: 'Pampanga Provincial Capitol', address: 'Capitol Compound, San Fernando, Pampanga', lat: 15.0343, lng: 120.6868, keywords: ['capitol', 'pampanga capitol', 'provincial capitol'] },
-        { name: 'Santa Maria Barangay Hall', address: 'Santa Maria, Mexico, Pampanga', lat: 15.0740, lng: 120.7810, keywords: ['santa maria', 'sta maria', 'brgy santa maria', 'santa maria hall'] },
-        { name: 'San Sebastian Elementary School', address: 'San Sebastian, San Luis, Pampanga', lat: 15.0425, lng: 120.7913, keywords: ['san sebastian', 'san sebastian school'] },
-        { name: 'MacArthur Highway Commercial Strip', address: 'MacArthur Highway, San Fernando, Pampanga', lat: 15.0390, lng: 120.6840, keywords: ['macarthur', 'macarthur highway', 'dolores flyover'] },
-        { name: 'Candaba Municipal Hall & Park', address: 'Candaba, Pampanga', lat: 15.0933, lng: 120.8267, keywords: ['candaba', 'candaba park', 'candaba hall'] },
-        { name: 'San Simon Municipal Hall', address: 'San Simon, Pampanga', lat: 14.9961, lng: 120.7788, keywords: ['san simon', 'san simon hall'] },
-        { name: 'Arayat Town Plaza & National Park', address: 'Arayat, Pampanga', lat: 15.1583, lng: 120.7417, keywords: ['arayat', 'arayat national park', 'mount arayat'] },
-        { name: 'Guagua Town Plaza', address: 'Guagua, Pampanga', lat: 14.9669, lng: 120.6334, keywords: ['guagua', 'guagua plaza', 'guagua hall'] },
-        { name: 'Lubao Bamboo Hub & Park', address: 'Lubao, Pampanga', lat: 14.9403, lng: 120.5975, keywords: ['lubao', 'lubao bamboo hub', 'lubao park'] },
-        { name: 'Bacolor Municipal Hall & Shrine', address: 'Bacolor, Pampanga', lat: 14.9984, lng: 120.6517, keywords: ['bacolor', 'sunken church', 'bacolor shrine'] },
-        { name: 'Mabalacat City Hall', address: 'Mabalacat, Pampanga', lat: 15.2217, lng: 120.5750, keywords: ['mabalacat', 'mabalacat hall'] },
-        { name: 'Apalit Municipal Hall', address: 'Apalit, Pampanga', lat: 14.9547, lng: 120.7583, keywords: ['apalit', 'apalit hall'] },
-        { name: 'Masantol Municipal Hall', address: 'Masantol, Pampanga', lat: 14.9017, lng: 120.7100, keywords: ['masantol', 'masantol hall'] },
-        { name: 'Macabebe Municipal Hall', address: 'Macabebe, Pampanga', lat: 14.9075, lng: 120.7139, keywords: ['macabebe', 'macabebe hall'] },
-        { name: 'Minalin Municipal Hall', address: 'Minalin, Pampanga', lat: 14.9719, lng: 120.6861, keywords: ['minalin', 'minalin hall', 'minalin church'] },
-        { name: 'Santo Tomas Municipal Hall', address: 'Santo Tomas, Pampanga', lat: 15.0069, lng: 120.7147, keywords: ['santo tomas', 'sto tomas'] },
-        { name: 'Santa Ana Municipal Hall', address: 'Santa Ana, Pampanga', lat: 15.0978, lng: 120.7681, keywords: ['santa ana', 'sta ana'] },
-        { name: 'Santa Rita Municipal Hall', address: 'Santa Rita, Pampanga', lat: 15.0008, lng: 120.6139, keywords: ['santa rita', 'sta rita'] },
-        { name: 'Sasmuan Municipal Hall & Port', address: 'Sasmuan, Pampanga', lat: 14.9392, lng: 120.6272, keywords: ['sasmuan', 'sasmuan port'] },
-        { name: 'Porac Municipal Hall', address: 'Porac, Pampanga', lat: 15.0711, lng: 120.5422, keywords: ['porac', 'porac hall'] },
-        { name: 'Floridablanca Municipal Hall', address: 'Floridablanca, Pampanga', lat: 14.9722, lng: 120.5333, keywords: ['floridablanca', 'floridablanca hall'] },
+        { name: 'Pampanga Provincial Capitol', address: 'Capitol Compound, San Fernando, Pampanga', lat: 15.0343, lng: 120.6868, keywords: ['pampanga provincial capitol', 'pampanga capitol', 'provincial capitol san fernando'] },
+        { name: 'Santa Maria Barangay Hall', address: 'Santa Maria, Mexico, Pampanga', lat: 15.0740, lng: 120.7810, keywords: ['santa maria barangay hall', 'sta maria barangay hall', 'brgy santa maria hall'] },
+        { name: 'San Sebastian Elementary School', address: 'San Sebastian, San Luis, Pampanga', lat: 15.0425, lng: 120.7913, keywords: ['san sebastian elementary school', 'san sebastian school'] },
+        { name: 'MacArthur Highway Commercial Strip', address: 'MacArthur Highway, San Fernando, Pampanga', lat: 15.0390, lng: 120.6840, keywords: ['macarthur highway', 'dolores flyover'] },
+        { name: 'Candaba Municipal Hall & Park', address: 'Candaba, Pampanga', lat: 15.0933, lng: 120.8267, keywords: ['candaba municipal hall', 'candaba park', 'candaba town hall'] },
+        { name: 'San Simon Municipal Hall', address: 'San Simon, Pampanga', lat: 14.9961, lng: 120.7788, keywords: ['san simon municipal hall', 'san simon hall', 'san simon town hall'] },
+        { name: 'Arayat Town Plaza & National Park', address: 'Arayat, Pampanga', lat: 15.1583, lng: 120.7417, keywords: ['arayat national park', 'mount arayat', 'arayat town plaza'] },
+        { name: 'Guagua Town Plaza', address: 'Guagua, Pampanga', lat: 14.9669, lng: 120.6334, keywords: ['guagua town plaza', 'guagua plaza', 'guagua municipal hall'] },
+        { name: 'Lubao Bamboo Hub & Park', address: 'Lubao, Pampanga', lat: 14.9403, lng: 120.5975, keywords: ['lubao bamboo hub', 'lubao park', 'lubao municipal hall'] },
+        { name: 'Bacolor Municipal Hall & Shrine', address: 'Bacolor, Pampanga', lat: 14.9984, lng: 120.6517, keywords: ['bacolor sunken church', 'bacolor municipal hall', 'bacolor shrine'] },
+        { name: 'Mabalacat City Hall', address: 'Mabalacat, Pampanga', lat: 15.2217, lng: 120.5750, keywords: ['mabalacat city hall', 'mabalacat hall'] },
+        { name: 'Apalit Municipal Hall', address: 'Apalit, Pampanga', lat: 14.9547, lng: 120.7583, keywords: ['apalit municipal hall', 'apalit hall'] },
       ]
 
       let target: { name: string; address?: string; lat: number; lng: number } | null = null
 
-      // Tier 1: Keyword match against Pampanga directory
-      const landmarkMatch = KNOWN_PAMPANGA_PLACES.find((p) =>
-        p.keywords.some((k) => q.includes(k) || k.includes(q))
-      )
-      if (landmarkMatch) {
-        target = { name: landmarkMatch.name, address: landmarkMatch.address, lat: landmarkMatch.lat, lng: landmarkMatch.lng }
+      // Tier 1: Check OpenStreetMap Nominatim first for specific named venues (schools, churches, hospitals, parks, streets)
+      if (targetQuery.length > 2) {
+        try {
+          const osmMatches = await searchRealWorldPlaces(targetQuery, userLocation.lat, userLocation.lng)
+          if (osmMatches && osmMatches.length > 0) {
+            target = {
+              name: osmMatches[0].name,
+              address: osmMatches[0].address,
+              lat: osmMatches[0].lat,
+              lng: osmMatches[0].lng,
+            }
+          }
+        } catch {}
       }
 
       // Tier 2: Check local evacuation centers
       if (!target) {
         const localMatch = evacCenters.find(
-          (e) => e.name.toLowerCase().includes(q) || e.address.toLowerCase().includes(q)
+          (e) => e.name.toLowerCase().includes(q) || (e.address && e.address.toLowerCase().includes(q))
         )
         if (localMatch) {
           target = { name: localMatch.name, address: localMatch.address, lat: localMatch.lat, lng: localMatch.lng }
         }
       }
 
-      // Tier 3: OpenStreetMap Nominatim Live Search
-      if (!target && targetQuery.length > 2) {
-        try {
-          const osmMatches = await searchRealWorldPlaces(targetQuery, userLocation.lat, userLocation.lng)
-          if (osmMatches && osmMatches.length > 0) {
-            target = { name: osmMatches[0].name, address: osmMatches[0].address, lat: osmMatches[0].lat, lng: osmMatches[0].lng }
-          }
-        } catch {}
-      }
-
-      // Tier 4: Fuzzy Token Substring Match (e.g. matches town names inside the query)
+      // Tier 3: High-precision match against known Pampanga landmark database
       if (!target) {
-        const words = q.split(/\s+/).filter((w) => w.length >= 4)
-        for (const w of words) {
-          const match = KNOWN_PAMPANGA_PLACES.find((p) =>
-            p.keywords.some((k) => k.includes(w) || w.includes(k))
-          )
-          if (match) {
-            target = { name: match.name, address: match.address, lat: match.lat, lng: match.lng }
-            break
-          }
+        const landmarkMatch = KNOWN_PAMPANGA_PLACES.find((p) =>
+          p.keywords.some((k) => q.includes(k) || k.includes(q))
+        )
+        if (landmarkMatch) {
+          target = { name: landmarkMatch.name, address: landmarkMatch.address, lat: landmarkMatch.lat, lng: landmarkMatch.lng }
         }
       }
 
-      // Tier 5: Generic shelter / emergency fallback
-      if (!target && (lower.includes('shelter') || lower.includes('evac') || lower.includes('ligtas') || lower.includes('emergency'))) {
+      // Tier 4: Generic shelter / emergency request fallback
+      if (!target && (lower.includes('shelter') || lower.includes('evac') || lower.includes('ligtas') || lower.includes('emergency') || lower.includes('hospital'))) {
         if (evacCenters.length > 0) {
           target = { name: evacCenters[0].name, address: evacCenters[0].address, lat: evacCenters[0].lat, lng: evacCenters[0].lng }
         }
