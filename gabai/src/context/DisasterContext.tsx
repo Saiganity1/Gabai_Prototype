@@ -229,6 +229,17 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [userLoc.coords.lat, userLoc.coords.lng, userLoc.locationName]
   )
 
+  const [verifiedIds, setVerifiedIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('gabai-verified-ids')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) return parsed
+      }
+    } catch {}
+    return []
+  })
+
   const [resolvedIds, setResolvedIds] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('gabai-resolved-ids')
@@ -270,14 +281,27 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     } catch {}
 
+    const verIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-verified-ids') || '[]'))
     const resIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-resolved-ids') || '[]'))
     const rejIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-rejected-ids') || '[]'))
 
-    return initialList.filter((h) => {
-      if (h.status === 'Resolved' || h.status === 'Rejected by LGU') return false
-      if (resIds.has(String(h.id)) || rejIds.has(String(h.id))) return false
-      return true
-    })
+    return initialList
+      .filter((h) => {
+        if (h.status === 'Resolved' || h.status === 'Rejected by LGU') return false
+        if (resIds.has(String(h.id)) || rejIds.has(String(h.id))) return false
+        return true
+      })
+      .map((h) => {
+        if (verIds.has(String(h.id))) {
+          return {
+            ...h,
+            isVerified: true,
+            status: 'Verified by LGU',
+            verified: Math.max(1, h.verified || 1),
+          }
+        }
+        return h
+      })
   })
 
   const [reports, setReports] = useState<CitizenReport[]>(() => {
@@ -290,6 +314,7 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     } catch {}
 
+    const verIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-verified-ids') || '[]'))
     const resIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-resolved-ids') || '[]'))
     const rejIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-rejected-ids') || '[]'))
 
@@ -299,6 +324,9 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       if (rejIds.has(String(r.id)) || (r.hazardId && rejIds.has(String(r.hazardId)))) {
         return { ...r, status: 'rejected' as const }
+      }
+      if (verIds.has(String(r.id)) || (r.hazardId && verIds.has(String(r.hazardId)))) {
+        return { ...r, status: 'verified' as const }
       }
       return r
     })
@@ -321,10 +349,11 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       localStorage.setItem('gabai-live-reports', JSON.stringify(reports))
       localStorage.setItem('gabai-live-hazards', JSON.stringify(hazards))
       localStorage.setItem('gabai-my-reported-ids', JSON.stringify(myReportIds))
+      localStorage.setItem('gabai-verified-ids', JSON.stringify(verifiedIds))
       localStorage.setItem('gabai-resolved-ids', JSON.stringify(resolvedIds))
       localStorage.setItem('gabai-rejected-ids', JSON.stringify(rejectedIds))
     } catch {}
-  }, [reports, hazards, myReportIds, resolvedIds, rejectedIds])
+  }, [reports, hazards, myReportIds, verifiedIds, resolvedIds, rejectedIds])
 
   // Multi-tab real-time listener (Cross-tab broadcast channel)
   useEffect(() => {
@@ -404,6 +433,7 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const applyCloudEvent = useCallback((payload: any) => {
     if (!payload || !payload.type) return
 
+    const verIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-verified-ids') || '[]'))
     const resIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-resolved-ids') || '[]'))
     const rejIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-rejected-ids') || '[]'))
 
@@ -422,35 +452,68 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       setReports((prev) => {
-        if (prev.some((r) => r.id === rep.id)) return prev
+        if (prev.some((r) => String(r.id) === String(rep.id))) return prev
         return [rep, ...prev]
       })
 
       if (haz && !resIds.has(String(haz.id)) && !rejIds.has(String(haz.id))) {
         setHazards((prev) => {
-          if (prev.some((h) => h.id === haz.id)) return prev
+          if (prev.some((h) => String(h.id) === String(haz.id))) return prev
           return [haz, ...prev]
         })
       }
     }
 
     if (payload.type === 'REPORT_VERIFIED') {
-      const repId = payload.reportId
-      const hazId = payload.hazardId || payload.hazard?.id
-      const haz = payload.hazard
-      const rep = payload.report
+      const repId = String(payload.reportId || payload.report?.id || '')
+      const hazId = String(payload.hazardId || payload.hazard?.id || payload.report?.hazardId || repId)
+      const rep: CitizenReport | undefined = payload.report
+      let haz: Hazard | undefined = payload.hazard
 
       if (
-        (repId && (resIds.has(String(repId)) || rejIds.has(String(repId)))) ||
-        (hazId && (resIds.has(String(hazId)) || rejIds.has(String(hazId))))
+        (repId && (resIds.has(repId) || rejIds.has(repId))) ||
+        (hazId && (resIds.has(hazId) || rejIds.has(hazId)))
       ) {
         return
       }
 
+      // Persist verified status
+      setVerifiedIds((prev) => {
+        const next = Array.from(new Set([...prev, repId, hazId].filter(Boolean)))
+        localStorage.setItem('gabai-verified-ids', JSON.stringify(next))
+        return next
+      })
+
+      // If hazard was not in payload, synthesize it directly from report
+      if (!haz && rep) {
+        haz = {
+          id: hazId,
+          type: rep.type || 'flood',
+          emoji: rep.emoji || '🌊',
+          label: rep.roadSegment?.roadName
+            ? `${rep.roadSegment.roadName} Flooding`
+            : `${rep.locationName || 'Road'} Flooding`,
+          lat: rep.lat,
+          lng: rep.lng,
+          severity: rep.severity || 'high',
+          confidence: 95,
+          distance: 'Nearby (< 100m)',
+          reports: 1,
+          verified: 1,
+          ago: 'Just now',
+          status: 'Verified by LGU',
+          isRoadSegment: rep.isRoadSegment,
+          roadSegment: rep.roadSegment,
+          passability: rep.passability || 'not_passable_light',
+          waterDepth: rep.waterDepth || 'Flood on Road',
+          isVerified: true,
+        }
+      }
+
       setReports((prev) => {
-        const exists = prev.some((r) => r.id === repId)
+        const exists = prev.some((r) => String(r.id) === repId)
         if (exists) {
-          return prev.map((r) => (r.id === repId ? { ...r, status: 'verified' as const } : r))
+          return prev.map((r) => (String(r.id) === repId ? { ...r, status: 'verified' as const } : r))
         }
         if (rep) {
           return [{ ...rep, status: 'verified' as const }, ...prev]
@@ -458,40 +521,38 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return prev
       })
 
-      setHazards((prev) => {
-        const exists = prev.some(
-          (h) =>
-            (hazId && h.id === hazId) ||
-            (repId && (h.id === repId || (h as any).hazardId === repId))
-        )
-        if (exists) {
-          return prev.map((h) => {
-            if (
-              (hazId && h.id === hazId) ||
-              (repId && (h.id === repId || (h as any).hazardId === repId))
-            ) {
-              return {
-                ...h,
-                verified: Math.max(1, (h.verified || 0) + 1),
-                isVerified: true,
-                status: 'Verified by LGU',
-                confidence: Math.min(99, (h.confidence || 80) + 15),
+      if (haz) {
+        const finalHaz: Hazard = {
+          ...haz,
+          isVerified: true,
+          status: 'Verified by LGU',
+          verified: Math.max(1, haz.verified || 1),
+        }
+
+        setHazards((prev) => {
+          const exists = prev.some(
+            (h) =>
+              String(h.id) === hazId ||
+              String(h.id) === repId ||
+              (rep && rep.hazardId === h.id) ||
+              (rep && rep.isRoadSegment && h.isRoadSegment && rep.roadSegment?.roadName === h.roadSegment?.roadName)
+          )
+          if (exists) {
+            return prev.map((h) => {
+              if (
+                String(h.id) === hazId ||
+                String(h.id) === repId ||
+                (rep && rep.hazardId === h.id) ||
+                (rep && rep.isRoadSegment && h.isRoadSegment && rep.roadSegment?.roadName === h.roadSegment?.roadName)
+              ) {
+                return finalHaz
               }
-            }
-            return h
-          })
-        }
-        if (haz) {
-          const verifiedHaz: Hazard = {
-            ...haz,
-            isVerified: true,
-            status: 'Verified by LGU',
-            verified: Math.max(1, haz.verified || 1),
+              return h
+            })
           }
-          return [verifiedHaz, ...prev]
-        }
-        return prev
-      })
+          return [finalHaz, ...prev]
+        })
+      }
     }
 
     if (payload.type === 'REPORT_REJECTED') {
@@ -602,7 +663,13 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.log('Cloud SSE connection error:', err)
     }
 
+    // Background 3-second heartbeat poll for bulletproof sync across mobile browsers
+    const pollInterval = setInterval(() => {
+      catchupCloudHistory()
+    }, 3000)
+
     return () => {
+      clearInterval(pollInterval)
       if (eventSource) eventSource.close()
     }
   }, [applyCloudEvent])
@@ -863,55 +930,110 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // ── LGU Verification Mutations ────────────────────────────────────
   const verifyReport = useCallback(
     async (reportId: number | string) => {
-      const matched = reports.find((r) => r.id === reportId)
-      let updatedHazard: Hazard | undefined
-      let updatedReport: CitizenReport | undefined
+      const repId = String(reportId)
+      const matched = reports.find((r) => String(r.id) === repId)
+      const hazId = matched?.hazardId ? String(matched.hazardId) : repId
 
-      if (matched) {
-        updatedReport = { ...matched, status: 'verified' as const }
+      // 1. Persist to verified IDs
+      setVerifiedIds((prev) => {
+        const next = Array.from(new Set([...prev, repId, hazId]))
+        localStorage.setItem('gabai-verified-ids', JSON.stringify(next))
+        return next
+      })
+
+      // 2. Build the verified report
+      const updatedReport: CitizenReport = matched
+        ? { ...matched, status: 'verified' as const }
+        : {
+            id: repId,
+            hazardId: hazId,
+            citizen: 'Resident (GABAI User)',
+            type: 'flood',
+            emoji: '🌊',
+            desc: 'Verified road flooding',
+            lat: userLoc.coords.lat,
+            lng: userLoc.coords.lng,
+            severity: 'high',
+            time: 'Just now',
+            status: 'verified' as const,
+          }
+
+      // 3. Build the verified hazard synchronously
+      const existingHaz = hazards.find(
+        (h) =>
+          String(h.id) === hazId ||
+          String(h.id) === repId ||
+          (matched && (matched.hazardId === h.id || matched.id === h.id))
+      )
+
+      let updatedHazard: Hazard
+      if (existingHaz) {
+        updatedHazard = {
+          ...existingHaz,
+          verified: Math.max(1, (existingHaz.verified || 0) + 1),
+          isVerified: true,
+          status: 'Verified by LGU',
+          confidence: Math.min(99, (existingHaz.confidence || 80) + 15),
+        }
+      } else {
+        updatedHazard = {
+          id: hazId,
+          type: updatedReport.type || 'flood',
+          emoji: updatedReport.emoji || '🌊',
+          label: updatedReport.roadSegment?.roadName
+            ? `${updatedReport.roadSegment.roadName} Flooding`
+            : `${updatedReport.locationName || 'Road'} Flooding`,
+          lat: updatedReport.lat,
+          lng: updatedReport.lng,
+          severity: updatedReport.severity || 'high',
+          confidence: 95,
+          distance: 'Nearby (< 100m)',
+          reports: 1,
+          verified: 1,
+          ago: 'Just now',
+          status: 'Verified by LGU',
+          isRoadSegment: updatedReport.isRoadSegment,
+          roadSegment: updatedReport.roadSegment,
+          passability: updatedReport.passability || 'not_passable_light',
+          waterDepth: updatedReport.waterDepth || 'Flood on Road',
+          isVerified: true,
+        }
       }
 
+      // 4. Update state
       setReports((prev) =>
-        prev.map((r) => (r.id === reportId ? { ...r, status: 'verified' as const } : r))
+        prev.map((r) => (String(r.id) === repId ? { ...r, status: 'verified' as const } : r))
       )
-      setHazards((prev) =>
-        prev.map((h) => {
-          if (matched && (matched.hazardId === h.id || matched.id === h.id)) {
-            updatedHazard = {
-              ...h,
-              verified: (h.verified || 0) + 1,
-              isVerified: true,
-              status: 'Verified by LGU',
-              confidence: Math.min(99, (h.confidence || 80) + 15),
-            }
-            return updatedHazard
-          }
-          if (matched && matched.isRoadSegment && h.isRoadSegment) {
-            const hRoadName = h.roadSegment?.roadName || h.label || ''
-            const mRoadName = matched.roadSegment?.roadName || matched.locationName || ''
+
+      setHazards((prev) => {
+        const exists = prev.some(
+          (h) =>
+            String(h.id) === hazId ||
+            String(h.id) === repId ||
+            (matched && (matched.hazardId === h.id || matched.id === h.id))
+        )
+        if (exists) {
+          return prev.map((h) => {
             if (
-              (hRoadName && mRoadName && hRoadName.toLowerCase().includes(mRoadName.toLowerCase().slice(0, 8))) ||
-              (mRoadName && hRoadName && mRoadName.toLowerCase().includes(hRoadName.toLowerCase().slice(0, 8)))
+              String(h.id) === hazId ||
+              String(h.id) === repId ||
+              (matched && (matched.hazardId === h.id || matched.id === h.id))
             ) {
-              updatedHazard = {
-                ...h,
-                verified: (h.verified || 0) + 1,
-                isVerified: true,
-                status: 'Verified by LGU',
-                confidence: Math.min(99, (h.confidence || 80) + 15),
-              }
               return updatedHazard
             }
-          }
-          return h
-        })
-      )
+            return h
+          })
+        }
+        return [updatedHazard, ...prev]
+      })
+
       setLastActionMessage('✅ Report verified by LGU! Now published to all motorists on the live map.')
 
-      // Global Cross-Device Cloud Broadcast
+      // 5. Global Cross-Device Cloud Broadcast
       broadcastCloudEvent({
         type: 'REPORT_VERIFIED',
-        reportId,
+        reportId: repId,
+        hazardId: hazId,
         report: updatedReport,
         hazard: updatedHazard,
       })
@@ -923,7 +1045,7 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         socketRef.current.emit('report:verify', { reportId })
       }
     },
-    [reports, broadcastCloudEvent]
+    [reports, hazards, userLoc.coords.lat, userLoc.coords.lng, broadcastCloudEvent]
   )
 
   const rejectReport = useCallback(
