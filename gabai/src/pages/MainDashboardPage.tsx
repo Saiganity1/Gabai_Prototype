@@ -292,6 +292,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         setDestination({ name: nearest.name, lat: nearest.lat, lng: nearest.lng });
         setPendingAutoNavigate(true);
         setActiveModal('none');
+        setTimeout(() => setIsChatbotOpen(false), 1500);
       } else {
         setActiveModal('routes');
       }
@@ -315,6 +316,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             setDestination(target);
             setPendingAutoNavigate(true);
             setActiveModal('none');
+            setTimeout(() => setIsChatbotOpen(false), 1500);
          }
       };
       navigateTo();
