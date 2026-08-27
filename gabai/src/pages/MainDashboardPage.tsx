@@ -991,14 +991,14 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         </div>
       )}
 
-      {/* ── Top Floating Header Dock (Minimalist & Clean) ── */}
+      {/* ── Top Floating Header Dock (Ultra-Clean & Unified) ── */}
       <div className={`absolute left-0 right-0 z-10 px-3 pt-3 sm:px-5 sm:pt-4 flex flex-col gap-2 pointer-events-none ${appState === 'emergency' ? 'top-12' : 'top-0'}`}>
         {/* Main Floating Capsule */}
         <div className="flex items-center gap-2 pointer-events-auto max-w-4xl mx-auto w-full">
           {/* Main Search & Actions Capsule */}
-          <div className="flex-1 flex items-center gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-2xl p-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] border border-slate-200/80 dark:border-slate-800 transition-all">
+          <div className="flex-1 flex items-center gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl p-1.5 shadow-xl border border-slate-200/70 dark:border-slate-800/80 transition-all">
             {/* App Icon */}
-            <div className="w-8 h-8 rounded-xl bg-cyan-600 flex items-center justify-center text-white shadow-xs shrink-0 ml-1">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-md shadow-cyan-500/20 shrink-0 ml-1">
               <Shield className="w-4 h-4 text-white" strokeWidth={2.5} />
             </div>
 
@@ -1009,9 +1009,9 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search streets, shelters, hospitals..."
+                placeholder="Search streets, evacuation shelters, hospitals..."
                 onFocus={() => setSearchFocused(true)}
-                className="flex-1 bg-transparent text-xs font-medium text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none truncate"
+                className="flex-1 bg-transparent text-xs font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none truncate"
               />
               {isSearching && <Loader2 className="w-3.5 h-3.5 text-cyan-500 animate-spin shrink-0" />}
               {searchQuery && (
@@ -1029,20 +1029,20 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             <button
               type="button"
               onClick={toggle3DMode}
-              className={`px-3 py-1.5 rounded-xl font-bold text-[11px] flex items-center gap-1 transition-all shrink-0 cursor-pointer active:scale-95 border ${
+              className={`px-2.5 py-1.5 rounded-xl font-extrabold text-[11px] flex items-center gap-1 transition-all shrink-0 cursor-pointer active:scale-95 ${
                 is3D
-                  ? 'bg-cyan-600 text-white border-cyan-500 shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
               }`}
               title={is3D ? 'Current: 3D View (Click for 2D)' : 'Current: 2D Flat View (Click for 3D)'}
             >
-              <span>{is3D ? '3D View' : '2D Map'}</span>
+              <span>{is3D ? '🧊 3D' : '🗺️ 2D'}</span>
             </button>
 
             {/* LGU Command Switch Button */}
             <Link
               to="/lgu"
-              className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 text-slate-700 dark:text-slate-200 hover:text-cyan-600 dark:hover:text-cyan-400 font-bold text-[11px] transition-all shrink-0 flex items-center gap-1 border border-slate-200 dark:border-slate-700/80"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 font-extrabold text-[11px] transition-all shrink-0 flex items-center gap-1"
               title="Open Official LGU Emergency Operations Center"
             >
               <span>🏢</span>
@@ -1053,7 +1053,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             <button
               type="button"
               onClick={toggleDark}
-              className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 transition-all shrink-0 mr-0.5 active:scale-95 cursor-pointer"
+              className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 transition-all shrink-0 mr-0.5 active:scale-95 cursor-pointer"
               aria-label="Toggle theme"
             >
               {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
@@ -1269,7 +1269,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
       {/* ── Bottom Action Bar ────────────────────────────────── */}
       <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none">
-        <div className="bg-gradient-to-t from-slate-50 via-slate-50/90 dark:from-slate-950 dark:via-slate-950/90 to-transparent pt-12 pb-4 px-3 sm:px-4">
+        <div className="bg-gradient-to-t from-white via-white/80 dark:from-slate-900 dark:via-slate-900/80 to-transparent pt-12 pb-4 px-3 sm:px-4">
           <div className="flex items-center gap-2 max-w-lg mx-auto">
             {[
               { icon: Navigation, label: 'Safe Route', action: () => setActiveModal('routes'), primary: true },
@@ -1278,16 +1278,16 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
               <button
                 key={label}
                 onClick={action}
-                className={`pointer-events-auto flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl shadow-xs border text-xs font-bold transition-all active:scale-95 cursor-pointer ${
+                className={`pointer-events-auto flex-1 flex flex-col items-center gap-1.5 py-3 rounded-2xl shadow-sm border border-slate-200/50 dark:border-slate-700/50 text-[11px] font-semibold transition-all active:scale-95 ${
                   primary
-                    ? 'bg-cyan-600 hover:bg-cyan-500 text-white border-cyan-500'
+                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-transparent hover:bg-slate-800 dark:hover:bg-slate-100'
                     : danger
-                    ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20'
-                    : 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl text-slate-700 dark:text-slate-200 border-slate-200/80 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-100 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-900/50'
+                    : 'bg-white/80 dark:bg-slate-800/80 backdrop-blur-md text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800'
                 }`}
               >
                 <Icon className="w-4 h-4" />
-                <span>{label}</span>
+                {label}
               </button>
             ))}
           </div>
