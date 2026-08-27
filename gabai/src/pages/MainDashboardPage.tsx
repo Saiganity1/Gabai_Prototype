@@ -1029,6 +1029,11 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         style={{ bottom: appState === 'emergency' ? '184px' : '134px' }}
       >
         <div className="flex flex-col items-center justify-center">
+          <select
+            value={voice.language}
+            onChange={(e) => voice.setLanguage(e.target.value as any)}
+            className="bg-slate-900/90 text-slate-200 text-[11px] font-semibold py-1.5 px-3 rounded-full border border-slate-700 shadow-[0_4px_12px_rgba(0,0,0,0.5)] backdrop-blur-md outline-none focus:border-cyan-500 appearance-none text-center min-w-[110px]"
+          >
             <option value="auto">Auto Detect</option>
             <option value="fil">Filipino</option>
             <option value="en">English</option>
