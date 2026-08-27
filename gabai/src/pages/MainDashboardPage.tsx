@@ -1197,9 +1197,9 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         <button
           onClick={handleMicPress}
           title="Press to speak to GABAI"
-          className="relative flex items-center gap-2.5 px-6 py-3.5 rounded-full transition-all duration-300 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-xl shadow-blue-600/30 border border-white/20 hover:scale-105 active:scale-95 cursor-pointer"
+          className="h-12 px-5 rounded-2xl relative flex items-center gap-2 transition-all duration-300 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-xl shadow-blue-600/30 border border-white/20 hover:scale-105 active:scale-95 cursor-pointer text-xs font-extrabold shrink-0"
         >
-          <span className="font-black tracking-wide text-xs drop-shadow-md">
+          <span className="tracking-wide drop-shadow-md">
             GABAI
           </span>
           <Sparkles className="w-4 h-4 text-cyan-200 drop-shadow-md" />
@@ -1208,7 +1208,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         {/* Primary Report Flood Button */}
         <button
           onClick={handleOpenReportModal}
-          className="bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs px-5 py-3.5 rounded-2xl shadow-xl shadow-blue-600/40 flex items-center gap-2 transition-all active:scale-95 cursor-pointer border border-blue-400/30"
+          className="h-12 px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs flex items-center gap-2 shadow-xl shadow-blue-600/40 transition-all hover:scale-105 active:scale-95 cursor-pointer border border-blue-400/30 shrink-0"
         >
           <span className="text-base font-normal">+</span>
           <span>Report flood</span>
