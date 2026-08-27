@@ -670,8 +670,6 @@ function interpolateSegment(
           }
         }}
       >
-      <NavigationControl position={navPosition} />
-
       {/* ── True 3D Extruded Buildings Vector Layer (Active only in 3D Mode) ── */}
       {show3DBuildings && is3D && (
         <Source
