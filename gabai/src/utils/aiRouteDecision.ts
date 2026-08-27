@@ -218,23 +218,21 @@ FACTOR 1 — FLOOD SAFETY (Weight: 40%)
 • Higher nearest_flood_km = safer margin
 • Routes near flood zones incur idle_penalty from stop-and-go traffic
 
-FACTOR 2 — GAS EFFICIENCY (Weight: 35%)
+FACTOR 2 — TRIP EFFICIENCY & SPEED (Weight: 35%)
+• Prefer shorter distance_km (less total driving, highly prioritized)
+• Prefer faster duration_min (fastest route)
+• The user prefers nearby routes, so heavily penalize detours that add significant distance
+• straight_pct = higher = smoother, less congested
+
+FACTOR 3 — GAS EFFICIENCY (Weight: 25%)
 • fuel_liters = total estimated consumption (lower is better)
 • fuel_per_km = efficiency ratio (lower = more efficient)
 • turn_count = each turn burns extra fuel from braking/accelerating
 • highway_pct = higher % means more steady-speed cruising (saves fuel)
-• cruising_bonus_pct = fuel savings from highway driving
-• A slightly longer route with fewer turns and more highway can burn LESS fuel
-
-FACTOR 3 — TRIP EFFICIENCY (Weight: 25%)
-• Prefer shorter distance_km (less total driving)
-• Prefer faster duration_min
-• straight_pct = higher = smoother, less congested
-• avg_speed_kmh in 50-70 range = optimal fuel band
 
 STRICT RULES:
 1. NEVER select a route with is_flood_free=false if ANY route has is_flood_free=true
-2. Between two flood-free routes, a route with fewer turns + more highway % can be better than a shorter route with many turns
+2. Between two flood-free routes, STRONGLY PREFER the shorter (distance_km) and faster (duration_min) route. Do not pick a very long highway route just to avoid turns.
 3. The "balanced" route should differ from "safe" if possible — optimize it for lowest fuel_per_km
 4. Calculate scores out of 100 for each factor, then compute weighted overall
 
@@ -330,8 +328,8 @@ function computeAlgorithmicDecision(candidates: CandidateRouteData[]): AIDecisio
       : c.avgSpeedKmh >= 20 ? 50 : 25
     const tripSc = distSc * 0.6 + speedSc * 0.4
 
-    // Weighted composite: safety 40%, gas 35%, trip 25%
-    const overall = safetySc * 0.4 + gasSc * 0.35 + tripSc * 0.25
+    // Weighted composite: safety 40%, trip 35%, gas 25%
+    const overall = safetySc * 0.4 + tripSc * 0.35 + gasSc * 0.25
 
     return { ...c, safetySc, gasSc, tripSc, overall }
   })

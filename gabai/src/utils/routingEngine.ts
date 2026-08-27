@@ -107,13 +107,22 @@ export function routeIntersectsHazards(coords: [number, number][], hazards: Haza
   }
 }
 
+export function isHazardVerified(h: Hazard): boolean {
+  return Boolean(
+    (h.verified && h.verified > 0) ||
+    h.isVerified ||
+    h.status === 'Verified' ||
+    h.status?.includes('Verified')
+  )
+}
+
 /**
  * Checks if a point [lat, lng] is within danger radius of any active flood hazard
  */
 export function isNearHazard(lat: number, lng: number, hazards: Hazard[], bufferKm = 0.35): boolean {
   return hazards.some((h) => {
     if (!h || typeof h.lat !== 'number' || typeof h.lng !== 'number') return false
-    if (h.status === 'Resolved') return false
+    if (h.status === 'Resolved' || !isHazardVerified(h)) return false
 
     if (h.isRoadSegment && h.roadSegment && h.roadSegment.from && h.roadSegment.to) {
       const seg = h.roadSegment
@@ -167,7 +176,7 @@ export function generateDynamicRoutes(
     rawHazards = Array.isArray(arg3) ? (arg3 as Hazard[]) : []
   }
 
-  const activeHazards = (Array.isArray(rawHazards) ? rawHazards : []).filter((h) => h.status !== 'Resolved')
+  const activeHazards = (Array.isArray(rawHazards) ? rawHazards : []).filter((h) => h.status !== 'Resolved' && isHazardVerified(h))
   const directDist = Math.max(0.5, calculateDistanceKm(originLat, originLng, destLat, destLng))
 
   // Real-world road-snapped linear fallback
@@ -228,7 +237,7 @@ export async function fetchAccurateRealWorldRoutes(
   destLng: number,
   hazards: Hazard[] = []
 ): Promise<Record<'safe' | 'balanced' | 'fast', RouteInfo>> {
-  const activeHazards = hazards.filter((h) => h.status !== 'Resolved')
+  const activeHazards = hazards.filter((h) => h.status !== 'Resolved' && isHazardVerified(h))
   const fallback = generateDynamicRoutes(originLat, originLng, destLat, destLng, activeHazards)
 
   try {
@@ -343,7 +352,8 @@ export async function fetchAccurateRealWorldRoutes(
       // Multi-lateral search offsets (both left & right diversion corridors)
       // We scale the offsets based on the trip distance to avoid extreme V-shaped detours on short trips
       const scaleFactor = Math.min(1, len * 20) // For a 5km trip (len ~0.045), scale is ~0.9
-      const baseOffsets = [-0.004, 0.004, -0.008, 0.008, -0.012, 0.012, -0.018, 0.018, -0.025, 0.025, -0.035, 0.035]
+      // Tighter offsets to ensure the route is nearby as requested by the user
+      const baseOffsets = [-0.002, 0.002, -0.004, 0.004, -0.008, 0.008, -0.012, 0.012]
       const offsetScales = baseOffsets.map(off => off * scaleFactor)
 
       const detourPromises = offsetScales.map(async (off) => {
