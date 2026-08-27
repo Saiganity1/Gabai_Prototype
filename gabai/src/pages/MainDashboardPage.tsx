@@ -20,6 +20,7 @@ import { RiskBadge } from '../components/ui/RiskBadge'
 import { GabaiChatbot } from '../components/GabaiChatbot'
 import { searchRealWorldPlaces } from '../utils/placeSearch'
 import { fetchRoadSegmentPath } from '../utils/routingEngine'
+import { analyzeRouteWithAI } from '../utils/aiRouteAdvisor'
 import { geminiAnalyzeFloodPhoto, geminiAnalyzeRoute, geminiChatAssistant } from '../utils/geminiClient'
 import { calculateDistanceKm } from '../hooks/useUserLocation'
 
