@@ -309,36 +309,45 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   useEffect(() => {
     if (pendingAutoNavigate && routes && routes['safe']) {
       const activeRoute = routes['safe'];
-      const summary = activeRoute.rawRoute?.legs?.[0]?.summary || 'mga pangunahing kalsada';
-      
+      const coords = activeRoute?.geoJSON?.geometry?.coordinates;
+
+      // Wait until we have the real OSRM route (initial fallback dummy route has exactly 2 coordinates)
+      if (!Array.isArray(coords) || coords.length <= 2) {
+        return;
+      }
+
+      // activeRoute.rawRoute doesn't exist on RouteInfo, use steps
+      const summary = activeRoute.steps?.[0]?.streetName || activeRoute.steps?.[1]?.streetName || 'mga pangunahing kalsada';
       const msg = `Dadaan ang ligtas na ruta sa ${summary}.`;
-      // Need a slight delay to allow the initial TTS from backend to finish
-      setTimeout(() => {
-        voice.speakResponse(msg, voice.detectedLanguage || voice.language);
-      }, 3000);
       
-      setSelectedRoute('safe');
-      setIsDrivingHUDActive(true);
+      // Clear flag so this only triggers once
       setPendingAutoNavigate(false);
 
-      let initialBearing = -15;
-      const coords = activeRoute?.geoJSON?.geometry?.coordinates;
-      if (Array.isArray(coords) && coords.length > 1) {
-        const [lng1, lat1] = coords[0];
-        const [lng2, lat2] = coords[Math.min(3, coords.length - 1)];
-        const y = Math.sin(((lng2 - lng1) * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180);
-        const x = Math.cos((lat1 * Math.PI) / 180) * Math.sin((lat2 * Math.PI) / 180) - Math.sin((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.cos(((lng2 - lng1) * Math.PI) / 180);
-        const angle = (Math.atan2(y, x) * 180) / Math.PI;
-        initialBearing = (angle + 360) % 360;
-      }
-      
-      mapCanvasRef.current?.startNavigationPerspective(
-        userLocation.lat,
-        userLocation.lng,
-        initialBearing
-      );
+      // Brief delay before speaking and flying to allow Mapbox to render the new route safely (prevents WebGL crash)
+      setTimeout(() => {
+        voice.speakResponse(msg, voice.detectedLanguage || voice.language);
+        
+        setSelectedRoute('safe');
+        setIsDrivingHUDActive(true);
+
+        let initialBearing = -15;
+        if (Array.isArray(coords) && coords.length > 1) {
+          const [lng1, lat1] = coords[0];
+          const [lng2, lat2] = coords[Math.min(3, coords.length - 1)];
+          const y = Math.sin(((lng2 - lng1) * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180);
+          const x = Math.cos((lat1 * Math.PI) / 180) * Math.sin((lat2 * Math.PI) / 180) - Math.sin((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.cos(((lng2 - lng1) * Math.PI) / 180);
+          const angle = (Math.atan2(y, x) * 180) / Math.PI;
+          initialBearing = (angle + 360) % 360;
+        }
+        
+        mapCanvasRef.current?.startNavigationPerspective(
+          userLocation.lat,
+          userLocation.lng,
+          initialBearing
+        );
+      }, 500);
     }
-  }, [routes, pendingAutoNavigate]);
+  }, [routes, pendingAutoNavigate, userLocation, voice]);
 
   const handleMicPress = () => {
     setShowBubble(false)

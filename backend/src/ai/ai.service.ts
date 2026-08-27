@@ -187,7 +187,7 @@ Return a valid JSON object with:
 Output ONLY pure JSON without markdown blocks.`;
 
       const response = await this.ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.5-pro',
         contents: prompt,
       });
 
@@ -259,7 +259,7 @@ Return pure JSON:
         const base64Data = photoBase64.replace(/^data:image\/\w+;base64,/, '');
 
         const response = await this.ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-2.5-pro',
           contents: [
             { text: prompt },
             {
