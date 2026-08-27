@@ -411,19 +411,39 @@ export async function fetchAccurateRealWorldRoutes(
       const perpLat = -lngDiff / len
       const perpLng = latDiff / len
 
-      // Dynamic scale based on trip distance so short trips don't take huge detours
-      const scaleFactor = Math.min(1, Math.max(0.35, len * 15))
-      // Fine-grained offsets: close parallel bypasses (200m - 500m) up to arterial bypasses (1.5km - 2.5km)
-      const baseOffsets = [-0.003, 0.003, -0.006, 0.006, -0.010, 0.010, -0.016, 0.016, -0.024, 0.024]
-      const offsetScales = baseOffsets.map((off) => off * scaleFactor)
+      // Robust lateral offset scales in degrees (1° ≈ 111km)
+      // ±0.004° ≈ 440m (immediate parallel street outside flood buffer)
+      // ±0.007° ≈ 780m (local town bypass)
+      // ±0.012° ≈ 1.3km (arterial bypass)
+      // ±0.018° ≈ 2.0km (major bypass)
+      // ±0.026° ≈ 2.9km (regional road)
+      // ±0.036° ≈ 4.0km (inter-town highway)
+      const offsetScales = [-0.004, 0.004, -0.007, 0.007, -0.012, 0.012, -0.018, 0.018, -0.026, 0.026, -0.036, 0.036]
+
+      const getHazardCenter = (h: Hazard): { lat: number; lng: number } => {
+        if (h.isRoadSegment && h.roadSegment) {
+          if (h.roadSegment.path && Array.isArray(h.roadSegment.path) && h.roadSegment.path.length > 0) {
+            const mid = Math.floor(h.roadSegment.path.length / 2)
+            return { lat: h.roadSegment.path[mid][1], lng: h.roadSegment.path[mid][0] }
+          }
+          if (h.roadSegment.from && h.roadSegment.to) {
+            return {
+              lat: (h.roadSegment.from.lat + h.roadSegment.to.lat) / 2,
+              lng: (h.roadSegment.from.lng + h.roadSegment.to.lng) / 2,
+            }
+          }
+        }
+        return { lat: h.lat, lng: h.lng }
+      }
 
       const targetHazards = directHazardCheck.blockingHazards.length > 0
         ? directHazardCheck.blockingHazards
-        : activeHazards.slice(0, 3)
+        : activeHazards.slice(0, 4)
 
       const waypointsToTest: Array<{ lat: number; lng: number }> = []
 
       for (const hz of targetHazards) {
+        const center = getHazardCenter(hz)
         let hzPerpLat = perpLat
         let hzPerpLng = perpLng
 
@@ -435,7 +455,7 @@ export async function fetchAccurateRealWorldRoutes(
           hzPerpLng = sDLat / sLen
 
           // Offsets from start and end points of the flooded road segment
-          for (const off of offsetScales.slice(0, 4)) {
+          for (const off of [-0.005, 0.005, -0.010, 0.010, -0.018, 0.018]) {
             waypointsToTest.push({
               lat: hz.roadSegment.from.lat + hzPerpLat * off,
               lng: hz.roadSegment.from.lng + hzPerpLng * off,
@@ -450,20 +470,30 @@ export async function fetchAccurateRealWorldRoutes(
         // Offsets from hazard center
         for (const off of offsetScales) {
           waypointsToTest.push({
-            lat: hz.lat + hzPerpLat * off,
-            lng: hz.lng + hzPerpLng * off,
+            lat: center.lat + hzPerpLat * off,
+            lng: center.lng + hzPerpLng * off,
           })
           if (hzPerpLat !== perpLat) {
             waypointsToTest.push({
-              lat: hz.lat + perpLat * off,
-              lng: hz.lng + perpLng * off,
+              lat: center.lat + perpLat * off,
+              lng: center.lng + perpLng * off,
             })
           }
         }
       }
 
-      // Test up to 14 candidate waypoints in parallel
-      const selectedWaypoints = waypointsToTest.slice(0, 14)
+      // Also add mid-trip lateral diversion waypoints
+      const midTripLat = (originLat + destLat) / 2
+      const midTripLng = (originLng + destLng) / 2
+      for (const off of [-0.006, 0.006, -0.012, 0.012, -0.020, 0.020]) {
+        waypointsToTest.push({
+          lat: midTripLat + perpLat * off,
+          lng: midTripLng + perpLng * off,
+        })
+      }
+
+      // Test up to 18 candidate waypoints in parallel
+      const selectedWaypoints = waypointsToTest.slice(0, 18)
 
       const detourPromises = selectedWaypoints.map(async ({ lat: candLat, lng: candLng }) => {
         try {
@@ -488,7 +518,7 @@ export async function fetchAccurateRealWorldRoutes(
             const candidateCoords: [number, number][] = candidateRoute.geometry?.coordinates || []
 
             // Strictly check entire detour polyline against all active flood hazard buffers
-            const detourHazardCheck = routeIntersectsHazards(candidateCoords, activeHazards, 0.20)
+            const detourHazardCheck = routeIntersectsHazards(candidateCoords, activeHazards, 0.15)
 
             return {
               route: candidateRoute,

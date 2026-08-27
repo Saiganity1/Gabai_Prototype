@@ -428,8 +428,24 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       passability?: string
       waterDepth?: string
     }) => {
-      const reportLat = lat ?? userLoc.coords.lat
-      const reportLng = lng ?? userLoc.coords.lng
+      let effectiveLat = lat
+      let effectiveLng = lng
+      if (typeof effectiveLat !== 'number' || typeof effectiveLng !== 'number') {
+        if (roadSegment?.path && Array.isArray(roadSegment.path) && roadSegment.path.length > 0) {
+          const midIdx = Math.floor(roadSegment.path.length / 2)
+          effectiveLng = roadSegment.path[midIdx][0]
+          effectiveLat = roadSegment.path[midIdx][1]
+        } else if (roadSegment?.from && roadSegment?.to) {
+          effectiveLat = (roadSegment.from.lat + roadSegment.to.lat) / 2
+          effectiveLng = (roadSegment.from.lng + roadSegment.to.lng) / 2
+        } else {
+          effectiveLat = userLoc.coords.lat
+          effectiveLng = userLoc.coords.lng
+        }
+      }
+
+      const reportLat = effectiveLat
+      const reportLng = effectiveLng
       const newHazardId = `haz-${Date.now()}`
       const newReportId = `rep-${Date.now()}`
 
