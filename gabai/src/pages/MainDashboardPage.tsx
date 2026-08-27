@@ -267,7 +267,34 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       setSelectedHazard(hazard)
       setActiveModal('hazard')
     } else if (payload.action === 'SAFE_ROUTE') {
-      setActiveModal('routes')
+      if (evacCenters.length > 0) {
+        // Find nearest evac center
+        const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+          const R = 6371;
+          const dLat = (lat2 - lat1) * Math.PI / 180;
+          const dLon = (lon2 - lon1) * Math.PI / 180;
+          const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+          return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        };
+        
+        let nearest = evacCenters[0];
+        let minDist = getDistance(userLocation.lat, userLocation.lng, nearest.lat, nearest.lng);
+        
+        for (let i = 1; i < evacCenters.length; i++) {
+          const dist = getDistance(userLocation.lat, userLocation.lng, evacCenters[i].lat, evacCenters[i].lng);
+          if (dist < minDist) {
+            minDist = dist;
+            nearest = evacCenters[i];
+          }
+        }
+        
+        setDestination({ name: nearest.name, lat: nearest.lat, lng: nearest.lng });
+        setPendingAutoNavigate(true);
+        setActiveModal('none');
+      } else {
+        setActiveModal('routes');
+      }
     } else if (payload.action === 'NAVIGATE' && payload.destination) {
       const dest = payload.destination;
       const q = dest.toLowerCase();

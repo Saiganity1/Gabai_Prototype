@@ -292,7 +292,7 @@ export function useVoiceAssistant(
     }
   }, [state]);
 
-  const triggerTextPrompt = useCallback((text: string) => {
+  const triggerTextPrompt = useCallback((text: string, skipVoice?: boolean) => {
     setTranscript(text);
     setState('processing');
     const localIntent = parseLocalIntent(text);
@@ -308,7 +308,8 @@ export function useVoiceAssistant(
       }
 
       setResponse(fallbackReply);
-      speakResponse(fallbackReply, languageRef.current);
+      if (!skipVoice) speakResponse(fallbackReply, languageRef.current);
+      else setState('idle');
 
       if (
         onActionRef.current &&
@@ -343,7 +344,8 @@ export function useVoiceAssistant(
         if (detLang) setDetectedLanguage(detLang);
 
         setResponse(aiReply);
-        speakResponse(aiReply, detLang || languageRef.current);
+        if (!skipVoice) speakResponse(aiReply, detLang || languageRef.current);
+        else setState('idle');
 
         if (onActionRef.current && (action === 'REPORT_HAZARD' || action === 'SAFE_ROUTE' || action === 'NAVIGATE')) {
           onActionRef.current({

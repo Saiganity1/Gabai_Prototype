@@ -59,11 +59,8 @@ export class LocalizationService {
       return this.generateFallback(params);
     }
 
-    // Default to Filipino if auto or not provided
-    const targetLang = params.language === 'auto' || !params.language ? 'Filipino/Tagalog' : 
-                       params.language === 'en' ? 'English' : 
-                       params.language === 'pam' ? 'Kapampangan' : 
-                       params.language === 'ceb' ? 'Cebuano' : 'Filipino/Tagalog';
+    // Default to the original language/dialect from the transcript
+    const targetLang = 'the EXACT SAME LANGUAGE and DIALECT the user used in their message';
 
     try {
       const prompt = `You are GABAI, an emergency AI disaster chatbot assistant in the Philippines.

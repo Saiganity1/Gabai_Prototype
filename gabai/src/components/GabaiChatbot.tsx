@@ -38,7 +38,7 @@ export function GabaiChatbot({ onClose, voice }: GabaiChatbotProps) {
     const text = inputText;
     setInputText('');
     setMessages(prev => [...prev, { sender: 'user', text }]);
-    voice.triggerTextPrompt(text);
+    voice.triggerTextPrompt(text, true);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
