@@ -346,6 +346,19 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
     }
   }
 
+  const handleViewRouteOnMap = (dest?: any) => {
+    setIsChatbotOpen(false)
+    if (dest) {
+      setDestination({
+        name: dest.destinationName || dest.name,
+        lat: dest.lat,
+        lng: dest.lng,
+      })
+      mapCanvasRef.current?.flyToCoords(dest.lat, dest.lng, 14)
+    }
+    setActiveModal('routes')
+  }
+
   // Intelligent Chatbot Message Processor
   const handleProcessChatMessage = async (text: string): Promise<{ text: string; routeCard?: any }> => {
     try {
@@ -411,7 +424,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       }
 
       // 3. Extract destination query
-      const dest =
+      const destRaw =
         lower
           .replace(/^(?:find\s+|show\s+|give\s+|get\s+)?(?:a\s+)?(?:safe\s+)?(?:route|direction|directions|way|path)\s+(?:to|going to|towards|for)\s+/i, '')
           .replace(/^(?:navigate|nav|drive|take me|bring me|go|guide me|lead me|route)\s+(?:to|towards)?\s*/i, '')
@@ -425,40 +438,59 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           .replace(/[\?\.\!]+$/, '')
           .trim()
 
-      const targetQuery = dest || (lower.includes('hospital') ? 'Hospital' : lower.includes('shelter') || lower.includes('evac') ? 'Evacuation Center' : text)
+      const targetQuery = destRaw || (lower.includes('hospital') ? 'Hospital' : lower.includes('shelter') || lower.includes('evac') ? 'Evacuation Center' : text)
       const q = targetQuery.toLowerCase()
 
-      // Comprehensive Directory of Pampanga Municipalities, Parks, Plazas, Hospitals, and Civic Landmarks
+      // Cleaned search term removing administrative prefixes & normalizing abbreviations
+      const cleanedTarget = q
+        .replace(/^(?:the\s+)?(?:municipality\s+of|munisipyo\s+ng|bayan\s+ng|city\s+of|lungsod\s+ng|province\s+of)\s+/i, '')
+        .replace(/\b(?:pampanga|philippines|ph)\b/gi, '')
+        .replace(/\bsto\.?\b/gi, 'santo')
+        .replace(/\bsta\.?\b/gi, 'santa')
+        .replace(/\bsan fdo\b/gi, 'san fernando')
+        .trim()
+
+      // Exhaustive Directory of all 21 Pampanga LGUs, Major Hospitals, Malls, and Parks
       const KNOWN_PAMPANGA_PLACES = [
-        { name: 'San Luis Freedom Park', address: 'San Luis, Pampanga', lat: 15.0412, lng: 120.7935, keywords: ['san luis freedom park', 'freedom park san luis', 'san luis park', 'san luis plaza', 'san luis freedom'] },
+        { name: 'Santo Tomas Municipal Hall', address: 'Santo Tomas, Pampanga', lat: 15.0069, lng: 120.7147, keywords: ['santo tomas', 'sto tomas', 'sto. tomas', 'municipality of sto tomas', 'municipality of santo tomas', 'bayan ng sto tomas'] },
+        { name: 'San Luis Municipal Hall & Freedom Park', address: 'San Luis, Pampanga', lat: 15.0412, lng: 120.7935, keywords: ['san luis freedom park', 'freedom park san luis', 'san luis park', 'san luis plaza', 'san luis freedom', 'san luis municipal', 'san luis hall', 'municipality of san luis'] },
+        { name: 'San Simon Municipal Hall', address: 'San Simon, Pampanga', lat: 14.9961, lng: 120.7788, keywords: ['san simon municipal', 'san simon hall', 'san simon town hall', 'municipality of san simon', 'bayan ng san simon'] },
+        { name: 'Santa Ana Municipal Hall', address: 'Santa Ana, Pampanga', lat: 15.0978, lng: 120.7681, keywords: ['santa ana', 'sta ana', 'sta. ana', 'municipality of santa ana', 'municipality of sta ana', 'bayan ng sta ana'] },
+        { name: 'Santa Rita Municipal Hall', address: 'Santa Rita, Pampanga', lat: 15.0008, lng: 120.6139, keywords: ['santa rita', 'sta rita', 'sta. rita', 'municipality of santa rita', 'municipality of sta rita', 'bayan ng sta rita'] },
+        { name: 'Santa Maria Barangay Hall & Disaster Center', address: 'Santa Maria, Mexico, Pampanga', lat: 15.0740, lng: 120.7810, keywords: ['santa maria barangay', 'sta maria barangay', 'brgy santa maria', 'barangay santa maria', 'santa maria hall'] },
+        { name: 'Mexico Municipal Hall', address: 'Mexico, Pampanga', lat: 15.0640, lng: 120.7208, keywords: ['mexico municipal', 'mexico hall', 'municipality of mexico', 'bayan ng mexico', 'mexico town hall'] },
+        { name: 'Candaba Municipal Hall & Park', address: 'Candaba, Pampanga', lat: 15.0933, lng: 120.8267, keywords: ['candaba municipal', 'candaba park', 'candaba town hall', 'municipality of candaba', 'bayan ng candaba'] },
+        { name: 'Bacolor Municipal Hall & Shrine', address: 'Bacolor, Pampanga', lat: 14.9984, lng: 120.6517, keywords: ['bacolor sunken church', 'bacolor municipal', 'bacolor shrine', 'municipality of bacolor', 'bayan ng bacolor'] },
+        { name: 'Guagua Town Plaza & Municipal Hall', address: 'Guagua, Pampanga', lat: 14.9669, lng: 120.6334, keywords: ['guagua town plaza', 'guagua plaza', 'guagua municipal', 'municipality of guagua', 'bayan ng guagua'] },
+        { name: 'Lubao Bamboo Hub & Municipal Hall', address: 'Lubao, Pampanga', lat: 14.9403, lng: 120.5975, keywords: ['lubao bamboo hub', 'lubao park', 'lubao municipal', 'municipality of lubao', 'bayan ng lubao'] },
+        { name: 'Floridablanca Municipal Hall', address: 'Floridablanca, Pampanga', lat: 14.9722, lng: 120.5333, keywords: ['floridablanca municipal', 'floridablanca hall', 'municipality of floridablanca', 'bayan ng floridablanca'] },
+        { name: 'Porac Municipal Hall', address: 'Porac, Pampanga', lat: 15.0711, lng: 120.5422, keywords: ['porac municipal', 'porac hall', 'municipality of porac', 'bayan ng porac'] },
+        { name: 'Arayat Town Plaza & Municipal Hall', address: 'Arayat, Pampanga', lat: 15.1583, lng: 120.7417, keywords: ['arayat national park', 'mount arayat', 'arayat town plaza', 'municipality of arayat', 'bayan ng arayat', 'arayat municipal'] },
+        { name: 'Apalit Municipal Hall', address: 'Apalit, Pampanga', lat: 14.9547, lng: 120.7583, keywords: ['apalit municipal', 'apalit hall', 'municipality of apalit', 'bayan ng apalit'] },
+        { name: 'Macabebe Municipal Hall', address: 'Macabebe, Pampanga', lat: 14.9075, lng: 120.7139, keywords: ['macabebe municipal', 'macabebe hall', 'municipality of macabebe', 'bayan ng macabebe'] },
+        { name: 'Masantol Municipal Hall', address: 'Masantol, Pampanga', lat: 14.9017, lng: 120.7100, keywords: ['masantol municipal', 'masantol hall', 'municipality of masantol', 'bayan ng masantol'] },
+        { name: 'Minalin Municipal Hall', address: 'Minalin, Pampanga', lat: 14.9719, lng: 120.6861, keywords: ['minalin municipal', 'minalin hall', 'minalin church', 'municipality of minalin', 'bayan ng minalin'] },
+        { name: 'Sasmuan Municipal Hall & Port', address: 'Sasmuan, Pampanga', lat: 14.9392, lng: 120.6272, keywords: ['sasmuan municipal', 'sasmuan port', 'municipality of sasmuan', 'bayan ng sasmuan'] },
+        { name: 'San Fernando City Hall', address: 'City Hall, Poblacion, San Fernando, Pampanga', lat: 15.0298, lng: 120.6895, keywords: ['san fernando city hall', 'san fernando munisipyo', 'san fernando hall', 'city of san fernando', 'lungsod ng san fernando'] },
+        { name: 'Angeles City Hall', address: 'Pulung Maragul, Angeles City, Pampanga', lat: 15.1450, lng: 120.5887, keywords: ['angeles city hall', 'angeles munisipyo', 'angeles hall', 'city of angeles', 'lungsod ng angeles'] },
+        { name: 'Mabalacat City Hall', address: 'Mabalacat, Pampanga', lat: 15.2217, lng: 120.5750, keywords: ['mabalacat city hall', 'mabalacat hall', 'city of mabalacat', 'lungsod ng mabalacat'] },
         { name: 'SM City Pampanga', address: 'Jose Abad Santos Ave, San Fernando, Pampanga', lat: 15.0475, lng: 120.6970, keywords: ['sm city pampanga', 'sm pampanga', 'sm san fernando', 'sm mall pampanga'] },
         { name: 'Clark International Airport', address: 'Clark Freeport Zone, Mabalacat, Pampanga', lat: 15.1859, lng: 120.5596, keywords: ['clark international airport', 'clark airport', 'crk airport', 'clark field'] },
         { name: 'Clark Parade Grounds', address: 'Clark Freeport Zone, Pampanga', lat: 15.1769, lng: 120.5312, keywords: ['clark parade grounds', 'parade grounds', 'cdc parade grounds'] },
         { name: 'Bayanihan Park (Astro Park)', address: 'Balibago, Angeles City, Pampanga', lat: 15.1663, lng: 120.5901, keywords: ['bayanihan park', 'astro park', 'balibago park'] },
         { name: 'Mexico Community Hospital', address: 'San Carlos, Mexico, Pampanga', lat: 15.0645, lng: 120.7225, keywords: ['mexico community hospital', 'mexico hospital', 'hospital sa mexico'] },
         { name: 'Jose B. Lingad Memorial General Hospital', address: 'Dolores, San Fernando, Pampanga', lat: 15.0385, lng: 120.6848, keywords: ['jose b lingad memorial', 'jblmgh', 'lingad hospital', 'jose b lingad'] },
-        { name: 'San Fernando City Hall', address: 'City Hall, Poblacion, San Fernando, Pampanga', lat: 15.0298, lng: 120.6895, keywords: ['san fernando city hall', 'san fernando munisipyo', 'san fernando hall'] },
-        { name: 'Angeles City Hall', address: 'Pulung Maragul, Angeles City, Pampanga', lat: 15.1450, lng: 120.5887, keywords: ['angeles city hall', 'angeles munisipyo', 'angeles hall'] },
         { name: 'Pampanga Provincial Capitol', address: 'Capitol Compound, San Fernando, Pampanga', lat: 15.0343, lng: 120.6868, keywords: ['pampanga provincial capitol', 'pampanga capitol', 'provincial capitol san fernando'] },
-        { name: 'Santa Maria Barangay Hall', address: 'Santa Maria, Mexico, Pampanga', lat: 15.0740, lng: 120.7810, keywords: ['santa maria barangay hall', 'sta maria barangay hall', 'brgy santa maria hall'] },
         { name: 'San Sebastian Elementary School', address: 'San Sebastian, San Luis, Pampanga', lat: 15.0425, lng: 120.7913, keywords: ['san sebastian elementary school', 'san sebastian school'] },
         { name: 'MacArthur Highway Commercial Strip', address: 'MacArthur Highway, San Fernando, Pampanga', lat: 15.0390, lng: 120.6840, keywords: ['macarthur highway', 'dolores flyover'] },
-        { name: 'Candaba Municipal Hall & Park', address: 'Candaba, Pampanga', lat: 15.0933, lng: 120.8267, keywords: ['candaba municipal hall', 'candaba park', 'candaba town hall'] },
-        { name: 'San Simon Municipal Hall', address: 'San Simon, Pampanga', lat: 14.9961, lng: 120.7788, keywords: ['san simon municipal hall', 'san simon hall', 'san simon town hall'] },
-        { name: 'Arayat Town Plaza & National Park', address: 'Arayat, Pampanga', lat: 15.1583, lng: 120.7417, keywords: ['arayat national park', 'mount arayat', 'arayat town plaza'] },
-        { name: 'Guagua Town Plaza', address: 'Guagua, Pampanga', lat: 14.9669, lng: 120.6334, keywords: ['guagua town plaza', 'guagua plaza', 'guagua municipal hall'] },
-        { name: 'Lubao Bamboo Hub & Park', address: 'Lubao, Pampanga', lat: 14.9403, lng: 120.5975, keywords: ['lubao bamboo hub', 'lubao park', 'lubao municipal hall'] },
-        { name: 'Bacolor Municipal Hall & Shrine', address: 'Bacolor, Pampanga', lat: 14.9984, lng: 120.6517, keywords: ['bacolor sunken church', 'bacolor municipal hall', 'bacolor shrine'] },
-        { name: 'Mabalacat City Hall', address: 'Mabalacat, Pampanga', lat: 15.2217, lng: 120.5750, keywords: ['mabalacat city hall', 'mabalacat hall'] },
-        { name: 'Apalit Municipal Hall', address: 'Apalit, Pampanga', lat: 14.9547, lng: 120.7583, keywords: ['apalit municipal hall', 'apalit hall'] },
       ]
 
       let target: { name: string; address?: string; lat: number; lng: number } | null = null
 
       // Tier 1: Check OpenStreetMap Nominatim first for specific named venues (schools, churches, hospitals, parks, streets)
-      if (targetQuery.length > 2) {
+      if (cleanedTarget.length > 2) {
         try {
-          const osmMatches = await searchRealWorldPlaces(targetQuery, userLocation.lat, userLocation.lng)
+          const osmMatches = await searchRealWorldPlaces(cleanedTarget, userLocation.lat, userLocation.lng)
           if (osmMatches && osmMatches.length > 0) {
             target = {
               name: osmMatches[0].name,
@@ -473,17 +505,17 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       // Tier 2: Check local evacuation centers
       if (!target) {
         const localMatch = evacCenters.find(
-          (e) => e.name.toLowerCase().includes(q) || (e.address && e.address.toLowerCase().includes(q))
+          (e) => e.name.toLowerCase().includes(cleanedTarget) || (e.address && e.address.toLowerCase().includes(cleanedTarget))
         )
         if (localMatch) {
           target = { name: localMatch.name, address: localMatch.address, lat: localMatch.lat, lng: localMatch.lng }
         }
       }
 
-      // Tier 3: High-precision match against known Pampanga landmark database
+      // Tier 3: Match against comprehensive Pampanga LGU & landmark database
       if (!target) {
         const landmarkMatch = KNOWN_PAMPANGA_PLACES.find((p) =>
-          p.keywords.some((k) => q.includes(k) || k.includes(q))
+          p.keywords.some((k) => cleanedTarget.includes(k) || k.includes(cleanedTarget) || q.includes(k) || k.includes(q))
         )
         if (landmarkMatch) {
           target = { name: landmarkMatch.name, address: landmarkMatch.address, lat: landmarkMatch.lat, lng: landmarkMatch.lng }
@@ -505,8 +537,23 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           (h) => h.status !== 'Resolved' && h.status !== 'Rejected by LGU'
         ).length
 
+        let customAiIntro = ''
+        try {
+          const aiResponse = await geminiChatAssistant(
+            `User requested route to ${target.name} in Pampanga. Briefly state the safest road corridor in 1 concise sentence.`,
+            {
+              currentLocation: locationName || 'Pampanga',
+              activeHazardsCount: activeBypassedCount,
+              evacuationCenters: evacCenters.map((e) => e.name),
+            }
+          )
+          if (aiResponse) {
+            customAiIntro = `\n\n💡 ${aiResponse}`
+          }
+        } catch {}
+
         return {
-          text: `🧭 Nakahanap ako ng pinakaligtas na ruta papuntang ${target.name} (${distKm.toFixed(1)} km · humigit-kumulang ${estMin} mins). Awtomatikong iniiwasan ang mga bahang kalsada.`,
+          text: `🧭 Nakahanap ako ng pinakaligtas na ruta papuntang ${target.name} (${distKm.toFixed(1)} km · humigit-kumulang ${estMin} mins). Awtomatikong iniiwasan ang mga bahang kalsada sa paligid.${customAiIntro}`,
           routeCard: {
             destinationName: target.name,
             address: target.address,
@@ -864,6 +911,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           destination={destination}
           routes={routes}
           onStartNavigation={handleStartNavigation}
+          onViewOnMap={handleViewRouteOnMap}
           onSendMessage={handleProcessChatMessage}
         />
       )}

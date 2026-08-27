@@ -34,6 +34,7 @@ interface GabaiChatbotProps {
   destination?: { name: string; lat: number; lng: number } | null
   routes?: any
   onStartNavigation?: () => void
+  onViewOnMap?: (dest?: any) => void
   onSendMessage?: (text: string) => Promise<{ text: string; routeCard?: any } | string>
 }
 
@@ -43,6 +44,7 @@ export function GabaiChatbot({
   destination,
   routes,
   onStartNavigation,
+  onViewOnMap,
   onSendMessage,
 }: GabaiChatbotProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -224,11 +226,17 @@ export function GabaiChatbot({
                         </button>
                       )}
                       <button
-                        onClick={onClose}
-                        className="px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1"
+                        onClick={() => {
+                          if (onViewOnMap && msg.routeCard) {
+                            onViewOnMap(msg.routeCard)
+                          } else {
+                            onClose()
+                          }
+                        }}
+                        className="px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1 active:scale-95"
                       >
-                        <Eye className="w-3 h-3" />
-                        <span>View Map</span>
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View on Map</span>
                       </button>
                     </div>
                   </div>
