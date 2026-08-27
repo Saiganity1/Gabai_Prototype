@@ -100,7 +100,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   // Map Layer & Perspective Controls
   const [is3D, setIs3D] = useState(true)
   const [isSatellite, setIsSatellite] = useState(false)
-  const [hazardFilter, setHazardFilter] = useState<'all' | 'flood' | 'closure' | 'verified' | 'no_light'>('all')
   const [show3DBuildings, setShow3DBuildings] = useState(true)
   const [showDangerZones, setShowDangerZones] = useState(true)
   const [showRoadLines, setShowRoadLines] = useState(true)
@@ -114,21 +113,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const publicHazards = useMemo(() => {
     return hazards.filter((h) => isHazardPubliclyVisible(h, myReportIds))
   }, [hazards, myReportIds])
-
-  const filteredHazards = useMemo(() => {
-    return publicHazards.filter((h) => {
-      if (hazardFilter === 'flood') return h.type === 'flood' || h.isRoadSegment
-      if (hazardFilter === 'closure') return h.type === 'closure' || h.type === 'road_block' || h.type === 'road'
-      if (hazardFilter === 'verified') return Boolean((h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified' || h.status === 'Verified by LGU')
-      if (hazardFilter === 'no_light') return h.passability === 'not_passable_light' || h.passability === 'not_passable_all'
-      return true
-    })
-  }, [publicHazards, hazardFilter])
-
-  const floodCount = useMemo(() => publicHazards.filter((h) => h.type === 'flood' || h.isRoadSegment).length, [publicHazards])
-  const closureCount = useMemo(() => publicHazards.filter((h) => h.type === 'closure' || h.type === 'road_block' || h.type === 'road').length, [publicHazards])
-  const verifiedCount = useMemo(() => publicHazards.filter((h) => (h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified' || h.status === 'Verified by LGU').length, [publicHazards])
-  const noLightCount = useMemo(() => publicHazards.filter((h) => h.passability === 'not_passable_light' || h.passability === 'not_passable_all').length, [publicHazards])
 
   const toggle3DMode = () => {
     setIs3D((prev) => {
@@ -623,7 +607,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           onHazardClick={handleHazardClick}
           emergencyMode={appState === 'emergency'}
           userLocation={userLocation}
-          hazards={filteredHazards}
+          hazards={publicHazards}
           evacCenters={evacCenters}
           routes={routes}
           destination={destination}
@@ -806,66 +790,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             </span>
           </button>
 
-          {/* Filter Pills */}
-          <button
-            onClick={() => setHazardFilter('all')}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer shrink-0 ${
-              hazardFilter === 'all'
-                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-slate-900/20 ring-2 ring-slate-400/30'
-                : 'bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-800 hover:bg-slate-50'
-            }`}
-          >
-            <span>🏷️ All</span>
-            <span className="opacity-75 text-[10px]">({hazards.length})</span>
-          </button>
-
-          <button
-            onClick={() => setHazardFilter('flood')}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer shrink-0 ${
-              hazardFilter === 'flood'
-                ? 'bg-orange-500 text-white shadow-orange-500/25 ring-2 ring-orange-400/50'
-                : 'bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-800 hover:bg-slate-50'
-            }`}
-          >
-            <span>🌊 Road Floods</span>
-            <span className="opacity-75 text-[10px]">({floodCount})</span>
-          </button>
-
-          <button
-            onClick={() => setHazardFilter('verified')}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer shrink-0 ${
-              hazardFilter === 'verified'
-                ? 'bg-blue-600 text-white shadow-blue-600/25 ring-2 ring-blue-400/50'
-                : 'bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-800 hover:bg-slate-50'
-            }`}
-          >
-            <span>🔵 Verified</span>
-            <span className="opacity-75 text-[10px]">({verifiedCount})</span>
-          </button>
-
-          <button
-            onClick={() => setHazardFilter('no_light')}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer shrink-0 ${
-              hazardFilter === 'no_light'
-                ? 'bg-rose-600 text-white shadow-rose-600/25 ring-2 ring-rose-400/50'
-                : 'bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-800 hover:bg-slate-50'
-            }`}
-          >
-            <span>🚫 No Light Cars</span>
-            <span className="opacity-75 text-[10px]">({noLightCount})</span>
-          </button>
-
-          <button
-            onClick={() => setHazardFilter('closure')}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer shrink-0 ${
-              hazardFilter === 'closure'
-                ? 'bg-amber-600 text-white shadow-amber-600/25 ring-2 ring-amber-400/50'
-                : 'bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-800 hover:bg-slate-50'
-            }`}
-          >
-            <span>🚧 Closures</span>
-            <span className="opacity-75 text-[10px]">({closureCount})</span>
-          </button>
 
           <button
             onClick={() => setIsSatellite(!isSatellite)}
