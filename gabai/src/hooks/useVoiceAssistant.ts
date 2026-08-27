@@ -47,14 +47,71 @@ export function useVoiceAssistant(
     }
   }, [language]);
 
+  // Multi-lingual Destination Extractor for Navigation Queries
+  const extractDestination = (text: string): string | null => {
+    const trimmed = text.trim();
+    if (!trimmed) return null;
+
+    // 1. Navigation / Route pattern regexes (English, Tagalog, Kapampangan)
+    const patterns = [
+      // English patterns
+      /(?:find|show|give|get|search|look for)?\s*(?:a\s+)?(?:safe\s+)?(?:route|direction|directions|way|path)\s+(?:to|going to|towards|for)\s+(.+)/i,
+      /(?:navigate|nav|drive|take me|bring me|go|guide me|lead me)\s+(?:to|towards)\s+(.+)/i,
+      /(?:how\s+(?:do\s+i|to|can\s+i)\s+(?:get|go|reach|drive)\s+(?:to|at))\s+(.+)/i,
+      
+      // Tagalog patterns
+      /(?:maghanap|hanap|ipakita|bigyan|alamin)\s+(?:ng\s+)?(?:ligtas\s+na\s+)?(?:ruta|daan|direksyon)\s+(?:papunta|papuntang|patungo|patungong|para\s+sa|sa)\s+(.+)/i,
+      /(?:paano\s+(?:pumunta|makapunta|makarating|dumaan))\s+(?:sa|papuntang|patungong)\s+(.+)/i,
+      /(?:pupunta|punta|papunta|papuntang|patungo|patungong|biyahe|byahe|byaheng)\s+(?:ako\s+)?(?:sa|kay|nang)?\s*(.+)/i,
+      /(?:daan|ruta|direksyon)\s+(?:papunta|papuntang|patungo|patungong|sa)\s+(.+)/i,
+      /(?:dalhin\s+mo\s+ako|ihatid\s+ako)\s+(?:sa|papuntang)\s+(.+)/i,
+
+      // Kapampangan patterns
+      /(?:munta|muntang|magpunta|dalan|dala)\s+(?:ku\s+)?(?:king|king\s+lugar|papuntang|karin|king)\s+(.+)/i,
+      /(?:nukarin\s+ing\s+dalan\s+papuntang)\s+(.+)/i,
+    ];
+
+    for (const regex of patterns) {
+      const match = trimmed.match(regex);
+      if (match && match[1]) {
+        let dest = match[1].trim();
+        dest = dest.replace(/[\?\.\!]+$/, '').trim();
+        dest = dest.replace(/^(?:ang|yung|mga|the|a|an)\s+/i, '').trim();
+        if (dest.length > 1) {
+          return dest;
+        }
+      }
+    }
+
+    // Direct landmark mention heuristic
+    const landmarkKeywords = [
+      'hospital', 'center', 'shelter', 'evacuation', 'mall', 'sm', 'clark',
+      'san fernando', 'angeles', 'mexico', 'santa maria', 'san sebastian',
+      'guagua', 'lubao', 'hall', 'school', 'church', 'highway', 'terminal'
+    ];
+    const lower = trimmed.toLowerCase();
+    if (
+      landmarkKeywords.some((k) => lower.includes(k)) &&
+      !lower.includes('baha') &&
+      !lower.includes('sunog') &&
+      !lower.includes('harang')
+    ) {
+      return trimmed.replace(/^(?:to|sa|papunta|ruta|route)\s+/i, '').replace(/[\?\.\!]+$/, '').trim();
+    }
+
+    return null;
+  };
+
   // Client-side instant keyword parser for offline / instantaneous feedback
   const parseLocalIntent = (text: string): VoiceActionPayload => {
     const lower = text.toLowerCase();
+
+    // 1. Hazard Reporting
     if (
-      lower.includes('baha') ||
-      lower.includes('flood') ||
-      lower.includes('lubog') ||
-      lower.includes('tubig')
+      (lower.includes('baha') || lower.includes('flood') || lower.includes('lubog') || lower.includes('tubig')) &&
+      !lower.includes('iwas') &&
+      !lower.includes('avoid') &&
+      !lower.includes('may daan ba')
     ) {
       return {
         action: 'REPORT_HAZARD',
@@ -90,6 +147,18 @@ export function useVoiceAssistant(
         transcript: text,
       };
     }
+
+    // 2. Specific Destination Navigation
+    const destination = extractDestination(text);
+    if (destination) {
+      return {
+        action: 'NAVIGATE',
+        destination,
+        transcript: text,
+      };
+    }
+
+    // 3. Generic Safe Route to nearest shelter
     if (
       lower.includes('ruta') ||
       lower.includes('route') ||
@@ -97,30 +166,15 @@ export function useVoiceAssistant(
       lower.includes('evac') ||
       lower.includes('shelter') ||
       lower.includes('uwi') ||
-      lower.includes('safe')
+      lower.includes('safe') ||
+      lower.includes('pinakaligtas')
     ) {
       return {
         action: 'SAFE_ROUTE',
         transcript: text,
       };
     }
-    if (
-      lower.includes('pupunta') ||
-      lower.includes('punta') ||
-      lower.includes('go to') ||
-      lower.includes('papunta')
-    ) {
-      let destination = 'destinasyon';
-      const match = lower.match(/sa\s+(.+)/i);
-      if (match && match[1]) {
-        destination = match[1].trim();
-      }
-      return {
-        action: 'NAVIGATE',
-        destination,
-        transcript: text,
-      };
-    }
+
     return {
       action: 'GENERAL_QUERY',
       transcript: text,
@@ -177,27 +231,28 @@ export function useVoiceAssistant(
 
         const localIntent = parseLocalIntent(finalTranscript);
 
-        const handleFallback = () => {
-          setTimeout(() => {
-            let fallbackReply = 'Narinig ko ang iyong ulat.';
-            if (localIntent.action === 'REPORT_HAZARD') {
-              fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
-            } else if (localIntent.action === 'SAFE_ROUTE') {
-              fallbackReply = 'Ipinapakita ang pinakaligtas na ruta sa evacuation shelter.';
-            } else if (localIntent.action === 'NAVIGATE') {
-              fallbackReply = `Naghahanap ng ligtas na ruta papuntang ${localIntent.destination || 'iyong destinasyon'}.`;
-            }
+        const handleFallback = async () => {
+          let fallbackReply = 'Narinig ko ang iyong ulat.';
+          if (localIntent.action === 'REPORT_HAZARD') {
+            fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
+          } else if (localIntent.action === 'SAFE_ROUTE') {
+            fallbackReply = 'Naghahanap ng pinakaligtas na ruta sa pinakamalapit na evacuation shelter na iniiwasan ang mga baha.';
+          } else if (localIntent.action === 'NAVIGATE') {
+            fallbackReply = `Naghahanap ng ligtas na ruta papuntang ${localIntent.destination || 'iyong destinasyon'}. Iniiwasan ang mga bahang kalsada.`;
+          } else {
+            // General query fallback
+            fallbackReply = 'Ako si GABAI. Maaari mo akong utusan na maghanap ng ligtas na ruta (halimbawa: "Route to Clark Airport" o "Daan papuntang San Fernando") o mag-report ng baha.';
+          }
 
-            setResponse(fallbackReply);
-            speakResponse(fallbackReply, languageRef.current);
+          setResponse(fallbackReply);
+          speakResponse(fallbackReply, languageRef.current);
 
-            if (
-              onActionRef.current &&
-              (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE' || localIntent.action === 'NAVIGATE')
-            ) {
-              onActionRef.current(localIntent);
-            }
-          }, 1500);
+          if (
+            onActionRef.current &&
+            (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE' || localIntent.action === 'NAVIGATE')
+          ) {
+            onActionRef.current(localIntent);
+          }
         };
 
         if (!API_BASE_URL) {
@@ -299,28 +354,28 @@ export function useVoiceAssistant(
     setState('processing');
     const localIntent = parseLocalIntent(text);
 
-    const handleFallback = () => {
-      setTimeout(() => {
-        let fallbackReply = 'Narinig ko ang iyong tanong.';
-        if (localIntent.action === 'REPORT_HAZARD') {
-          fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
-        } else if (localIntent.action === 'SAFE_ROUTE') {
-          fallbackReply = 'Ipinapakita ang pinakaligtas na ruta sa evacuation shelter.';
-        } else if (localIntent.action === 'NAVIGATE') {
-          fallbackReply = `Naghahanap ng ligtas na ruta papuntang ${localIntent.destination || 'iyong destinasyon'}.`;
-        }
+    const handleFallback = async () => {
+      let fallbackReply = 'Narinig ko ang iyong tanong.';
+      if (localIntent.action === 'REPORT_HAZARD') {
+        fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
+      } else if (localIntent.action === 'SAFE_ROUTE') {
+        fallbackReply = 'Naghahanap ng pinakaligtas na ruta sa pinakamalapit na evacuation shelter na iniiwasan ang mga baha.';
+      } else if (localIntent.action === 'NAVIGATE') {
+        fallbackReply = `Naghahanap ng ligtas na ruta papuntang ${localIntent.destination || 'iyong destinasyon'}. Iniiwasan ang mga bahang kalsada.`;
+      } else {
+        fallbackReply = 'Ako si GABAI. Maaari mo akong utusan na maghanap ng ligtas na ruta (halimbawa: "Route to Clark Airport" o "Daan papuntang San Fernando") o mag-report ng baha.';
+      }
 
-        setResponse(fallbackReply);
-        if (!skipVoice) speakResponse(fallbackReply, languageRef.current);
-        else setState('idle');
+      setResponse(fallbackReply);
+      if (!skipVoice) speakResponse(fallbackReply, languageRef.current);
+      else setState('idle');
 
-        if (
-          onActionRef.current &&
-          (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE' || localIntent.action === 'NAVIGATE')
-        ) {
-          onActionRef.current(localIntent);
-        }
-      }, 1500);
+      if (
+        onActionRef.current &&
+        (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE' || localIntent.action === 'NAVIGATE')
+      ) {
+        onActionRef.current(localIntent);
+      }
     };
 
     if (!API_BASE_URL) {

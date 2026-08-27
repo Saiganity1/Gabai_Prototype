@@ -171,3 +171,46 @@ Provide a concise, reassuring 1-2 sentence spoken response in Tagalog/Taglish. F
     return 'Ligtas ang iyong ruta. Mag-ingat sa pagmamaneho.'
   }
 }
+
+/**
+ * Direct Gemini Conversational Assistant for General Inquiries & Disaster Queries
+ */
+export async function geminiChatAssistant(
+  userQuery: string,
+  context: {
+    currentLocation: string
+    activeHazardsCount: number
+    evacuationCenters: string[]
+  }
+): Promise<string | null> {
+  if (!GEMINI_API_KEY) return null
+
+  const prompt = `You are GABAI, an emergency AI disaster navigation and public safety assistant in Pampanga, Philippines.
+Current User Location: ${context.currentLocation}
+Active Floods / Hazards in Area: ${context.activeHazardsCount}
+Nearby Evacuation Centers: ${context.evacuationCenters.slice(0, 5).join(', ')}
+
+User Message: "${userQuery}"
+
+Instructions:
+- Provide a helpful, clear, and reassuring response in Filipino / Tagalog (or English if the user typed in English).
+- If the user is asking about routes, safety, floods, or evacuation centers, give practical, accurate advice.
+- Keep the response between 2 to 4 sentences so it is fast and easy to read in a mobile chat bubble.`
+
+  try {
+    const res = await fetch(GEMINI_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      }),
+    })
+
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || null
+  } catch {
+    return null
+  }
+}
+

@@ -239,7 +239,11 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
     [locationName, userLocation.lat, userLocation.lng, hazards, evacCenters]
   )
 
-  // Handle AI Voice Action triggers
+  const handleMicPress = () => {
+    setIsChatbotOpen(true)
+  }
+
+  // Handle AI Voice & Chatbot Action triggers
   const handleVoiceAction = (payload: VoiceActionPayload) => {
     if (payload.action === 'REPORT_HAZARD') {
       const { hazard } = addHazardReport({
@@ -254,56 +258,90 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       if (evacCenters.length > 0) {
         // Find nearest evac center
         const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-          const R = 6371;
-          const dLat = (lat2 - lat1) * Math.PI / 180;
-          const dLon = (lon2 - lon1) * Math.PI / 180;
-          const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-          return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        };
-        
-        let nearest = evacCenters[0];
-        let minDist = getDistance(userLocation.lat, userLocation.lng, nearest.lat, nearest.lng);
-        
+          const R = 6371
+          const dLat = ((lat2 - lat1) * Math.PI) / 180
+          const dLon = ((lon2 - lon1) * Math.PI) / 180
+          const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos((lat1 * Math.PI) / 180) *
+              Math.cos((lat2 * Math.PI) / 180) *
+              Math.sin(dLon / 2) *
+              Math.sin(dLon / 2)
+          return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        }
+
+        let nearest = evacCenters[0]
+        let minDist = getDistance(userLocation.lat, userLocation.lng, nearest.lat, nearest.lng)
+
         for (let i = 1; i < evacCenters.length; i++) {
-          const dist = getDistance(userLocation.lat, userLocation.lng, evacCenters[i].lat, evacCenters[i].lng);
+          const dist = getDistance(userLocation.lat, userLocation.lng, evacCenters[i].lat, evacCenters[i].lng)
           if (dist < minDist) {
-            minDist = dist;
-            nearest = evacCenters[i];
+            minDist = dist
+            nearest = evacCenters[i]
           }
         }
-        
-        setDestination({ name: nearest.name, lat: nearest.lat, lng: nearest.lng });
-        setPendingAutoNavigate(true);
-        setActiveModal('none');
-        setTimeout(() => setIsChatbotOpen(false), 1500);
+
+        setDestination({ name: nearest.name, lat: nearest.lat, lng: nearest.lng })
+        setPendingAutoNavigate(true)
+        setActiveModal('none')
       } else {
-        setActiveModal('routes');
+        setActiveModal('routes')
       }
     } else if (payload.action === 'NAVIGATE' && payload.destination) {
-      const dest = payload.destination;
-      const q = dest.toLowerCase();
-      const localMatch = evacCenters.find(e => e.name.toLowerCase().includes(q) || e.address.toLowerCase().includes(q));
-      
-      const navigateTo = async () => {
-         let target = null;
-         if (localMatch) {
-            target = { name: localMatch.name, lat: localMatch.lat, lng: localMatch.lng };
-         } else {
-            const osmMatches = await searchRealWorldPlaces(dest, userLocation.lat, userLocation.lng);
-            if (osmMatches.length > 0) {
-               target = { name: osmMatches[0].name, lat: osmMatches[0].lat, lng: osmMatches[0].lng };
-            }
-         }
+      const dest = payload.destination.trim()
+      const q = dest.toLowerCase()
 
-         if (target) {
-            setDestination(target);
-            setPendingAutoNavigate(true);
-            setActiveModal('none');
-            setTimeout(() => setIsChatbotOpen(false), 1500);
-         }
-      };
-      navigateTo();
+      // Common Pampanga emergency & civic landmarks
+      const KNOWN_PAMPANGA_PLACES = [
+        { name: 'SM City Pampanga', lat: 15.0475, lng: 120.6970, keywords: ['sm pampanga', 'sm city', 'sm san fernando', 'sm mall'] },
+        { name: 'Clark International Airport', lat: 15.1859, lng: 120.5596, keywords: ['clark', 'clark airport', 'crk', 'airport'] },
+        { name: 'Mexico Community Hospital', lat: 15.0645, lng: 120.7225, keywords: ['mexico hospital', 'mexico community hospital', 'hospital sa mexico'] },
+        { name: 'San Fernando City Hall', lat: 15.0298, lng: 120.6895, keywords: ['san fernando city hall', 'san fernando munisipyo', 'san fernando hall'] },
+        { name: 'Angeles City Hall', lat: 15.1450, lng: 120.5887, keywords: ['angeles city hall', 'angeles munisipyo'] },
+        { name: 'Santa Maria Barangay Hall', lat: 15.0740, lng: 120.7810, keywords: ['santa maria', 'sta maria', 'brgy santa maria', 'santa maria hall'] },
+        { name: 'San Sebastian Elementary School', lat: 15.0425, lng: 120.7913, keywords: ['san sebastian', 'san sebastian school'] },
+        { name: 'MacArthur Highway Commercial Strip', lat: 15.0390, lng: 120.6840, keywords: ['macarthur', 'macarthur highway', 'dolores flyover'] },
+      ]
+
+      const navigateTo = async () => {
+        let target: { name: string; lat: number; lng: number } | null = null
+
+        // 1. Local Evacuation Centers
+        const localMatch = evacCenters.find(
+          (e) => e.name.toLowerCase().includes(q) || e.address.toLowerCase().includes(q)
+        )
+        if (localMatch) {
+          target = { name: localMatch.name, lat: localMatch.lat, lng: localMatch.lng }
+        }
+
+        // 2. Known Pampanga Landmarks
+        if (!target) {
+          const landmarkMatch = KNOWN_PAMPANGA_PLACES.find((p) =>
+            p.keywords.some((k) => q.includes(k) || k.includes(q))
+          )
+          if (landmarkMatch) {
+            target = { name: landmarkMatch.name, lat: landmarkMatch.lat, lng: landmarkMatch.lng }
+          }
+        }
+
+        // 3. OpenStreetMap Nominatim Live Search
+        if (!target) {
+          try {
+            const osmMatches = await searchRealWorldPlaces(dest, userLocation.lat, userLocation.lng)
+            if (osmMatches && osmMatches.length > 0) {
+              target = { name: osmMatches[0].name, lat: osmMatches[0].lat, lng: osmMatches[0].lng }
+            }
+          } catch {}
+        }
+
+        if (target) {
+          setDestination(target)
+          setPendingAutoNavigate(true)
+          setActiveModal('none')
+        }
+      }
+
+      navigateTo()
     }
   }
 
@@ -359,11 +397,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         );
       }, 500);
     }
-  }, [routes, pendingAutoNavigate, userLocation, voice]);
-
-  const handleMicPress = () => {
-    setIsChatbotOpen(true)
-  }
+  }, [routes, pendingAutoNavigate, userLocation, voice])
 
   const handleSuggestion = (s: string) => {
     voice.triggerTextPrompt(s)
@@ -625,7 +659,13 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       </div>
 
       {isChatbotOpen && (
-        <GabaiChatbot onClose={() => setIsChatbotOpen(false)} voice={voice} />
+        <GabaiChatbot
+          onClose={() => setIsChatbotOpen(false)}
+          voice={voice}
+          destination={destination}
+          routes={routes}
+          onStartNavigation={handleStartNavigation}
+        />
       )}
 
       {/* ── Picking Road Segment Mode Floating Banner ───────── */}
