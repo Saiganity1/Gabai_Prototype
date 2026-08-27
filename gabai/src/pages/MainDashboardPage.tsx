@@ -999,7 +999,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
       {/* ── Top Floating Header Dock (BAHABA Inspired UI) ── */}
       <div className={`absolute left-0 right-0 z-10 px-3 pt-3 sm:px-5 sm:pt-4 flex flex-col gap-2 pointer-events-none ${appState === 'emergency' ? 'top-12' : 'top-0'}`}>
-        <div className="flex items-center gap-3 pointer-events-auto max-w-6xl mx-auto w-full justify-between">
+        <div className="flex items-center gap-3 pointer-events-auto w-full justify-between">
           {/* Left Brand Badge */}
           <div className="bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/80 rounded-2xl p-2 px-3.5 shadow-2xl flex items-center gap-3 shrink-0">
             <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-600/30 shrink-0">
@@ -1012,7 +1012,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           </div>
 
           {/* Center Search / Route Pill ("Plan a route") */}
-          <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2.5 bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/80 rounded-2xl p-2 px-4 shadow-2xl transition-all max-w-md mx-2">
+          <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2.5 bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/80 rounded-2xl p-2 px-4 shadow-2xl transition-all max-w-md mx-auto">
             <Navigation className="w-4 h-4 text-slate-400 shrink-0" />
             <input
               type="text"
@@ -1026,8 +1026,8 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           </form>
 
-          {/* Right Weather & Control Pills */}
-          <div className="bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/80 rounded-2xl p-2 px-3 shadow-2xl flex items-center gap-3 text-xs font-semibold text-slate-300 shrink-0">
+          {/* Right Weather & Control Pills (Pushed to far right edge) */}
+          <div className="bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/80 rounded-2xl p-2 px-3.5 shadow-2xl flex items-center gap-3 text-xs font-semibold text-slate-300 shrink-0 ml-auto">
             <div className="flex items-center gap-1.5 text-cyan-400">
               <CloudRain className="w-3.5 h-3.5" />
               <span className="hidden md:inline">100% rain</span>
