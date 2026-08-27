@@ -269,16 +269,17 @@ Respond ONLY with valid JSON:
     if (!validIds.has(parsed.selectedSafeRouteId)) {
       parsed.selectedSafeRouteId = algorithmicResult.selectedSafeRouteId
     }
-    if (!validIds.has(parsed.selectedBalancedRouteId)) {
-      parsed.selectedBalancedRouteId = algorithmicResult.selectedBalancedRouteId
-    }
-
     // CRITICAL SAFETY CHECK: Override if AI picked unsafe when safe exists
     const safeCandidate = candidates.find((c) => c.id === parsed.selectedSafeRouteId)
+    const balancedCandidate = candidates.find((c) => c.id === parsed.selectedBalancedRouteId)
     const floodFreeExists = candidates.some((c) => c.isSafeAndDry)
+
     if (safeCandidate && !safeCandidate.isSafeAndDry && floodFreeExists) {
       parsed.selectedSafeRouteId = algorithmicResult.selectedSafeRouteId
-      parsed.reasoning = algorithmicResult.reasoning + ' (AI safety override applied)'
+      parsed.reasoning = algorithmicResult.reasoning + ' (AI safety override: flood avoided)'
+    }
+    if (balancedCandidate && !balancedCandidate.isSafeAndDry && floodFreeExists) {
+      parsed.selectedBalancedRouteId = algorithmicResult.selectedBalancedRouteId
     }
 
     return parsed
