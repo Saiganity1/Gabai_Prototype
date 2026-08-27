@@ -71,6 +71,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const [isDrivingHUDActive, setIsDrivingHUDActive] = useState(false)
   const [isSOSStrobeActive, setIsSOSStrobeActive] = useState(false)
   const [isChatbotOpen, setIsChatbotOpen] = useState(false)
+  const [isRouteSheetMinimized, setIsRouteSheetMinimized] = useState(false)
 
   // Real Search Autocomplete
   const [searchQuery, setSearchQuery] = useState('')
@@ -1403,220 +1404,269 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         </div>
       )}
 
-      {/* ── 2. Route Selection & Interactive Destination Sheet ── */}
+      {/* ── 2. Route Selection & Interactive Destination Sidebar / Bottom Sheet ── */}
       {activeModal === 'routes' && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 bottom-sheet">
-          <div className="bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl border-t border-slate-200/60 dark:border-slate-700/50 max-w-lg mx-auto max-h-[85vh] flex flex-col">
-            <div className="flex justify-center pt-3 pb-1 shrink-0">
-              <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full" />
+        <div className="fixed bottom-0 left-0 right-0 md:bottom-auto md:top-20 md:left-6 md:right-auto md:w-[440px] z-40 pointer-events-none anim-slide-up">
+          <div className="pointer-events-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-t-3xl md:rounded-3xl shadow-2xl border-t md:border border-slate-200/80 dark:border-slate-700/80 max-w-lg md:max-w-none mx-auto max-h-[85vh] md:max-h-[calc(100vh-6.5rem)] flex flex-col transition-all duration-300">
+            {/* Header Drag Handle for Mobile */}
+            <div className="flex justify-center pt-3 pb-1 shrink-0 md:hidden">
+              <div className="w-10 h-1 bg-slate-300 dark:bg-slate-700 rounded-full" />
             </div>
-            <div className="px-4 pt-2 pb-5 overflow-y-auto flex-1 no-scrollbar">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                    <Navigation className="w-4 h-4" />
+
+            {/* Minimized Quick Summary Bar */}
+            {isRouteSheetMinimized ? (
+              <div className="p-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+                    🧭
                   </div>
-                  <div>
-                    <h3 className="font-extrabold text-slate-900 dark:text-white text-base">Safe Route Navigator</h3>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Real-time AI flood & hazard avoidance routing
-                    </p>
+                  <div className="min-w-0">
+                    <div className="text-xs font-black text-slate-900 dark:text-white truncate">
+                      {destination?.name || 'Safe Destination'}
+                    </div>
+                    <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
+                      {routes?.[selectedRoute]?.label} · {routes?.[selectedRoute]?.time}
+                    </div>
                   </div>
                 </div>
-                <button
-                  onClick={closeModal}
-                  className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* ── Active Destination Card & Change Button ── */}
-              <div className="bg-slate-50 dark:bg-slate-800/80 rounded-2xl p-3 border border-slate-200/60 dark:border-slate-700/60 mb-3">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-emerald-500" />
-                    Target Destination
-                  </span>
+                <div className="flex items-center gap-2 shrink-0">
                   <button
-                    onClick={() => setIsChoosingDestination((prev) => !prev)}
-                    className="text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
+                    onClick={() => setIsRouteSheetMinimized(false)}
+                    className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
                   >
-                    {isChoosingDestination ? 'Done' : '✏️ Change Destination'}
+                    <span>Options</span>
+                    <ChevronDown className="w-3.5 h-3.5 rotate-180" />
+                  </button>
+                  <button
+                    onClick={handleStartNavigation}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-md"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>Go</span>
                   </button>
                 </div>
-
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-300 font-bold shrink-0 text-xs">
-                    🏁
+              </div>
+            ) : (
+              /* Expanded Full Route Navigator Panel */
+              <div className="px-4 pt-2 pb-5 overflow-y-auto flex-1 no-scrollbar">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                      <Navigation className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-slate-900 dark:text-white text-base">Safe Route Navigator</h3>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Real-time AI flood & hazard avoidance routing
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
-                      {destination?.name || 'Nearest Evacuation Center'}
-                    </div>
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                      {destination
-                        ? `Coordinates: ${destination.lat.toFixed(4)}°N, ${destination.lng.toFixed(4)}°E`
-                        : 'Auto-routed to closest high-ground shelter'}
-                    </div>
+                  <div className="flex items-center gap-1.5">
+                    {/* View Map / Collapse Toggle */}
+                    <button
+                      onClick={() => setIsRouteSheetMinimized(true)}
+                      title="Minimize to view full map"
+                      className="px-2.5 py-1 bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 rounded-full text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                    >
+                      <Eye className="w-3 h-3" />
+                      <span>View Map</span>
+                    </button>
+                    <button
+                      onClick={closeModal}
+                      className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-              </div>
 
-              {/* ── Interactive Destination Chooser Drawer ── */}
-              {isChoosingDestination && (
-                <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-3 border-2 border-cyan-500/30 mb-4 shadow-sm anim-slide-down">
-                  <div className="text-xs font-bold text-slate-800 dark:text-white mb-2 flex items-center justify-between">
-                    <span>Choose Where You Want to Go:</span>
+                {/* ── Active Destination Card & Change Button ── */}
+                <div className="bg-slate-50 dark:bg-slate-800/80 rounded-2xl p-3 border border-slate-200/60 dark:border-slate-700/60 mb-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-emerald-500" />
+                      Target Destination
+                    </span>
                     <button
-                      onClick={() => {
-                        setIsMapClickDestinationMode(true)
-                        closeModal()
-                      }}
-                      className="text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 flex items-center gap-1 bg-cyan-50 dark:bg-cyan-950/40 px-2 py-0.5 rounded-md border border-cyan-200 dark:border-cyan-800"
+                      onClick={() => setIsChoosingDestination((prev) => !prev)}
+                      className="text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
                     >
-                      <span>📍 Tap on Map</span>
+                      {isChoosingDestination ? 'Done' : '✏️ Change Destination'}
                     </button>
                   </div>
 
-                  {/* Destination Search Box */}
-                  <div className="relative mb-2.5">
-                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      value={destinationSearch}
-                      onChange={(e) => setDestinationSearch(e.target.value)}
-                      placeholder="Search destination, hospital, gas, clinic..."
-                      className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-cyan-500"
-                    />
-                  </div>
-
-                  {/* Quick Preset Buttons */}
-                  <div className="grid grid-cols-2 gap-1.5 mb-2.5">
-                    {evacCenters.slice(0, 4).map((shelter) => (
-                      <button
-                        key={shelter.id}
-                        onClick={() => {
-                          setDestination({ name: shelter.name, lat: shelter.lat, lng: shelter.lng })
-                          setIsChoosingDestination(false)
-                          mapCanvasRef.current?.flyToCoords(shelter.lat, shelter.lng, 15)
-                        }}
-                        className="py-1.5 px-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-[11px] font-bold text-center truncate transition-colors"
-                      >
-                        🛡️ {shelter.name}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Selectable Destination List */}
-                  <div className="max-h-44 overflow-y-auto space-y-1.5 no-scrollbar">
-                    {selectableDestinations.slice(0, 10).map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          setDestination({ name: item.name, lat: item.lat, lng: item.lng })
-                          setIsChoosingDestination(false)
-                          mapCanvasRef.current?.flyToCoords(item.lat, item.lng, 15)
-                        }}
-                        className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-cyan-50 dark:hover:bg-slate-700/60 border border-slate-100 dark:border-slate-700/50 text-left transition-colors group"
-                      >
-                        <span className="text-base shrink-0">🛡️</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-cyan-600 dark:group-hover:text-cyan-400">
-                            {item.name}
-                          </div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                            {item.address} · {item.distance} away
-                          </div>
-                        </div>
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0 group-hover:text-cyan-500" />
-                      </button>
-                    ))}
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-300 font-bold shrink-0 text-xs">
+                      🏁
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
+                        {destination?.name || 'Nearest Evacuation Center'}
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                        {destination
+                          ? `Coordinates: ${destination.lat.toFixed(4)}°N, ${destination.lng.toFixed(4)}°E`
+                          : 'Auto-routed to closest high-ground shelter'}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* ── AI Neural Route Optimizer Card ── */}
-              {aiRouteAnalysis && (
-                <div className="mb-3.5 bg-gradient-to-br from-indigo-950/90 via-slate-900/95 to-slate-900/90 text-white rounded-2xl p-3.5 border border-cyan-500/40 shadow-lg relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
-                  <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
-                        <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                {/* ── Interactive Destination Chooser Drawer ── */}
+                {isChoosingDestination && (
+                  <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-3 border-2 border-cyan-500/30 mb-4 shadow-sm anim-slide-down">
+                    <div className="text-xs font-bold text-slate-800 dark:text-white mb-2 flex items-center justify-between">
+                      <span>Choose Where You Want to Go:</span>
+                      <button
+                        onClick={() => {
+                          setIsMapClickDestinationMode(true)
+                          closeModal()
+                        }}
+                        className="text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 flex items-center gap-1 bg-cyan-50 dark:bg-cyan-950/40 px-2 py-0.5 rounded-md border border-cyan-200 dark:border-cyan-800 cursor-pointer"
+                      >
+                        <span>📍 Tap on Map</span>
+                      </button>
+                    </div>
+
+                    {/* Destination Search Box */}
+                    <div className="relative mb-2.5">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={destinationSearch}
+                        onChange={(e) => setDestinationSearch(e.target.value)}
+                        placeholder="Search destination, hospital, gas, clinic..."
+                        className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+
+                    {/* Quick Preset Buttons */}
+                    <div className="grid grid-cols-2 gap-1.5 mb-2.5">
+                      {evacCenters.slice(0, 4).map((shelter) => (
+                        <button
+                          key={shelter.id}
+                          onClick={() => {
+                            setDestination({ name: shelter.name, lat: shelter.lat, lng: shelter.lng })
+                            setIsChoosingDestination(false)
+                            mapCanvasRef.current?.flyToCoords(shelter.lat, shelter.lng, 15)
+                          }}
+                          className="py-1.5 px-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-[11px] font-bold text-center truncate transition-colors cursor-pointer"
+                        >
+                          🛡️ {shelter.name}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Selectable Destination List */}
+                    <div className="max-h-44 overflow-y-auto space-y-1.5 no-scrollbar">
+                      {selectableDestinations.slice(0, 10).map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            setDestination({ name: item.name, lat: item.lat, lng: item.lng })
+                            setIsChoosingDestination(false)
+                            mapCanvasRef.current?.flyToCoords(item.lat, item.lng, 15)
+                          }}
+                          className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-cyan-50 dark:hover:bg-slate-700/60 border border-slate-100 dark:border-slate-700/50 text-left transition-colors group cursor-pointer"
+                        >
+                          <span className="text-base shrink-0">🛡️</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-cyan-600 dark:group-hover:text-cyan-400">
+                              {item.name}
+                            </div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                              {item.address} · {item.distance} away
+                            </div>
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0 group-hover:text-cyan-500" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── AI Neural Route Optimizer Card ── */}
+                {aiRouteAnalysis && (
+                  <div className="mb-3.5 bg-gradient-to-br from-indigo-950/90 via-slate-900/95 to-slate-900/90 text-white rounded-2xl p-3.5 border border-cyan-500/40 shadow-lg relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+                    <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
+                          <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                        </div>
+                        <span className="text-xs font-black tracking-wide text-cyan-300 uppercase">
+                          AI Neural Route Optimizer
+                        </span>
                       </div>
-                      <span className="text-xs font-black tracking-wide text-cyan-300 uppercase">
-                        AI Neural Route Optimizer
+                      <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-black px-2 py-0.5 rounded-full">
+                        {aiRouteAnalysis.confidenceScore}% ACCURACY
                       </span>
                     </div>
-                    <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-black px-2 py-0.5 rounded-full">
-                      {aiRouteAnalysis.confidenceScore}% ACCURACY
-                    </span>
+
+                    <p className="text-[11px] text-slate-300 leading-relaxed mb-2.5 relative z-10">
+                      {aiRouteAnalysis.aiSummary}
+                    </p>
+
+                    <div className="space-y-1 relative z-10 bg-slate-950/50 rounded-xl p-2 border border-slate-800/80">
+                      {aiRouteAnalysis.aiReasoning.slice(0, 3).map((reason, idx) => (
+                        <div key={idx} className="text-[10px] text-slate-300 font-medium flex items-center gap-1.5">
+                          <span>{reason}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
+                )}
 
-                  <p className="text-[11px] text-slate-300 leading-relaxed mb-2.5 relative z-10">
-                    {aiRouteAnalysis.aiSummary}
-                  </p>
-
-                  <div className="space-y-1 relative z-10 bg-slate-950/50 rounded-xl p-2 border border-slate-800/80">
-                    {aiRouteAnalysis.aiReasoning.slice(0, 3).map((reason, idx) => (
-                      <div key={idx} className="text-[10px] text-slate-300 font-medium flex items-center gap-1.5">
-                        <span>{reason}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ── Route Options Comparison ── */}
-              <div className="space-y-2 mb-4">
-                {(['safe', 'balanced', 'fast'] as const).map((rId) => {
-                  const r = routes[rId]
-                  return (
-                    <button
-                      key={r.id}
-                      onClick={() => setSelectedRoute(r.id)}
-                      className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all text-left cursor-pointer ${
-                        selectedRoute === r.id
-                          ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 shadow-sm scale-[1.01]'
-                          : 'border-transparent bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700'
-                      }`}
-                    >
-                      <StatusDot risk={r.risk} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                          <span className="text-sm font-extrabold text-slate-900 dark:text-white">{r.label}</span>
-                          <RiskBadge risk={r.risk} />
-                          {r.fuelSavingsPct && (
-                            <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 text-[9px] font-black px-1.5 py-0.5 rounded">
-                              🍃 -{r.fuelSavingsPct}% GAS
-                            </span>
+                {/* ── Route Options Comparison ── */}
+                <div className="space-y-2 mb-4">
+                  {(['safe', 'balanced', 'fast'] as const).map((rId) => {
+                    const r = routes[rId]
+                    return (
+                      <button
+                        key={r.id}
+                        onClick={() => setSelectedRoute(r.id)}
+                        className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all text-left cursor-pointer ${
+                          selectedRoute === r.id
+                            ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 shadow-sm scale-[1.01]'
+                            : 'border-transparent bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <StatusDot risk={r.risk} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                            <span className="text-sm font-extrabold text-slate-900 dark:text-white">{r.label}</span>
+                            <RiskBadge risk={r.risk} />
+                            {r.fuelSavingsPct && (
+                              <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 text-[9px] font-black px-1.5 py-0.5 rounded">
+                                🍃 -{r.fuelSavingsPct}% GAS
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{r.detail}</div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-sm font-extrabold text-slate-800 dark:text-slate-200">{r.time}</div>
+                          {r.fuelEstLiters && (
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
+                              ⛽ ~{r.fuelEstLiters} L
+                            </div>
                           )}
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{r.detail}</div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-sm font-extrabold text-slate-800 dark:text-slate-200">{r.time}</div>
-                        {r.fuelEstLiters && (
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
-                            ⛽ ~{r.fuelEstLiters} L
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
+                      </button>
+                    )
+                  })}
+                </div>
 
-              {/* Start Driving Navigation HUD */}
-              <button
-                onClick={handleStartNavigation}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg text-sm cursor-pointer"
-              >
-                <Navigation className="w-4 h-4" />
-                <span>Start Turn-by-Turn Safe Navigation</span>
-              </button>
-            </div>
+                {/* Start Driving Navigation HUD */}
+                <button
+                  onClick={handleStartNavigation}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg text-sm cursor-pointer"
+                >
+                  <Navigation className="w-4 h-4" />
+                  <span>Start Turn-by-Turn Safe Navigation</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
