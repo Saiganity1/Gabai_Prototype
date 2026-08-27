@@ -1224,7 +1224,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
       {/* 🎙️ GABAI AI Chatbot Button 🎙️ */}
       <div
-        className="absolute left-4 sm:left-6 z-20 pointer-events-none transition-all duration-500"
+        className="absolute left-1/2 -translate-x-1/2 z-20 pointer-events-none transition-all duration-500"
         style={{ bottom: appState === 'emergency' ? '108px' : '58px' }}
       >
         <div className="relative flex items-center justify-center group">

@@ -116,7 +116,7 @@ export function GabaiChatbot({
   ]
 
   return (
-    <div className="fixed inset-x-3 bottom-20 top-20 sm:inset-x-auto sm:left-6 sm:bottom-24 sm:top-auto sm:w-[420px] sm:h-[620px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden z-50 transition-all duration-300 anim-scale-up">
+    <div className="fixed inset-x-3 bottom-20 top-20 sm:inset-x-auto sm:right-6 sm:bottom-24 sm:top-auto sm:w-[420px] sm:h-[620px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden z-50 transition-all duration-300 anim-scale-up">
       {/* Header */}
       <div className="bg-slate-900 dark:bg-slate-950 p-4 border-b border-slate-800 flex items-center justify-between shadow-sm shrink-0">
         <div className="flex items-center gap-3">
