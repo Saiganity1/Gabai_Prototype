@@ -5,7 +5,7 @@ import {
   ChevronUp, ChevronDown, X, Shield, ShieldAlert, Navigation,
   MapPin, TriangleAlert, Users,
   PhoneCall, CheckCircle, Clock, ChevronRight, Loader2, Sparkles,
-  Camera, Upload, Zap, CloudRain, Radio
+  Camera, Upload, Zap, CloudRain, Radio, Eye
 } from 'lucide-react'
 import MapCanvas, { Hazard, MapCanvasHandle } from '../components/MapCanvas'
 import DrivingHUD from '../components/DrivingHUD'
