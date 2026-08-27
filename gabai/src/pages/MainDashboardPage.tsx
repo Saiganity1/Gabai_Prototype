@@ -1191,8 +1191,21 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         </button>
       </div>
 
-      {/* Primary Bottom Right CTA ("+ Report flood") */}
-      <div className="absolute bottom-6 right-6 z-30 pointer-events-auto">
+      {/* ── Bottom Right Action Buttons (GABAI AI & Report Flood) ── */}
+      <div className="absolute bottom-6 right-6 z-30 pointer-events-auto flex items-center gap-3">
+        {/* 🎙️ GABAI AI Chatbot Button 🎙️ */}
+        <button
+          onClick={handleMicPress}
+          title="Press to speak to GABAI"
+          className="relative flex items-center gap-2.5 px-6 py-3.5 rounded-full transition-all duration-300 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-xl shadow-blue-600/30 border border-white/20 hover:scale-105 active:scale-95 cursor-pointer"
+        >
+          <span className="font-black tracking-wide text-xs drop-shadow-md">
+            GABAI
+          </span>
+          <Sparkles className="w-4 h-4 text-cyan-200 drop-shadow-md" />
+        </button>
+
+        {/* Primary Report Flood Button */}
         <button
           onClick={handleOpenReportModal}
           className="bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs px-5 py-3.5 rounded-2xl shadow-xl shadow-blue-600/40 flex items-center gap-2 transition-all active:scale-95 cursor-pointer border border-blue-400/30"
@@ -1200,25 +1213,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           <span className="text-base font-normal">+</span>
           <span>Report flood</span>
         </button>
-      </div>
-
-      {/* 🎙️ GABAI AI Chatbot Button (Bottom Center) 🎙️ */}
-      <div
-        className="absolute left-1/2 -translate-x-1/2 z-20 pointer-events-none transition-all duration-500"
-        style={{ bottom: appState === 'emergency' ? '108px' : '24px' }}
-      >
-        <div className="relative flex items-center justify-center group">
-          <button
-            onClick={handleMicPress}
-            title="Press to speak to GABAI"
-            className="pointer-events-auto relative flex items-center gap-2.5 px-6 py-3.5 rounded-full transition-all duration-300 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-xl shadow-blue-600/30 border border-white/20 hover:scale-105 active:scale-95 cursor-pointer"
-          >
-            <span className="font-black tracking-wide text-xs drop-shadow-md">
-              GABAI
-            </span>
-            <Sparkles className="w-4 h-4 text-cyan-200 drop-shadow-md" />
-          </button>
-        </div>
       </div>
 
       {/* Backdrop */}
