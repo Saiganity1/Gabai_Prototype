@@ -246,38 +246,26 @@ export default function DrivingHUD({
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-800">
-          <button
-            type="button"
-            onClick={() => setIsSimulating(!isSimulating)}
-            className={`flex-1 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors active:scale-95 cursor-pointer ${
-              isSimulating
-                ? 'bg-amber-600/30 text-amber-300 border border-amber-500/40'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-            }`}
-          >
-            {isSimulating ? <Pause className="w-3.5 h-3.5 text-amber-400" /> : <Play className="w-3.5 h-3.5 text-emerald-400" />}
-            <span>{isSimulating ? 'Switch to Real GPS Speed' : 'Simulate Drive Test'}</span>
-          </button>
-
+        <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-800">
           <button
             type="button"
             onClick={() => {
               if (window.speechSynthesis) window.speechSynthesis.cancel()
               setVoiceMuted(!voiceMuted)
             }}
-            className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+            className={`flex items-center gap-1.5 py-2 px-3.5 rounded-xl border transition-colors cursor-pointer text-xs font-bold ${
               voiceMuted ? 'bg-red-500/20 border-red-500/40 text-red-400' : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
             }`}
             title="Toggle Voice Guidance Mute"
           >
-            {voiceMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            {voiceMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+            <span>{voiceMuted ? 'Voice Off' : 'Voice On'}</span>
           </button>
 
           <button
             type="button"
             onClick={onExit}
-            className="bg-red-600 hover:bg-red-500 text-white font-extrabold py-2 px-4 rounded-xl text-xs transition-all active:scale-95 shadow-md cursor-pointer"
+            className="flex-1 bg-red-600 hover:bg-red-500 text-white font-extrabold py-2 px-4 rounded-xl text-xs transition-all active:scale-95 shadow-md cursor-pointer text-center"
           >
             End Navigation
           </button>

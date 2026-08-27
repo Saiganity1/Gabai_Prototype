@@ -619,25 +619,6 @@ function interpolateSegment(
         </svg>
       )}
 
-      {/* ── Floating 2D / 3D Perspective Switcher Pill ── */}
-      {onToggle3D && (
-        <div className="absolute top-28 right-2.5 z-20 pointer-events-auto shadow-xl">
-          <button
-            type="button"
-            onClick={onToggle3D}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl shadow-md border backdrop-blur-md transition-all font-black text-xs active:scale-95 cursor-pointer ${
-              is3D
-                ? 'bg-blue-600 text-white border-blue-400 shadow-blue-500/25 ring-2 ring-blue-400/30'
-                : 'bg-white/95 dark:bg-slate-800/95 text-slate-800 dark:text-slate-100 border-slate-200/60 dark:border-slate-700/60'
-            }`}
-            title={is3D ? 'Current: 3D Angled View (Click for 2D Top-Down)' : 'Current: 2D Flat View (Click for 3D Angled)'}
-          >
-            <span className="text-sm">{is3D ? '🧊' : '🗺️'}</span>
-            <span>{is3D ? '3D VIEW' : '2D VIEW'}</span>
-          </button>
-        </div>
-      )}
-
       <Map
         ref={mapRef}
         mapLib={maplibregl}
