@@ -8,6 +8,10 @@ export class ChatRequestDto {
   transcript: string;
 
   @IsOptional()
+  @IsString()
+  language?: string;
+
+  @IsOptional()
   context?: any;
 }
 
@@ -35,6 +39,7 @@ export class AiController {
   async chat(@Body() body: ChatRequestDto) {
     const result = await this.aiService.getChatResponse(
       body.transcript,
+      body.language,
       body.context,
     );
     return result;

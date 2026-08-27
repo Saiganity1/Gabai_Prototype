@@ -16,11 +16,14 @@ export function useVoiceAssistant(
   const [state, setState] = useState<VoiceState>('idle');
   const [transcript, setTranscript] = useState('');
   const [response, setResponse] = useState('');
+  const [language, setLanguage] = useState<'auto' | 'fil' | 'en' | 'pam'>('auto');
+  const [detectedLanguage, setDetectedLanguage] = useState<string>('');
   
   const recognitionRef = useRef<any>(null);
   const synthesisRef = useRef<SpeechSynthesis | null>(null);
   const contextRef = useRef<any>(contextData);
   const onActionRef = useRef(onAction);
+  const languageRef = useRef(language);
 
   useEffect(() => {
     contextRef.current = contextData;
@@ -29,6 +32,13 @@ export function useVoiceAssistant(
   useEffect(() => {
     onActionRef.current = onAction;
   }, [onAction]);
+
+  useEffect(() => {
+    languageRef.current = language;
+    if (recognitionRef.current && language !== 'auto') {
+      recognitionRef.current.lang = language === 'en' ? 'en-US' : 'fil-PH';
+    }
+  }, [language]);
 
   // Client-side instant keyword parser for offline / instantaneous feedback
   const parseLocalIntent = (text: string): VoiceActionPayload => {
@@ -102,7 +112,7 @@ export function useVoiceAssistant(
         const recognition = new SpeechRecognition();
         recognition.continuous = false;
         recognition.interimResults = true;
-        recognition.lang = 'fil-PH'; // Philippine Tagalog/Filipino
+        recognition.lang = languageRef.current === 'en' ? 'en-US' : 'fil-PH';
 
         recognition.onstart = () => setState('listening');
 
@@ -152,7 +162,7 @@ export function useVoiceAssistant(
           }
 
           setResponse(fallbackReply);
-          speakResponse(fallbackReply);
+          speakResponse(fallbackReply, languageRef.current);
 
           if (
             onActionRef.current &&
@@ -173,6 +183,7 @@ export function useVoiceAssistant(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             transcript: finalTranscript,
+            language: languageRef.current,
             context: contextRef.current,
           }),
         })
@@ -182,9 +193,11 @@ export function useVoiceAssistant(
             const action = data.action || localIntent.action;
             const hazardType = data.hazardType || localIntent.hazardType;
             const severity = data.severity || localIntent.severity;
+            const detLang = data.detectedLanguage;
+            if (detLang) setDetectedLanguage(detLang);
 
             setResponse(aiReply);
-            speakResponse(aiReply);
+            speakResponse(aiReply, detLang || languageRef.current);
 
             if (onActionRef.current && (action === 'REPORT_HAZARD' || action === 'SAFE_ROUTE')) {
               onActionRef.current({
@@ -204,7 +217,7 @@ export function useVoiceAssistant(
     }, 100);
   };
 
-  const speakResponse = (text: string) => {
+  const speakResponse = (text: string, langHint: string = 'fil') => {
     if (!synthesisRef.current) {
       setState('idle');
       return;
@@ -214,10 +227,17 @@ export function useVoiceAssistant(
 
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = synthesisRef.current.getVoices();
-    const phVoice = voices.find(
-      (v) => v.lang.includes('tl') || v.lang.includes('ph') || v.lang.includes('PH')
-    );
-    if (phVoice) utterance.voice = phVoice;
+    
+    // Find appropriate voice based on language
+    let selectedVoice;
+    if (langHint.includes('en')) {
+      selectedVoice = voices.find(v => v.lang.includes('en-PH')) || voices.find(v => v.lang.includes('en'));
+    } else {
+      // Fallback to Filipino for Tagalog, Kapampangan, Cebuano, etc if no specific voice exists
+      selectedVoice = voices.find(v => v.lang.includes('tl') || v.lang.includes('ph') || v.lang.includes('PH'));
+    }
+
+    if (selectedVoice) utterance.voice = selectedVoice;
 
     utterance.onstart = () => setState('speaking');
     utterance.onend = () => setState('idle');
@@ -258,7 +278,7 @@ export function useVoiceAssistant(
       }
 
       setResponse(fallbackReply);
-      speakResponse(fallbackReply);
+      speakResponse(fallbackReply, languageRef.current);
 
       if (
         onActionRef.current &&
@@ -278,6 +298,7 @@ export function useVoiceAssistant(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         transcript: text,
+        language: languageRef.current,
         context: contextRef.current,
       }),
     })
@@ -287,9 +308,11 @@ export function useVoiceAssistant(
         const action = data.action || localIntent.action;
         const hazardType = data.hazardType || localIntent.hazardType;
         const severity = data.severity || localIntent.severity;
+        const detLang = data.detectedLanguage;
+        if (detLang) setDetectedLanguage(detLang);
 
         setResponse(aiReply);
-        speakResponse(aiReply);
+        speakResponse(aiReply, detLang || languageRef.current);
 
         if (onActionRef.current && (action === 'REPORT_HAZARD' || action === 'SAFE_ROUTE')) {
           onActionRef.current({
@@ -309,6 +332,9 @@ export function useVoiceAssistant(
     state,
     transcript,
     response,
+    language,
+    setLanguage,
+    detectedLanguage,
     toggleListening,
     triggerTextPrompt,
   };

@@ -7,6 +7,7 @@ export interface AiChatResult {
   action?: 'REPORT_HAZARD' | 'SAFE_ROUTE' | 'GENERAL_QUERY';
   hazardType?: 'flood' | 'fire' | 'road' | 'rain' | 'power' | 'other';
   severity?: 'high' | 'medium' | 'low';
+  detectedLanguage?: string;
 }
 
 export interface PhotoAnalysisResult {
@@ -20,12 +21,17 @@ export interface PhotoAnalysisResult {
   confidence: number;
 }
 
+import { LocalizationService } from './localization.service';
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
   private ai: GoogleGenAI | null = null;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private localizationService: LocalizationService,
+  ) {
     const apiKey = this.configService.get<string>('AI_API_KEY');
     if (apiKey) {
       this.ai = new GoogleGenAI({ apiKey });
@@ -111,15 +117,23 @@ export class AiService {
 
   async getChatResponse(
     transcript: string,
+    language?: string,
     context?: any,
   ): Promise<AiChatResult> {
     if (!this.ai) {
-      return this.analyzeLocalIntent(transcript);
+      const fallbackAction = this.analyzeLocalIntent(transcript);
+      const localizedResponse = await this.localizationService.generateLocalizedResponse({
+        language: language || 'auto',
+        action: fallbackAction.action || 'GENERAL_QUERY',
+        hazardType: fallbackAction.hazardType,
+        severity: fallbackAction.severity,
+        context,
+      });
+      return { ...fallbackAction, response: localizedResponse, detectedLanguage: language || 'fil' };
     }
 
     try {
       const prompt = `You are GABAI, an emergency AI disaster assistant in the Philippines.
-The user speaks in Tagalog, English, or Taglish.
 User message: "${transcript}"
 Current Context: ${JSON.stringify(context || {})}
 
@@ -127,9 +141,10 @@ Return a valid JSON object with:
 - "action": "REPORT_HAZARD" if user reports a disaster (flood, fire, roadblock), "SAFE_ROUTE" if user asks for directions/shelters, or "GENERAL_QUERY"
 - "hazardType": "flood" | "fire" | "road" | "rain" | "power" | "other" (if applicable)
 - "severity": "high" | "medium" | "low"
-- "response": A concise, supportive, and safety-focused response in natural Tagalog/Filipino (1-2 sentences maximum).
+- "detectedLanguage": The ISO language code (e.g. "en", "fil", "pam", "ceb") of the user's message.
+- "internalReasoning": A brief English sentence explaining your logic.
 
-Output ONLY pure JSON.`;
+Output ONLY pure JSON without markdown blocks.`;
 
       const response = await this.ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -140,15 +155,35 @@ Output ONLY pure JSON.`;
       const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(cleaned);
 
-      return {
-        response: parsed.response || this.analyzeLocalIntent(transcript).response,
+      const targetLanguage = language && language !== 'auto' ? language : parsed.detectedLanguage || 'fil';
+
+      const localizedResponse = await this.localizationService.generateLocalizedResponse({
+        language: targetLanguage,
         action: parsed.action || 'GENERAL_QUERY',
         hazardType: parsed.hazardType,
         severity: parsed.severity,
+        context,
+        internalReasoning: parsed.internalReasoning,
+      });
+
+      return {
+        response: localizedResponse,
+        action: parsed.action || 'GENERAL_QUERY',
+        hazardType: parsed.hazardType,
+        severity: parsed.severity,
+        detectedLanguage: targetLanguage,
       };
     } catch (err: any) {
       this.logger.error(`Gemini AI Chat Error: ${err.message}`);
-      return this.analyzeLocalIntent(transcript);
+      const fallbackAction = this.analyzeLocalIntent(transcript);
+      const localizedResponse = await this.localizationService.generateLocalizedResponse({
+        language: language || 'auto',
+        action: fallbackAction.action || 'GENERAL_QUERY',
+        hazardType: fallbackAction.hazardType,
+        severity: fallbackAction.severity,
+        context,
+      });
+      return { ...fallbackAction, response: localizedResponse, detectedLanguage: language || 'fil' };
     }
   }
 
