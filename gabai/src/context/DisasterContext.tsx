@@ -324,7 +324,179 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [destination, setDestination] = useState<{ name: string; lat: number; lng: number } | null>(null)
   const [lastActionMessage, setLastActionMessage] = useState<string | null>(null)
 
-  // ── 1. Fetch initial data from REST API ──────────────────────────
+  // ── 0. Global Cloud Pub/Sub & SSE Cross-Device Relay ───────────────
+  const CLOUD_SYNC_TOPIC = 'gabai_pampanga_cloud_sync_2026'
+  const CLOUD_SYNC_URL = `https://ntfy.sh/${CLOUD_SYNC_TOPIC}`
+
+  const broadcastCloudEvent = useCallback(
+    async (event: {
+      type: 'REPORT_SUBMITTED' | 'REPORT_VERIFIED' | 'REPORT_REJECTED' | 'REPORT_RESOLVED'
+      reportId?: number | string
+      report?: CitizenReport
+      hazard?: Hazard
+      timestamp?: number
+    }) => {
+      try {
+        await fetch(CLOUD_SYNC_URL, {
+          method: 'POST',
+          headers: {
+            Title: `GABAI: ${event.type}`,
+            Priority: 'high',
+          },
+          body: JSON.stringify({ ...event, timestamp: Date.now() }),
+        })
+      } catch (err) {
+        console.log('Cloud broadcast skipped:', err)
+      }
+    },
+    []
+  )
+
+  const applyCloudEvent = useCallback((payload: any) => {
+    if (!payload || !payload.type) return
+
+    if (payload.type === 'REPORT_SUBMITTED' && payload.report) {
+      const rep = payload.report
+      const haz = payload.hazard
+      setReports((prev) => {
+        if (prev.some((r) => r.id === rep.id)) return prev
+        return [rep, ...prev]
+      })
+      if (haz) {
+        setHazards((prev) => {
+          if (prev.some((h) => h.id === haz.id)) return prev
+          return [haz, ...prev]
+        })
+      }
+    }
+
+    if (payload.type === 'REPORT_VERIFIED') {
+      const repId = payload.reportId
+      const haz = payload.hazard
+      const rep = payload.report
+
+      setReports((prev) => {
+        const exists = prev.some((r) => r.id === repId)
+        if (exists) {
+          return prev.map((r) => (r.id === repId ? { ...r, status: 'verified' as const } : r))
+        }
+        if (rep) {
+          return [{ ...rep, status: 'verified' as const }, ...prev]
+        }
+        return prev
+      })
+
+      setHazards((prev) => {
+        const hazId = haz?.id || payload.hazardId
+        const exists = prev.some(
+          (h) =>
+            (hazId && h.id === hazId) ||
+            (repId && (h.id === repId || (h as any).hazardId === repId))
+        )
+        if (exists) {
+          return prev.map((h) => {
+            if (
+              (hazId && h.id === hazId) ||
+              (repId && (h.id === repId || (h as any).hazardId === repId))
+            ) {
+              return {
+                ...h,
+                verified: Math.max(1, (h.verified || 0) + 1),
+                isVerified: true,
+                status: 'Verified by LGU',
+                confidence: Math.min(99, (h.confidence || 80) + 15),
+              }
+            }
+            return h
+          })
+        }
+        if (haz) {
+          const verifiedHaz: Hazard = {
+            ...haz,
+            isVerified: true,
+            status: 'Verified by LGU',
+            verified: Math.max(1, haz.verified || 1),
+          }
+          return [verifiedHaz, ...prev]
+        }
+        return prev
+      })
+    }
+
+    if (payload.type === 'REPORT_REJECTED') {
+      const repId = payload.reportId
+      setReports((prev) =>
+        prev.map((r) => (r.id === repId ? { ...r, status: 'rejected' as const } : r))
+      )
+      setHazards((prev) =>
+        prev.filter((h) => h.id !== repId && (h as any).hazardId !== repId)
+      )
+    }
+
+    if (payload.type === 'REPORT_RESOLVED') {
+      const repId = payload.reportId
+      setReports((prev) =>
+        prev.map((r) => (r.id === repId ? { ...r, status: 'resolved' as const } : r))
+      )
+      setHazards((prev) =>
+        prev.filter(
+          (h) => h.id !== repId && (h as any).hazardId !== repId && h.status !== 'Resolved'
+        )
+      )
+    }
+  }, [])
+
+  // ── 1. Cloud Cross-Device Real-Time Synchronization Listener ───────
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    // Catch up recent cloud history on app startup
+    const catchupCloudHistory = async () => {
+      try {
+        const res = await fetch(`${CLOUD_SYNC_URL}/json?poll=1&since=24h`)
+        if (res.ok) {
+          const text = await res.text()
+          const lines = text.trim().split('\n')
+          for (const line of lines) {
+            try {
+              const parsed = JSON.parse(line)
+              if (parsed.event === 'message' && parsed.message) {
+                const payload = JSON.parse(parsed.message)
+                applyCloudEvent(payload)
+              }
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.log('Cloud history catchup skipped:', err)
+      }
+    }
+
+    catchupCloudHistory()
+
+    // Real-time Server-Sent Events (SSE) stream across all devices & browsers
+    let eventSource: EventSource | null = null
+    try {
+      eventSource = new EventSource(`${CLOUD_SYNC_URL}/sse`)
+      eventSource.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data)
+          if (data.event === 'message' && data.message) {
+            const payload = JSON.parse(data.message)
+            applyCloudEvent(payload)
+          }
+        } catch {}
+      }
+    } catch (err) {
+      console.log('Cloud SSE connection error:', err)
+    }
+
+    return () => {
+      if (eventSource) eventSource.close()
+    }
+  }, [applyCloudEvent])
+
+  // ── 2. Fetch initial data from REST API (if self-hosted) ──────────
   useEffect(() => {
     if (!API_BASE_URL) return
 
@@ -370,7 +542,7 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     fetchInitialData()
   }, [])
 
-  // ── 2. WebSocket Real-Time Integration ────────────────────────────
+  // ── 3. WebSocket Real-Time Integration ────────────────────────────
   useEffect(() => {
     if (!WS_URL) return
 
@@ -437,7 +609,7 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return null
   }, [reports, userLoc.locationName])
 
-  // ── 3. Citizen Actions (Add Report with Anti-Spam LGU Verification) ─
+  // ── 4. Citizen Actions (Add Report with Anti-Spam LGU Verification) ─
   const addHazardReport = useCallback(
     ({
       type,
@@ -539,7 +711,14 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setReports((prev) => [newReport, ...prev])
       setLastActionMessage(`📢 Report submitted! Awaiting LGU verification before broadcasting to all motorists.`)
 
-      // Sync via REST
+      // Global Cross-Device Cloud Broadcast
+      broadcastCloudEvent({
+        type: 'REPORT_SUBMITTED',
+        report: newReport,
+        hazard: newHazard,
+      })
+
+      // Sync via REST (if configured)
       if (API_BASE_URL) {
         fetch(`${API_BASE_URL}/reports`, {
           method: 'POST',
@@ -567,13 +746,19 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       return { report: newReport, hazard: newHazard }
     },
-    [userLoc.coords.lat, userLoc.coords.lng, userLoc.locationName]
+    [userLoc.coords.lat, userLoc.coords.lng, userLoc.locationName, broadcastCloudEvent]
   )
 
   // ── LGU Verification Mutations ────────────────────────────────────
   const verifyReport = useCallback(
     async (reportId: number | string) => {
       const matched = reports.find((r) => r.id === reportId)
+      let updatedHazard: Hazard | undefined
+      let updatedReport: CitizenReport | undefined
+
+      if (matched) {
+        updatedReport = { ...matched, status: 'verified' as const }
+      }
 
       setReports((prev) =>
         prev.map((r) => (r.id === reportId ? { ...r, status: 'verified' as const } : r))
@@ -581,13 +766,14 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setHazards((prev) =>
         prev.map((h) => {
           if (matched && (matched.hazardId === h.id || matched.id === h.id)) {
-            return {
+            updatedHazard = {
               ...h,
               verified: (h.verified || 0) + 1,
               isVerified: true,
               status: 'Verified by LGU',
               confidence: Math.min(99, (h.confidence || 80) + 15),
             }
+            return updatedHazard
           }
           if (matched && matched.isRoadSegment && h.isRoadSegment) {
             const hRoadName = h.roadSegment?.roadName || h.label || ''
@@ -596,19 +782,28 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               (hRoadName && mRoadName && hRoadName.toLowerCase().includes(mRoadName.toLowerCase().slice(0, 8))) ||
               (mRoadName && hRoadName && mRoadName.toLowerCase().includes(hRoadName.toLowerCase().slice(0, 8)))
             ) {
-              return {
+              updatedHazard = {
                 ...h,
                 verified: (h.verified || 0) + 1,
                 isVerified: true,
                 status: 'Verified by LGU',
                 confidence: Math.min(99, (h.confidence || 80) + 15),
               }
+              return updatedHazard
             }
           }
           return h
         })
       )
       setLastActionMessage('✅ Report verified by LGU! Now published to all motorists on the live map.')
+
+      // Global Cross-Device Cloud Broadcast
+      broadcastCloudEvent({
+        type: 'REPORT_VERIFIED',
+        reportId,
+        report: updatedReport,
+        hazard: updatedHazard,
+      })
 
       if (API_BASE_URL) {
         fetch(`${API_BASE_URL}/reports/${reportId}/verify`, { method: 'PATCH' }).catch(() => {})
@@ -617,72 +812,92 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         socketRef.current.emit('report:verify', { reportId })
       }
     },
-    [reports]
+    [reports, broadcastCloudEvent]
   )
 
-  const rejectReport = useCallback(async (reportId: number | string) => {
-    const matched = reports.find((r) => r.id === reportId)
+  const rejectReport = useCallback(
+    async (reportId: number | string) => {
+      const matched = reports.find((r) => r.id === reportId)
 
-    setReports((prev) =>
-      prev.map((r) => (r.id === reportId ? { ...r, status: 'rejected' as const } : r))
-    )
+      setReports((prev) =>
+        prev.map((r) => (r.id === reportId ? { ...r, status: 'rejected' as const } : r))
+      )
 
-    setHazards((prev) =>
-      prev.map((h) => {
-        if (matched && (matched.hazardId === h.id || matched.id === h.id)) {
-          return { ...h, status: 'Rejected by LGU', isVerified: false }
-        }
-        return h
-      }).filter((h) => h.status !== 'Rejected by LGU')
-    )
+      setHazards((prev) =>
+        prev
+          .map((h) => {
+            if (matched && (matched.hazardId === h.id || matched.id === h.id)) {
+              return { ...h, status: 'Rejected by LGU', isVerified: false }
+            }
+            return h
+          })
+          .filter((h) => h.status !== 'Rejected by LGU')
+      )
 
-    setLastActionMessage('❌ Report rejected by LGU Dispatch (marked as false alarm / spam).')
+      setLastActionMessage('❌ Report rejected by LGU Dispatch (marked as false alarm / spam).')
 
-    if (API_BASE_URL) {
-      fetch(`${API_BASE_URL}/reports/${reportId}/reject`, { method: 'PATCH' }).catch(() => {})
-    }
-  }, [])
+      // Global Cross-Device Cloud Broadcast
+      broadcastCloudEvent({
+        type: 'REPORT_REJECTED',
+        reportId,
+      })
 
-  const resolveReport = useCallback(async (reportId: number | string) => {
-    const matched = reports.find((r) => r.id === reportId)
+      if (API_BASE_URL) {
+        fetch(`${API_BASE_URL}/reports/${reportId}/reject`, { method: 'PATCH' }).catch(() => {})
+      }
+    },
+    [reports, broadcastCloudEvent]
+  )
 
-    setReports((prev) =>
-      prev.map((r) => (r.id === reportId ? { ...r, status: 'resolved' as const } : r))
-    )
+  const resolveReport = useCallback(
+    async (reportId: number | string) => {
+      const matched = reports.find((r) => r.id === reportId)
 
-    setHazards((prev) =>
-      prev
-        .map((h) => {
-          if (matched && (h.id === matched.hazardId || h.id === matched.id)) {
-            return { ...h, status: 'Resolved' }
-          }
-          if (matched && matched.isRoadSegment && h.isRoadSegment) {
-            const hRoadName = h.roadSegment?.roadName || h.label || ''
-            const mRoadName = matched.roadSegment?.roadName || matched.locationName || ''
-            if (
-              (hRoadName && mRoadName && hRoadName.toLowerCase().includes(mRoadName.toLowerCase().slice(0, 8))) ||
-              (mRoadName && hRoadName && mRoadName.toLowerCase().includes(hRoadName.toLowerCase().slice(0, 8)))
-            ) {
+      setReports((prev) =>
+        prev.map((r) => (r.id === reportId ? { ...r, status: 'resolved' as const } : r))
+      )
+
+      setHazards((prev) =>
+        prev
+          .map((h) => {
+            if (matched && (h.id === matched.hazardId || h.id === matched.id)) {
               return { ...h, status: 'Resolved' }
             }
-          }
-          if (matched) {
-            const dist = Math.hypot(h.lat - matched.lat, h.lng - matched.lng)
-            if (dist < 0.004) {
-              return { ...h, status: 'Resolved' }
+            if (matched && matched.isRoadSegment && h.isRoadSegment) {
+              const hRoadName = h.roadSegment?.roadName || h.label || ''
+              const mRoadName = matched.roadSegment?.roadName || matched.locationName || ''
+              if (
+                (hRoadName && mRoadName && hRoadName.toLowerCase().includes(mRoadName.toLowerCase().slice(0, 8))) ||
+                (mRoadName && hRoadName && mRoadName.toLowerCase().includes(hRoadName.toLowerCase().slice(0, 8)))
+              ) {
+                return { ...h, status: 'Resolved' }
+              }
             }
-          }
-          return h
-        })
-        .filter((h) => h.status !== 'Resolved')
-    )
+            if (matched) {
+              const dist = Math.hypot(h.lat - matched.lat, h.lng - matched.lng)
+              if (dist < 0.004) {
+                return { ...h, status: 'Resolved' }
+              }
+            }
+            return h
+          })
+          .filter((h) => h.status !== 'Resolved')
+      )
 
-    setLastActionMessage('🏁 Incident resolved! Flood corridor cleared from live citizen map.')
+      setLastActionMessage('🏁 Incident resolved! Flood corridor cleared from live citizen map.')
 
-    if (API_BASE_URL) {
-      fetch(`${API_BASE_URL}/reports/${reportId}/resolve`, { method: 'PATCH' }).catch(() => {})
-    }
-  }, [reports])
+      // Global Cross-Device Cloud Broadcast
+      broadcastCloudEvent({
+        type: 'REPORT_RESOLVED',
+        reportId,
+      })
+
+      if (API_BASE_URL) {
+        fetch(`${API_BASE_URL}/reports/${reportId}/resolve`, { method: 'PATCH' }).catch(() => {})
+      }
+    },
+    [reports, broadcastCloudEvent]
+  )
 
   // ── Dynamic Safe Routes Engine with Real-World Road Network Routing ──
   const initialRoutes = useMemo(() => {
