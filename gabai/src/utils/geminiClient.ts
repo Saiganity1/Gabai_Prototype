@@ -174,28 +174,40 @@ Provide a concise, reassuring 1-2 sentence spoken response in Tagalog/Taglish. F
 
 /**
  * Direct Gemini Conversational Assistant for General Inquiries & Disaster Queries
+ * Strictly Grounded with Real-Time Telemetry to Prevent Hallucinations
  */
 export async function geminiChatAssistant(
   userQuery: string,
   context: {
     currentLocation: string
-    activeHazardsCount: number
-    evacuationCenters: string[]
+    activeHazardsList?: string[]
+    activeHazardsCount?: number
+    evacuationCenters?: string[]
+    routeDetails?: {
+      destinationName: string
+      distanceKm: number
+      durationMin: number
+      isClear: boolean
+    }
   }
 ): Promise<string | null> {
   if (!GEMINI_API_KEY) return null
 
-  const prompt = `You are GABAI, an emergency AI disaster navigation and public safety assistant in Pampanga, Philippines.
-Current User Location: ${context.currentLocation}
-Active Floods / Hazards in Area: ${context.activeHazardsCount}
-Nearby Evacuation Centers: ${context.evacuationCenters.slice(0, 5).join(', ')}
+  const prompt = `You are GABAI, an official AI disaster navigation and public safety assistant in Pampanga, Philippines.
+STRICT DATA INTEGRITY RULES (DO NOT HALLUCINATE):
+1. Use ONLY the provided verified ground-truth data below. NEVER invent fake hazard numbers, imaginary impassable roads, or exaggerated weather events.
+2. If routeDetails are provided, the route has ALREADY been calculated by GABAI's routing engine and is 100% CLEAR and SAFE. Confirm the exact destination and travel time.
+3. If the user asks if there is flood in a place, refer ONLY to the verified active hazard list. If a place is not in the list, state that no active flood reports exist there.
 
-User Message: "${userQuery}"
+GROUND-TRUTH DATA:
+- Current Location: ${context.currentLocation}
+${context.routeDetails ? `- Safe Calculated Route: To ${context.routeDetails.destinationName} (${context.routeDetails.distanceKm.toFixed(1)} km · ~${context.routeDetails.durationMin} mins) — Status: Flood-Free & Passable` : ''}
+- Verified Active Flood Road Segments in Pampanga: ${context.activeHazardsList && context.activeHazardsList.length > 0 ? context.activeHazardsList.join('; ') : 'None (All major roads passable)'}
+- Key Evacuation Centers: ${(context.evacuationCenters || []).slice(0, 4).join(', ')}
 
-Instructions:
-- Provide a helpful, clear, and reassuring response in Filipino / Tagalog (or English if the user typed in English).
-- If the user is asking about routes, safety, floods, or evacuation centers, give practical, accurate advice.
-- Keep the response between 2 to 4 sentences so it is fast and easy to read in a mobile chat bubble.`
+User Query: "${userQuery}"
+
+Task: Provide a concise (1-2 sentences), accurate, reassuring response in the user's language (Tagalog/English). State exact facts only.`
 
   try {
     const res = await fetch(GEMINI_API_URL, {

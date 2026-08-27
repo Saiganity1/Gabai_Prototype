@@ -537,14 +537,25 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           (h) => h.status !== 'Resolved' && h.status !== 'Rejected by LGU'
         ).length
 
+        const activeHazardsList = publicHazards
+          .filter((h) => h.status !== 'Resolved' && h.status !== 'Rejected by LGU')
+          .map((h) => `${h.roadSegment?.roadName || h.label} (${h.waterDepth || 'Flood'})`)
+
         let customAiIntro = ''
         try {
           const aiResponse = await geminiChatAssistant(
-            `User requested route to ${target.name} in Pampanga. Briefly state the safest road corridor in 1 concise sentence.`,
+            `User requested route to ${target.name} in Pampanga. State the verified status in 1 brief sentence.`,
             {
               currentLocation: locationName || 'Pampanga',
-              activeHazardsCount: activeBypassedCount,
+              activeHazardsList: activeHazardsList.slice(0, 5),
+              activeHazardsCount: activeHazardsList.length,
               evacuationCenters: evacCenters.map((e) => e.name),
+              routeDetails: {
+                destinationName: target.name,
+                distanceKm: distKm,
+                durationMin: estMin,
+                isClear: true,
+              },
             }
           )
           if (aiResponse) {
@@ -568,10 +579,15 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       }
 
       // 4. General conversational AI query fallback
+      const activeHazardsList = publicHazards
+        .filter((h) => h.status !== 'Resolved' && h.status !== 'Rejected by LGU')
+        .map((h) => `${h.roadSegment?.roadName || h.label} (${h.waterDepth || 'Flood'})`)
+
       try {
         const aiAnswer = await geminiChatAssistant(text, {
           currentLocation: locationName || 'Pampanga',
-          activeHazardsCount: publicHazards.filter((h) => h.status !== 'Resolved').length,
+          activeHazardsList: activeHazardsList.slice(0, 6),
+          activeHazardsCount: activeHazardsList.length,
           evacuationCenters: evacCenters.map((e) => e.name),
         })
 
