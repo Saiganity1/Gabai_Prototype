@@ -9,9 +9,10 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (isLocalhost ? 'http:/
 export type VoiceState = 'idle' | 'listening' | 'processing' | 'speaking';
 
 export interface VoiceActionPayload {
-  action: 'REPORT_HAZARD' | 'SAFE_ROUTE' | 'GENERAL_QUERY';
+  action: 'REPORT_HAZARD' | 'SAFE_ROUTE' | 'NAVIGATE' | 'GENERAL_QUERY';
   hazardType?: 'flood' | 'fire' | 'road' | 'rain' | 'power' | 'other';
   severity?: 'high' | 'medium' | 'low';
+  destination?: string;
   transcript: string;
 }
 
@@ -103,6 +104,23 @@ export function useVoiceAssistant(
         transcript: text,
       };
     }
+    if (
+      lower.includes('pupunta') ||
+      lower.includes('punta') ||
+      lower.includes('go to') ||
+      lower.includes('papunta')
+    ) {
+      let destination = 'destinasyon';
+      const match = lower.match(/sa\s+(.+)/i);
+      if (match && match[1]) {
+        destination = match[1].trim();
+      }
+      return {
+        action: 'NAVIGATE',
+        destination,
+        transcript: text,
+      };
+    }
     return {
       action: 'GENERAL_QUERY',
       transcript: text,
@@ -165,6 +183,8 @@ export function useVoiceAssistant(
             fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
           } else if (localIntent.action === 'SAFE_ROUTE') {
             fallbackReply = 'Ipinapakita ang pinakaligtas na ruta sa evacuation shelter.';
+          } else if (localIntent.action === 'NAVIGATE') {
+            fallbackReply = `Naghahanap ng ligtas na ruta papuntang ${localIntent.destination || 'iyong destinasyon'}.`;
           }
 
           setResponse(fallbackReply);
@@ -172,7 +192,7 @@ export function useVoiceAssistant(
 
           if (
             onActionRef.current &&
-            (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE')
+            (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE' || localIntent.action === 'NAVIGATE')
           ) {
             onActionRef.current(localIntent);
           }
@@ -199,17 +219,19 @@ export function useVoiceAssistant(
             const action = data.action || localIntent.action;
             const hazardType = data.hazardType || localIntent.hazardType;
             const severity = data.severity || localIntent.severity;
+            const destination = data.destination || localIntent.destination;
             const detLang = data.detectedLanguage;
             if (detLang) setDetectedLanguage(detLang);
 
             setResponse(aiReply);
             speakResponse(aiReply, detLang || languageRef.current);
 
-            if (onActionRef.current && (action === 'REPORT_HAZARD' || action === 'SAFE_ROUTE')) {
+            if (onActionRef.current && (action === 'REPORT_HAZARD' || action === 'SAFE_ROUTE' || action === 'NAVIGATE')) {
               onActionRef.current({
                 action,
                 hazardType,
                 severity,
+                destination,
                 transcript: finalTranscript,
               });
             }
@@ -281,6 +303,8 @@ export function useVoiceAssistant(
         fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
       } else if (localIntent.action === 'SAFE_ROUTE') {
         fallbackReply = 'Ipinapakita ang pinakaligtas na ruta sa evacuation shelter.';
+      } else if (localIntent.action === 'NAVIGATE') {
+        fallbackReply = `Naghahanap ng ligtas na ruta papuntang ${localIntent.destination || 'iyong destinasyon'}.`;
       }
 
       setResponse(fallbackReply);
@@ -288,7 +312,7 @@ export function useVoiceAssistant(
 
       if (
         onActionRef.current &&
-        (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE')
+        (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE' || localIntent.action === 'NAVIGATE')
       ) {
         onActionRef.current(localIntent);
       }
@@ -314,17 +338,19 @@ export function useVoiceAssistant(
         const action = data.action || localIntent.action;
         const hazardType = data.hazardType || localIntent.hazardType;
         const severity = data.severity || localIntent.severity;
+        const destination = data.destination || localIntent.destination;
         const detLang = data.detectedLanguage;
         if (detLang) setDetectedLanguage(detLang);
 
         setResponse(aiReply);
         speakResponse(aiReply, detLang || languageRef.current);
 
-        if (onActionRef.current && (action === 'REPORT_HAZARD' || action === 'SAFE_ROUTE')) {
+        if (onActionRef.current && (action === 'REPORT_HAZARD' || action === 'SAFE_ROUTE' || action === 'NAVIGATE')) {
           onActionRef.current({
             action,
             hazardType,
             severity,
+            destination,
             transcript: text,
           });
         }
@@ -343,5 +369,6 @@ export function useVoiceAssistant(
     detectedLanguage,
     toggleListening,
     triggerTextPrompt,
+    speakResponse,
   };
 }

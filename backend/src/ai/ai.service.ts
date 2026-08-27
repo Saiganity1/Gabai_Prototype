@@ -4,9 +4,10 @@ import { GoogleGenAI } from '@google/genai';
 
 export interface AiChatResult {
   response: string;
-  action?: 'REPORT_HAZARD' | 'SAFE_ROUTE' | 'GENERAL_QUERY';
+  action?: 'REPORT_HAZARD' | 'SAFE_ROUTE' | 'NAVIGATE' | 'GENERAL_QUERY';
   hazardType?: 'flood' | 'fire' | 'road' | 'rain' | 'power' | 'other';
   severity?: 'high' | 'medium' | 'low';
+  destination?: string;
   detectedLanguage?: string;
 }
 
@@ -93,6 +94,44 @@ export class AiService {
     }
 
     if (
+      text.includes('pupunta') ||
+      text.includes('punta') ||
+      text.includes('go to') ||
+      text.includes('papunta')
+    ) {
+      // Basic fallback extraction for "pupunta ako sa X"
+      let destination = 'destinasyon';
+      const match = text.match(/sa\s+(.+)/i);
+      if (match && match[1]) {
+        destination = match[1].trim();
+      }
+      return {
+        action: 'NAVIGATE',
+        destination,
+        response: `Inihahanda ang ligtas na ruta papuntang ${destination}.`,
+      };
+    }
+
+    if (
+      text.includes('pupunta') ||
+      text.includes('punta') ||
+      text.includes('go to') ||
+      text.includes('papunta')
+    ) {
+      // Basic fallback extraction for "pupunta ako sa X"
+      let destination = 'destinasyon';
+      const match = text.match(/sa\s+(.+)/i);
+      if (match && match[1]) {
+        destination = match[1].trim();
+      }
+      return {
+        action: 'NAVIGATE',
+        destination,
+        response: `Inihahanda ang ligtas na ruta papuntang ${destination}.`,
+      };
+    }
+
+    if (
       text.includes('ruta') ||
       text.includes('route') ||
       text.includes('daan') ||
@@ -138,7 +177,8 @@ User message: "${transcript}"
 Current Context: ${JSON.stringify(context || {})}
 
 Return a valid JSON object with:
-- "action": "REPORT_HAZARD" if user reports a disaster (flood, fire, roadblock), "SAFE_ROUTE" if user asks for directions/shelters, or "GENERAL_QUERY"
+- "action": "REPORT_HAZARD" if user reports a disaster (flood, fire, roadblock), "SAFE_ROUTE" if user asks for directions/shelters, "NAVIGATE" if user specifically asks to go to a named place, or "GENERAL_QUERY"
+- "destination": The specific name of the place the user wants to go (e.g. "Lugaw Nayon", "SM Pampanga"). ONLY include this if action is "NAVIGATE".
 - "hazardType": "flood" | "fire" | "road" | "rain" | "power" | "other" (if applicable)
 - "severity": "high" | "medium" | "low"
 - "detectedLanguage": The ISO language code (e.g. "en", "fil", "pam", "ceb") of the user's message.
@@ -162,6 +202,7 @@ Output ONLY pure JSON without markdown blocks.`;
         action: parsed.action || 'GENERAL_QUERY',
         hazardType: parsed.hazardType,
         severity: parsed.severity,
+        destination: parsed.destination,
         context,
         internalReasoning: parsed.internalReasoning,
       });
@@ -171,6 +212,7 @@ Output ONLY pure JSON without markdown blocks.`;
         action: parsed.action || 'GENERAL_QUERY',
         hazardType: parsed.hazardType,
         severity: parsed.severity,
+        destination: parsed.destination,
         detectedLanguage: targetLanguage,
       };
     } catch (err: any) {
@@ -181,6 +223,7 @@ Output ONLY pure JSON without markdown blocks.`;
         action: fallbackAction.action || 'GENERAL_QUERY',
         hazardType: fallbackAction.hazardType,
         severity: fallbackAction.severity,
+        destination: fallbackAction.destination,
         context,
       });
       return { ...fallbackAction, response: localizedResponse, detectedLanguage: language || 'fil' };

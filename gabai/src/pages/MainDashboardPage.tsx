@@ -62,6 +62,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const [isChoosingDestination, setIsChoosingDestination] = useState(false)
   const [destinationSearch, setDestinationSearch] = useState('')
   const [isMapClickDestinationMode, setIsMapClickDestinationMode] = useState(false)
+  const [pendingAutoNavigate, setPendingAutoNavigate] = useState(false)
 
   // Advanced feature active views
   const [isDrivingHUDActive, setIsDrivingHUDActive] = useState(false)
@@ -259,6 +260,29 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       setActiveModal('hazard')
     } else if (payload.action === 'SAFE_ROUTE') {
       setActiveModal('routes')
+    } else if (payload.action === 'NAVIGATE' && payload.destination) {
+      const dest = payload.destination;
+      const q = dest.toLowerCase();
+      const localMatch = evacCenters.find(e => e.name.toLowerCase().includes(q) || e.address.toLowerCase().includes(q));
+      
+      const navigateTo = async () => {
+         let target = null;
+         if (localMatch) {
+            target = { name: localMatch.name, lat: localMatch.lat, lng: localMatch.lng };
+         } else {
+            const osmMatches = await searchRealWorldPlaces(dest, userLocation.lat, userLocation.lng);
+            if (osmMatches.length > 0) {
+               target = { name: osmMatches[0].name, lat: osmMatches[0].lat, lng: osmMatches[0].lng };
+            }
+         }
+
+         if (target) {
+            setDestination(target);
+            setPendingAutoNavigate(true);
+            setActiveModal('none');
+         }
+      };
+      navigateTo();
     }
   }
 
@@ -280,6 +304,41 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       return () => clearTimeout(timer)
     }
   }, [lastActionMessage, clearLastActionMessage])
+
+  // Auto-navigation effect
+  useEffect(() => {
+    if (pendingAutoNavigate && routes && routes['safe']) {
+      const activeRoute = routes['safe'];
+      const summary = activeRoute.rawRoute?.legs?.[0]?.summary || 'mga pangunahing kalsada';
+      
+      const msg = `Dadaan ang ligtas na ruta sa ${summary}.`;
+      // Need a slight delay to allow the initial TTS from backend to finish
+      setTimeout(() => {
+        voice.speakResponse(msg, voice.detectedLanguage || voice.language);
+      }, 3000);
+      
+      setSelectedRoute('safe');
+      setIsDrivingHUDActive(true);
+      setPendingAutoNavigate(false);
+
+      let initialBearing = -15;
+      const coords = activeRoute?.geoJSON?.geometry?.coordinates;
+      if (Array.isArray(coords) && coords.length > 1) {
+        const [lng1, lat1] = coords[0];
+        const [lng2, lat2] = coords[Math.min(3, coords.length - 1)];
+        const y = Math.sin(((lng2 - lng1) * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180);
+        const x = Math.cos((lat1 * Math.PI) / 180) * Math.sin((lat2 * Math.PI) / 180) - Math.sin((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.cos(((lng2 - lng1) * Math.PI) / 180);
+        const angle = (Math.atan2(y, x) * 180) / Math.PI;
+        initialBearing = (angle + 360) % 360;
+      }
+      
+      mapCanvasRef.current?.startNavigationPerspective(
+        userLocation.lat,
+        userLocation.lng,
+        initialBearing
+      );
+    }
+  }, [routes, pendingAutoNavigate]);
 
   const handleMicPress = () => {
     setShowBubble(false)

@@ -7,6 +7,7 @@ export interface LocalizationParams {
   action: string;
   hazardType?: string;
   severity?: string;
+  destination?: string;
   context?: any;
   internalReasoning?: string;
 }
@@ -42,6 +43,12 @@ export class LocalizationService {
       return 'Inihanda ko na ang pinakaligtas na ruta na umiiwas sa mga baha at delikadong lugar.';
     }
 
+    if (params.action === 'NAVIGATE') {
+      const dest = params.destination || 'iyong destinasyon';
+      if (lang === 'en') return `Navigating to ${dest}. I am preparing the safest route.`;
+      return `Naghahanap ng ligtas na ruta papuntang ${dest}.`;
+    }
+
     if (lang === 'en') return 'Your current sector is safe. Please keep GABAI open for live updates.';
     return 'Ligtas ang inyong kasalukuyang sektor. Panatilihing bukas ang GABAI para sa mga anunsyo.';
   }
@@ -65,6 +72,7 @@ Context Data:
 - Action Taken: ${params.action}
 - Hazard Type: ${params.hazardType || 'none'}
 - Severity: ${params.severity || 'none'}
+- Destination: ${params.destination || 'none'}
 - Context Info: ${JSON.stringify(params.context || {})}
 - Internal Reasoning: ${params.internalReasoning || 'none'}
 
