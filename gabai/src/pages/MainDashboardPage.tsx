@@ -17,6 +17,7 @@ import { REPORT_TYPES } from '../constants'
 import { ActiveModal, AppState } from '../types'
 import { StatusDot } from '../components/ui/StatusDot'
 import { RiskBadge } from '../components/ui/RiskBadge'
+import { GabaiChatbot } from '../components/GabaiChatbot'
 import { searchRealWorldPlaces } from '../utils/placeSearch'
 import { fetchRoadSegmentPath } from '../utils/routingEngine'
 import { analyzeRouteWithAI } from '../utils/aiRouteAdvisor'
@@ -68,6 +69,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   // Advanced feature active views
   const [isDrivingHUDActive, setIsDrivingHUDActive] = useState(false)
   const [isSOSStrobeActive, setIsSOSStrobeActive] = useState(false)
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false)
 
   // Real Search Autocomplete
   const [searchQuery, setSearchQuery] = useState('')
@@ -357,7 +359,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
   const handleMicPress = () => {
     setShowBubble(false)
-    voice.toggleListening()
+    setIsChatbotOpen(true)
   }
 
   const handleSuggestion = (s: string) => {
@@ -619,6 +621,10 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           isPickingPoint={Boolean(isPickingPointMode || isMapClickDestinationMode)}
         />
       </div>
+
+      {isChatbotOpen && (
+        <GabaiChatbot onClose={() => setIsChatbotOpen(false)} voice={voice} />
+      )}
 
       {/* ── Picking Road Segment Mode Floating Banner ───────── */}
       {isPickingPointMode && (

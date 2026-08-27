@@ -10,6 +10,7 @@ export interface LocalizationParams {
   destination?: string;
   context?: any;
   internalReasoning?: string;
+  transcript?: string;
 }
 
 @Injectable()
@@ -65,22 +66,25 @@ export class LocalizationService {
                        params.language === 'ceb' ? 'Cebuano' : 'Filipino/Tagalog';
 
     try {
-      const prompt = `You are the localization engine for GABAI, an emergency AI disaster assistant.
-Convert the following structured emergency decision into a natural, spoken response in ${targetLang}.
+      const prompt = `You are GABAI, an emergency AI disaster chatbot assistant in the Philippines.
+The user said: "${params.transcript || 'Unknown'}"
+The system classified this intent as: ${params.action}
 
 Context Data:
-- Action Taken: ${params.action}
 - Hazard Type: ${params.hazardType || 'none'}
 - Severity: ${params.severity || 'none'}
 - Destination: ${params.destination || 'none'}
 - Context Info: ${JSON.stringify(params.context || {})}
 - Internal Reasoning: ${params.internalReasoning || 'none'}
 
-Rules:
-1. Preserve road names, place names, distances, and warnings. Do not translate proper nouns (e.g., "Mabini Road" stays "Mabini Road").
-2. Keep the response concise, clear, and unambiguous (1-2 sentences max).
-3. Focus on motorist safety.
-4. Respond ONLY with the translated text. Do not add quotes, formatting, or extra explanations.`;
+Your task is to generate a conversational, helpful, and natural response directly to the user in ${targetLang}.
+
+STRICT CHATBOT RULES:
+1. You MUST act as an emergency/disaster/navigation assistant.
+2. If the system intent is "GENERAL_QUERY" or the user asks an OFF-TOPIC question (e.g., jokes, general trivia, coding, history, chitchat not related to safety/navigation/disasters), you MUST firmly but politely refuse to answer and state that you are an emergency disaster assistant.
+3. If the user asks a relevant question (e.g., "Saan may baha?", "Saan ang safe na daan?"), answer it helpfully using the Context Data.
+4. Keep the response concise (1-3 sentences max). Focus on safety and clarity.
+5. Respond ONLY with the translated conversational text. Do not add quotes, formatting, or extra explanations.`;
 
       const response = await this.ai.models.generateContent({
         model: 'gemini-2.5-pro',

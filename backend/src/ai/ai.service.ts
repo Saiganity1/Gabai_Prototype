@@ -177,7 +177,7 @@ User message: "${transcript}"
 Current Context: ${JSON.stringify(context || {})}
 
 Return a valid JSON object with:
-- "action": "REPORT_HAZARD" if user reports a disaster (flood, fire, roadblock), "SAFE_ROUTE" if user asks for directions/shelters, "NAVIGATE" if user specifically asks to go to a named place, or "GENERAL_QUERY"
+- "action": "REPORT_HAZARD" if user reports a disaster (flood, fire, roadblock), "SAFE_ROUTE" if user asks for directions/shelters, "NAVIGATE" if user specifically asks to go to a named place, or "GENERAL_QUERY" if the query is anything else or OFF-TOPIC.
 - "destination": The specific name of the place the user wants to go (e.g. "Lugaw Nayon", "SM Pampanga"). ONLY include this if action is "NAVIGATE".
 - "hazardType": "flood" | "fire" | "road" | "rain" | "power" | "other" (if applicable)
 - "severity": "high" | "medium" | "low"
@@ -205,6 +205,7 @@ Output ONLY pure JSON without markdown blocks.`;
         destination: parsed.destination,
         context,
         internalReasoning: parsed.internalReasoning,
+        transcript,
       });
 
       return {
