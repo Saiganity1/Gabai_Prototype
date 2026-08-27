@@ -17,13 +17,6 @@ export function GabaiChatbot({ onClose, voice }: GabaiChatbotProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, voice.state]);
 
-  const prevTranscript = useRef('');
-  useEffect(() => {
-    if (voice.state === 'processing' && voice.transcript && voice.transcript !== prevTranscript.current) {
-      setMessages(prev => [...prev, { sender: 'user', text: voice.transcript }]);
-      prevTranscript.current = voice.transcript;
-    }
-  }, [voice.state, voice.transcript]);
 
   const prevResponse = useRef('');
   useEffect(() => {
