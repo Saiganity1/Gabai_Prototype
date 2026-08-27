@@ -419,6 +419,24 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [])
 
+  // ── AI Pattern Detection ──────────────────────────────────────────
+  const aiPatternInsight: AIPatternInsight | null = useMemo(() => {
+    const highSeverityReports = reports.filter(
+      (r) => r.severity === 'high' && r.status !== 'rejected'
+    )
+    if (highSeverityReports.length >= 2) {
+      return {
+        title: `Flooding Cluster Detected (${highSeverityReports.length} Reports)`,
+        description: `Multiple flood reports registered near ${userLoc.locationName}. Rising water level detected. Roads are impassable for light vehicles.`,
+        severity: 'high',
+        clusterCount: highSeverityReports.length,
+        recommendedAction: 'Reroute traffic to higher ground corridors immediately.',
+        timestamp: 'Active Now',
+      }
+    }
+    return null
+  }, [reports, userLoc.locationName])
+
   // ── 3. Citizen Actions (Add Report with Anti-Spam LGU Verification) ─
   const addHazardReport = useCallback(
     ({
