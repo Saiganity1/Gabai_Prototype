@@ -1,4 +1,5 @@
 export function StatusDot({ risk }: { risk: string }) {
-  const c = risk === 'low' ? 'bg-green-500' : risk === 'medium' ? 'bg-amber-400' : 'bg-red-500'
-  return <span className={`inline-block w-2.5 h-2.5 rounded-full ${c} shrink-0`} />
+  const c = risk === 'low' ? 'bg-emerald-500 ring-emerald-500/30' : risk === 'medium' ? 'bg-amber-400 ring-amber-400/30' : 'bg-rose-500 ring-rose-500/30'
+  return <span className={`inline-block w-2 h-2 rounded-full ${c} ring-4 shrink-0`} />
 }
+

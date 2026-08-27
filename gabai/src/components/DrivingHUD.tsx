@@ -137,25 +137,25 @@ export default function DrivingHUD({
 
   return (
     <div className="fixed inset-0 z-50 pointer-events-none flex flex-col justify-between p-3 sm:p-5 select-none anim-fade-in">
-      {/* ── Top Waze-Style Floating Navigation Header ── */}
+      {/* ── Top Floating Navigation Header ── */}
       <div className="max-w-xl w-full mx-auto pointer-events-auto">
-        <div className="bg-slate-900/95 backdrop-blur-xl border-2 border-emerald-500 rounded-3xl p-4 sm:p-5 shadow-[0_12px_40px_rgba(0,0,0,0.6)]">
+        <div className="bg-slate-900/90 backdrop-blur-2xl border border-emerald-500/40 rounded-3xl p-4 sm:p-5 shadow-[0_16px_40px_rgba(0,0,0,0.4)]">
           <div className="flex items-center gap-3.5">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-lg shrink-0">
+            <div className="w-13 h-13 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
               {currentStep.icon === 'right' ? (
-                <ArrowRight className="w-8 h-8 stroke-[3]" />
+                <ArrowRight className="w-7 h-7 stroke-[2.5]" />
               ) : currentStep.icon === 'left' ? (
-                <ArrowLeft className="w-8 h-8 stroke-[3]" />
+                <ArrowLeft className="w-7 h-7 stroke-[2.5]" />
               ) : (
-                <ArrowUp className="w-8 h-8 stroke-[3]" />
+                <ArrowUp className="w-7 h-7 stroke-[2.5]" />
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xl sm:text-2xl font-black text-white leading-tight tracking-tight truncate">
+              <div className="text-lg sm:text-xl font-bold text-white leading-tight truncate">
                 {currentStep.instruction}
               </div>
-              <div className="text-xs font-bold text-emerald-400 mt-1 flex items-center gap-2">
-                <span className="text-base font-extrabold text-white">{currentStep.distance}</span>
+              <div className="text-xs font-medium text-emerald-400 mt-1 flex items-center gap-2">
+                <span className="text-sm font-bold text-white">{currentStep.distance}</span>
                 <span>•</span>
                 <span className="text-slate-300 truncate">{currentStep.subtext}</span>
               </div>
@@ -164,29 +164,29 @@ export default function DrivingHUD({
               <button
                 type="button"
                 onClick={() => speakInstruction(currentStepIdx, true)}
-                className="p-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-white transition-colors active:scale-95 cursor-pointer"
+                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-white transition-all active:scale-95 cursor-pointer border border-slate-700/60"
                 title="Speak Direction Now"
               >
-                <Volume2 className="w-5 h-5" />
+                <Volume2 className="w-4 h-4" />
               </button>
               <button
                 type="button"
                 onClick={onExit}
-                className="p-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors active:scale-95 cursor-pointer"
+                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all active:scale-95 cursor-pointer border border-slate-700/60"
                 title="Exit Safe Driving Navigation"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
           {/* Dynamic Hazard Bypass Alert */}
           {currentStep.hazardNear && (
-            <div className="mt-3 bg-amber-500/20 border border-amber-500/50 rounded-xl p-2.5 px-3 flex items-center gap-2.5 anim-slide-down">
+            <div className="mt-3 bg-amber-500/10 border border-amber-500/30 rounded-xl p-2.5 px-3 flex items-center gap-2.5 anim-slide-down">
               <Shield className="w-4 h-4 text-amber-400 shrink-0" />
-              <div className="text-[11px] font-bold text-amber-300 flex-1 truncate">
-                <span>GABAI Active Bypass: </span>
-                <span className="text-slate-200 font-normal">{currentStep.hazardNear}</span>
+              <div className="text-[11px] font-medium text-amber-300 flex-1 truncate">
+                <span className="font-bold">GABAI Bypass: </span>
+                <span className="text-slate-300 font-normal">{currentStep.hazardNear}</span>
               </div>
             </div>
           )}
@@ -196,18 +196,18 @@ export default function DrivingHUD({
       {/* ── Middle Floating Side Widgets (Speedometer & Mode Badge) ── */}
       <div className="flex justify-between items-end w-full max-w-4xl mx-auto pointer-events-none px-2 mb-2">
         {/* Real Speedometer in bottom-left */}
-        <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 rounded-2xl p-3 px-4 shadow-2xl flex flex-col items-center justify-center min-w-[90px]">
-          <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white leading-none">
+        <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-2xl border border-slate-800 rounded-2xl p-3 px-4 shadow-xl flex flex-col items-center justify-center min-w-[90px]">
+          <div className="text-3xl font-extrabold tracking-tight text-white leading-none font-mono">
             {displaySpeed}
           </div>
-          <div className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mt-0.5">KM / H</div>
+          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">KM / H</div>
           <div
-            className={`mt-1 text-[8px] font-black px-2 py-0.5 rounded-full uppercase flex items-center gap-1 border ${
+            className={`mt-1.5 text-[8px] font-bold px-2 py-0.5 rounded-full uppercase flex items-center gap-1 border ${
               isSimulating
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
                 : displaySpeed > 0
-                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
-                : 'bg-slate-700/40 text-slate-300 border-slate-600/40'
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                : 'bg-slate-800 text-slate-400 border-slate-700'
             }`}
           >
             <Radio className="w-2.5 h-2.5 animate-pulse" />
@@ -217,55 +217,55 @@ export default function DrivingHUD({
 
         {/* Live Re-center Compass Button */}
         <div className="pointer-events-auto">
-          <div className="w-11 h-11 rounded-full bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 shadow-2xl flex items-center justify-center text-cyan-400">
-            <Compass className="w-5 h-5 animate-pulse" />
+          <div className="w-10 h-10 rounded-full bg-slate-900/90 backdrop-blur-2xl border border-slate-800 shadow-xl flex items-center justify-center text-cyan-400">
+            <Compass className="w-4 h-4 animate-pulse" />
           </div>
         </div>
       </div>
 
-      {/* ── Bottom Floating Waze Glass Card ── */}
-      <div className="max-w-xl w-full mx-auto pointer-events-auto bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-3xl p-4 shadow-[0_12px_40px_rgba(0,0,0,0.7)]">
+      {/* ── Bottom Floating Card ── */}
+      <div className="max-w-xl w-full mx-auto pointer-events-auto bg-slate-900/90 backdrop-blur-2xl border border-slate-800 rounded-3xl p-4 shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
         <div className="flex items-center justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
               <span>🏁</span> Destination
             </div>
-            <div className="text-sm sm:text-base font-extrabold text-white truncate">
+            <div className="text-sm font-bold text-white truncate mt-0.5">
               {destinationName}
             </div>
           </div>
 
           <div className="text-right shrink-0">
-            <div className="text-xl sm:text-2xl font-black text-emerald-400 leading-none">
+            <div className="text-xl font-extrabold text-emerald-400 leading-none">
               {route.time}
             </div>
-            <div className="text-[11px] font-bold text-slate-400 mt-1">
+            <div className="text-[11px] font-medium text-slate-400 mt-1">
               {typeof route.distanceKm === 'number' ? route.distanceKm.toFixed(1) : route.distanceKm} km remaining
             </div>
           </div>
         </div>
 
         {/* Controls */}
-        <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-800">
+        <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-800/80">
           <button
             type="button"
             onClick={() => {
               if (window.speechSynthesis) window.speechSynthesis.cancel()
               setVoiceMuted(!voiceMuted)
             }}
-            className={`flex items-center gap-1.5 py-2 px-3.5 rounded-xl border transition-colors cursor-pointer text-xs font-bold ${
-              voiceMuted ? 'bg-red-500/20 border-red-500/40 text-red-400' : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+            className={`flex items-center gap-1.5 py-2 px-3.5 rounded-xl border transition-all cursor-pointer text-xs font-semibold ${
+              voiceMuted ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-slate-800 border-slate-700/80 text-slate-300 hover:text-white'
             }`}
             title="Toggle Voice Guidance Mute"
           >
-            {voiceMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
-            <span>{voiceMuted ? 'Voice Off' : 'Voice On'}</span>
+            {voiceMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+            <span>{voiceMuted ? 'Voice Muted' : 'Voice On'}</span>
           </button>
 
           <button
             type="button"
             onClick={onExit}
-            className="flex-1 bg-red-600 hover:bg-red-500 text-white font-extrabold py-2 px-4 rounded-xl text-xs transition-all active:scale-95 shadow-md cursor-pointer text-center"
+            className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 px-4 rounded-xl text-xs transition-all active:scale-95 shadow-xs cursor-pointer text-center"
           >
             End Navigation
           </button>
@@ -274,3 +274,4 @@ export default function DrivingHUD({
     </div>
   )
 }
+
