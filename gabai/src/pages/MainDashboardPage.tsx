@@ -1080,9 +1080,22 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             }`} />
             
             <div className="absolute inset-0 rounded-full border-[1.5px] border-white/40 mix-blend-overlay" />
-                ? <MicOff className="w-6 h-6 text-white drop-shadow-md" />
-                : <Mic className="w-6 h-6 text-white drop-shadow-md" />
-              }
+            <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
+            
+            <div className="relative z-10 flex items-center gap-2.5 text-white">
+              {voice.state === 'listening' || voice.state === 'processing' ? (
+                <MicOff className="w-5 h-5 drop-shadow-md animate-pulse" />
+              ) : (
+                <Mic className="w-5 h-5 drop-shadow-md" />
+              )}
+              
+              <span className="font-black tracking-wide text-sm drop-shadow-md">
+                {voice.state === 'listening' ? 'LISTENING...' : 'GABAI'}
+              </span>
+              
+              {voice.state === 'idle' && (
+                <Sparkles className="w-4 h-4 text-cyan-200 drop-shadow-md" />
+              )}
             </div>
           </button>
         </div>
