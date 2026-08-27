@@ -109,6 +109,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const [layersOpen, setLayersOpen] = useState(false)
   const [conditionsOpen, setConditionsOpen] = useState(true)
   const [showLegend, setShowLegend] = useState(true)
+  const [locationAllowedForHotlines, setLocationAllowedForHotlines] = useState(false)
   const [isAiAlertDismissed, setIsAiAlertDismissed] = useState(false)
   const mapCanvasRef = useRef<MapCanvasHandle>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -1120,22 +1121,76 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             </div>
 
             {/* Access Emergency Hotlines Card */}
-            <div className="bg-[#151e32] border border-slate-800/90 rounded-xl p-3.5 mt-3 shadow-inner">
-              <div className="flex items-center gap-2 font-bold text-xs text-white mb-1.5">
-                <MapPin className="w-4 h-4 text-blue-400 shrink-0" />
-                <span>Access Local Emergency Hotlines</span>
+            {!locationAllowedForHotlines ? (
+              <div className="bg-[#151e32] border border-slate-800/90 rounded-xl p-3.5 mt-3 shadow-inner">
+                <div className="flex items-center gap-2 font-bold text-xs text-white mb-1.5">
+                  <MapPin className="w-4 h-4 text-blue-400 shrink-0" />
+                  <span>Access Local Emergency Hotlines</span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Allow location access to show emergency hotlines specific to your area. This helps you get the most relevant emergency contacts during flood situations.
+                </p>
+                <button
+                  onClick={() => {
+                    handleLocateMe()
+                    setLocationAllowedForHotlines(true)
+                  }}
+                  className="w-full mt-3 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>Allow Location</span>
+                </button>
               </div>
-              <p className="text-[11px] text-slate-300 leading-relaxed">
-                Allow location access to show emergency hotlines specific to your area. This helps you get the most relevant emergency contacts during flood situations.
-              </p>
-              <button
-                onClick={handleLocateMe}
-                className="w-full mt-3 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
-              >
-                <CheckCircle className="w-3.5 h-3.5" />
-                <span>Allow Location</span>
-              </button>
-            </div>
+            ) : (
+              <div className="bg-[#151e32] border border-blue-900/50 rounded-xl p-3.5 mt-3 shadow-inner anim-slide-up">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Local Emergency Hotlines</span>
+                  </div>
+                  <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-1.5 py-0.5 rounded">GPS Active</span>
+                </div>
+                <p className="text-[10px] text-slate-400 mb-2">
+                  Emergency contacts for <strong className="text-slate-200">{locationName.split(',')[0]}</strong>:
+                </p>
+
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+                  {[
+                    { name: 'National Emergency Line', number: '911', icon: '🚨' },
+                    { name: 'Pampanga PDRRMO Rescue', number: '(045) 961-2468', icon: '🏢' },
+                    { name: 'Red Cross Ambulance', number: '(045) 961-4682', icon: '🚑' },
+                    { name: 'BFP Fire & Rescue Services', number: '(045) 961-2244', icon: '🚒' },
+                    { name: 'PNP Police Operations', number: '(045) 961-3434', icon: '🚓' },
+                  ].map((h, idx) => (
+                    <a
+                      key={idx}
+                      href={`tel:${h.number.replace(/[^0-9]/g, '')}`}
+                      className="flex items-center justify-between p-2 rounded-lg bg-slate-900/90 hover:bg-blue-950/80 border border-slate-800 hover:border-blue-700/60 transition-all text-xs group cursor-pointer"
+                      title={`Tap to call ${h.name}`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm">{h.icon}</span>
+                        <div className="truncate">
+                          <div className="font-bold text-white truncate text-[11px]">{h.name}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">{h.number}</div>
+                        </div>
+                      </div>
+                      <div className="w-7 h-7 rounded-lg bg-blue-600/20 group-hover:bg-blue-600 text-blue-400 group-hover:text-white flex items-center justify-center transition-all shrink-0 ml-1">
+                        <PhoneCall className="w-3.5 h-3.5" />
+                      </div>
+                    </a>
+                  ))}
+                </div>
+
+                <button
+                  onClick={handleLocateMe}
+                  className="w-full mt-2.5 text-[10px] text-slate-400 hover:text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                >
+                  <MapPin className="w-3 h-3 text-cyan-400" />
+                  <span>Recenter & Update Location</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ) : (
