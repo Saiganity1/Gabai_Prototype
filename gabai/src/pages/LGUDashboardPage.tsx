@@ -580,25 +580,19 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
         <div className="h-full bg-slate-900/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] border border-slate-700/60 overflow-hidden flex flex-col pointer-events-auto">
           {/* AI Pattern Alert Pill */}
           {aiPatternInsight && !isAiInsightDismissed && (
-            <div className="bg-amber-950/80 border-b border-amber-500/40 p-2.5 px-3 flex items-start gap-2.5 anim-slide-down">
-              <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40 shrink-0 mt-0.5">
-                <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+            <div className="bg-amber-500/10 border-b border-amber-500/20 p-2.5 px-3 flex items-center justify-between gap-2 text-xs anim-slide-down">
+              <div className="flex items-center gap-2 min-w-0">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="font-bold text-amber-300 text-xs truncate">{aiPatternInsight.title}</span>
+                <span className="text-slate-400 text-[11px] truncate hidden sm:inline">— {aiPatternInsight.description}</span>
               </div>
-              <div className="flex-1 min-w-0 text-xs">
-                <div className="font-black text-amber-300 text-[11px] leading-tight flex items-center justify-between">
-                  <span className="truncate">{aiPatternInsight.title}</span>
-                  <button
-                    type="button"
-                    onClick={() => setIsAiInsightDismissed(true)}
-                    className="text-amber-400 hover:text-white p-0.5 rounded cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-                <p className="text-slate-300 text-[10px] mt-0.5 line-clamp-2 leading-relaxed">
-                  {aiPatternInsight.description}
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsAiInsightDismissed(true)}
+                className="text-slate-400 hover:text-white p-0.5 rounded cursor-pointer shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
 
@@ -734,48 +728,28 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                           </span>
                         </div>
 
-                        {/* Road Flood Line & Passability Specific Badge in LGU Triage */}
-                        {report.isRoadSegment && report.roadSegment && (
-                          <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 my-2 space-y-1.5 text-xs">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-cyan-400 flex items-center gap-1">
-                                🛣️ Road Corridor: {report.roadSegment.roadName || 'Segment'}
-                              </span>
-                              <span
-                                className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
-                                  isVerified ? 'bg-blue-600 text-white' : 'bg-amber-500 text-white'
-                                }`}
-                              >
-                                {isVerified ? '🔵 LGU Verified Corridor' : '🟠 Pending Citizen Report'}
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-1.5 text-[10px]">
-                              <div className="bg-slate-950 p-1.5 rounded-lg text-slate-300 truncate">
-                                A: {report.roadSegment.from.name || 'Start Pin'}
-                              </div>
-                              <div className="bg-slate-950 p-1.5 rounded-lg text-slate-300 truncate">
-                                B: {report.roadSegment.to.name || 'End Pin'}
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between text-[11px] pt-0.5">
-                              <span className="font-bold text-amber-400">
+                        {/* Clean Streamlined Incident Details */}
+                        <div className="my-2 space-y-2">
+                          <div className="text-xs text-slate-200 leading-relaxed font-medium">
+                            "{report.desc}"
+                          </div>
+
+                          {report.isRoadSegment && (
+                            <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                              <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 font-bold border border-amber-500/25">
                                 {report.passability === 'not_passable_all'
                                   ? '⛔ Closed to All Vehicles'
                                   : report.passability === 'all_passable'
-                                  ? '🟢 Passable to All Vehicles'
-                                  : '🚫 Not Passable to Light Vehicles'}
+                                  ? '🟢 Passable'
+                                  : '🚫 Closed to Light Vehicles'}
                               </span>
                               {report.waterDepth && (
-                                <span className="font-semibold text-cyan-300 text-[10px]">
+                                <span className="px-2 py-0.5 rounded-md bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/25">
                                   🌊 {report.waterDepth}
                                 </span>
                               )}
                             </div>
-                          </div>
-                        )}
-
-                        <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/70 text-xs text-slate-300 leading-relaxed my-2">
-                          "{report.desc}"
+                          )}
                         </div>
 
                         {/* Action Buttons */}
