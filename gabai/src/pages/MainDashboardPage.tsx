@@ -1013,8 +1013,15 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           </div>
 
           {/* Center Search / Route Pill ("Plan a route") */}
-          <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2.5 bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/80 rounded-2xl p-2 px-4 shadow-2xl transition-all max-w-md mx-auto">
-            <Navigation className="w-4 h-4 text-slate-400 shrink-0" />
+          <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2.5 bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/80 rounded-2xl p-2 px-4 shadow-2xl transition-all max-w-md mx-auto focus-within:border-blue-500/60 focus-within:ring-1 focus-within:ring-blue-500/30">
+            <button
+              type="button"
+              onClick={() => setActiveModal('routes')}
+              className="text-slate-400 hover:text-blue-400 transition-colors shrink-0 cursor-pointer p-0.5"
+              title="Open Safe Route Planner"
+            >
+              <Navigation className="w-4 h-4" />
+            </button>
             <input
               type="text"
               value={searchQuery}
@@ -1024,7 +1031,23 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
               className="flex-1 bg-transparent text-xs font-medium text-slate-100 placeholder-slate-400 outline-none truncate"
             />
             {isSearching && <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin shrink-0" />}
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => { setSearchQuery(''); setSearchResults([]) }}
+                className="text-slate-400 hover:text-white p-0.5 shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setActiveModal('routes')}
+              className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer shrink-0"
+              title="Select Evacuation Route"
+            >
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
           </form>
 
           {/* Right Weather & Control Pills (Pushed to far right edge) */}
