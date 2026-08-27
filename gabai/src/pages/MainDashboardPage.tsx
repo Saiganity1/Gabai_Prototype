@@ -1038,7 +1038,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             {[
               { icon: Navigation, label: 'Safe Route', action: () => setActiveModal('routes'), primary: true },
               { icon: TriangleAlert, label: 'Report Hazard', action: handleOpenReportModal },
-              { icon: Zap, label: 'SOS Strobe', action: () => setIsSOSStrobeActive(true), danger: true },
             ].map(({ icon: Icon, label, action, primary, danger }) => (
               <button
                 key={label}
