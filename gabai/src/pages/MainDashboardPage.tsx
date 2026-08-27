@@ -978,319 +978,246 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         </div>
       )}
 
-      {/* ── Emergency banner ────────────────────────────────── */}
+      {/* ── Top Emergency / Dam Alert Marquee Bar ────────────────── */}
       {appState === 'emergency' && (
-        <div className="absolute top-0 left-0 right-0 z-50 emergency-bar bg-red-600 text-white px-4 py-3 flex items-center gap-3 pointer-events-auto shadow-md">
-          <span className="text-base">🔴</span>
-          <span className="text-sm font-semibold flex-1">
-            Emergency alert active — high flood risk detected in your vicinity. Evacuate if instructed.
-          </span>
-          <button onClick={() => setAppState('normal')} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-500 transition-colors">
-            <X className="w-4 h-4" />
-          </button>
+        <div className="absolute top-0 left-0 right-0 z-50 emergency-bar bg-[#1c1014]/95 backdrop-blur-2xl border-b border-red-900/40 text-white px-4 py-2.5 flex items-center justify-between text-xs font-medium pointer-events-auto shadow-xl">
+          <div className="flex items-center gap-2.5 truncate">
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse shrink-0" />
+            <span className="text-orange-400 font-bold">⚠️ La Mesa Dam at alarm 79.31 m / 79.50 m</span>
+            <span className="text-slate-400 hidden sm:inline">and 1 more gauge near Pampanga</span>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-[9px] font-bold tracking-widest text-slate-400 uppercase bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/60">PAGASA</span>
+            <button onClick={() => setAppState('normal')} className="text-slate-400 hover:text-white transition-colors">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
 
-      {/* ── Top Floating Header Dock (Ultra-Clean & Unified) ── */}
+      {/* ── Top Floating Header Dock (BAHABA Inspired UI) ── */}
       <div className={`absolute left-0 right-0 z-10 px-3 pt-3 sm:px-5 sm:pt-4 flex flex-col gap-2 pointer-events-none ${appState === 'emergency' ? 'top-12' : 'top-0'}`}>
-        {/* Main Floating Capsule */}
-        <div className="flex items-center gap-2 pointer-events-auto max-w-4xl mx-auto w-full">
-          {/* Main Search & Actions Capsule */}
-          <div className="flex-1 flex items-center gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl p-1.5 shadow-xl border border-slate-200/70 dark:border-slate-800/80 transition-all">
-            {/* App Icon */}
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-md shadow-cyan-500/20 shrink-0 ml-1">
-              <Shield className="w-4 h-4 text-white" strokeWidth={2.5} />
+        <div className="flex items-center gap-3 pointer-events-auto max-w-6xl mx-auto w-full justify-between">
+          {/* Left Brand Badge */}
+          <div className="bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/80 rounded-2xl p-2 px-3.5 shadow-2xl flex items-center gap-3 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-600/30 shrink-0">
+              <Shield className="w-4.5 h-4.5 text-white" strokeWidth={2.5} />
             </div>
+            <div className="flex flex-col">
+              <span className="font-black text-sm text-white tracking-tight leading-none">GABAI</span>
+              <span className="text-[10px] font-medium text-slate-400 mt-1 leading-none hidden sm:inline">Live flood conditions, Philippines</span>
+            </div>
+          </div>
 
-            {/* Search Input */}
-            <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2 min-w-0 pr-1 relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search streets, evacuation shelters, hospitals..."
-                onFocus={() => setSearchFocused(true)}
-                className="flex-1 bg-transparent text-xs font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none truncate"
-              />
-              {isSearching && <Loader2 className="w-3.5 h-3.5 text-cyan-500 animate-spin shrink-0" />}
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => { setSearchQuery(''); setSearchResults([]) }}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </form>
+          {/* Center Search / Route Pill ("Plan a route") */}
+          <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2.5 bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/80 rounded-2xl p-2 px-4 shadow-2xl transition-all max-w-md mx-2">
+            <Navigation className="w-4 h-4 text-slate-400 shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Plan a route..."
+              onFocus={() => setSearchFocused(true)}
+              className="flex-1 bg-transparent text-xs font-medium text-slate-100 placeholder-slate-400 outline-none truncate"
+            />
+            {isSearching && <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin shrink-0" />}
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          </form>
 
-            {/* Quick 2D/3D Mode Switcher */}
-            <button
-              type="button"
-              onClick={toggle3DMode}
-              className={`px-2.5 py-1.5 rounded-xl font-extrabold text-[11px] flex items-center gap-1 transition-all shrink-0 cursor-pointer active:scale-95 ${
-                is3D
-                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-              }`}
-              title={is3D ? 'Current: 3D View (Click for 2D)' : 'Current: 2D Flat View (Click for 3D)'}
-            >
-              <span>{is3D ? '🧊 3D' : '🗺️ 2D'}</span>
+          {/* Right Weather & Control Pills */}
+          <div className="bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/80 rounded-2xl p-2 px-3 shadow-2xl flex items-center gap-3 text-xs font-semibold text-slate-300 shrink-0">
+            <div className="flex items-center gap-1.5 text-cyan-400">
+              <CloudRain className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">100% rain</span>
+            </div>
+            <span className="text-slate-700 hidden md:inline">|</span>
+            <div className="flex items-center gap-1.5 text-slate-300 hidden lg:flex">
+              <Radio className="w-3.5 h-3.5 text-slate-400" />
+              <span>22 km/h</span>
+            </div>
+            <span className="text-slate-700 hidden lg:inline">|</span>
+            <span className="text-slate-400 hidden lg:inline">Partly cloudy</span>
+            
+            <button onClick={() => setActiveModal('about')} className="px-3 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-200 text-xs font-semibold border border-slate-700/60 transition-all cursor-pointer">
+              About
             </button>
 
-            {/* LGU Command Switch Button */}
-            <Link
-              to="/lgu"
-              className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 font-extrabold text-[11px] transition-all shrink-0 flex items-center gap-1"
-              title="Open Official LGU Emergency Operations Center"
-            >
-              <span>🏢</span>
-              <span>LGU</span>
-            </Link>
-
-            {/* Theme Toggle */}
-            <button
-              type="button"
-              onClick={toggleDark}
-              className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 transition-all shrink-0 mr-0.5 active:scale-95 cursor-pointer"
-              aria-label="Toggle theme"
-            >
-              {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-            </button>
+            {/* Theme & 3D Toggles */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={toggle3DMode}
+                className="px-2.5 py-1 rounded-xl bg-slate-800/80 text-slate-300 border border-slate-700/60 hover:text-white text-xs font-bold transition-all cursor-pointer"
+              >
+                {is3D ? '3D' : '2D'}
+              </button>
+              <button
+                type="button"
+                onClick={toggleDark}
+                className="w-7 h-7 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer"
+              >
+                {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Live Search Autocomplete Dropdown */}
         {searchFocused && searchResults.length > 0 && (
-          <div className="max-w-4xl mx-auto w-full pointer-events-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden z-50 anim-slide-up max-h-72 overflow-y-auto">
-            <div className="px-3 py-2 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          <div className="max-w-md mx-auto w-full pointer-events-auto bg-[#0f172a]/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-800 overflow-hidden z-50 anim-slide-up max-h-72 overflow-y-auto">
+            <div className="px-3 py-2 bg-slate-900/80 border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
               Locations & Landmarks
             </div>
             {searchResults.map((res, i) => (
               <button
                 key={`${res.name}-${i}`}
                 onMouseDown={() => handleSelectSearchResult(res)}
-                className="w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors border-b border-slate-100 dark:border-slate-800/40 last:border-0"
+                className="w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 hover:bg-slate-800/60 transition-colors border-b border-slate-800/40 last:border-0"
               >
                 <span className="text-lg">{res.emoji || '📍'}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-slate-900 dark:text-white truncate">{res.name}</div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">{res.address}</div>
+                  <div className="text-xs font-bold text-white truncate">{res.name}</div>
+                  <div className="text-[10px] text-slate-400 truncate mt-0.5">{res.address}</div>
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               </button>
             ))}
           </div>
         )}
-
-        {/* ── Sub-Bar: Clean Horizontal Filter & Layer Ribbon ── */}
-        <div className="flex items-center gap-1.5 pointer-events-auto max-w-4xl mx-auto w-full overflow-x-auto no-scrollbar py-0.5">
-          {/* Location Chip */}
-          <button
-            onClick={handleLocateMe}
-            className="flex items-center gap-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-full px-3 py-1.5 shadow-sm border border-slate-200/60 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shrink-0 cursor-pointer active:scale-95"
-            title="Center map on your location"
-          >
-            {isLocationLoading ? (
-              <Loader2 className="w-3 h-3 text-cyan-500 animate-spin shrink-0" />
-            ) : (
-              <MapPin className="w-3 h-3 text-cyan-500 shrink-0" />
-            )}
-            <span className="text-[11px] font-bold truncate max-w-[140px]">
-              {locationName.split(',')[0]}
-            </span>
-          </button>
-
-
-          <button
-            onClick={() => setIsSatellite(!isSatellite)}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5 active:scale-95 cursor-pointer shrink-0 ${
-              isSatellite
-                ? 'bg-emerald-600 text-white shadow-emerald-600/30 ring-2 ring-emerald-400/50'
-                : 'bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
-            }`}
-            title="Toggle Satellite Hybrid Imagery"
-          >
-            <span>🛰️</span>
-            <span>{isSatellite ? 'Satellite ON' : 'Satellite'}</span>
-          </button>
-
-          <button
-            onClick={() => setLayersOpen(true)}
-            className="px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5 bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 cursor-pointer shrink-0"
-            title="Map Layer Controls & 2D/3D Settings"
-          >
-            <Layers className="w-3.5 h-3.5 text-cyan-500" />
-            <span>Layers</span>
-          </button>
-        </div>
-
-        {/* ── Compact AI Warning Banner (Dismissible) ── */}
-        {!isAiAlertDismissed && aiPatternInsight && aiPatternInsight.severity === 'high' && (
-          <div className="pointer-events-auto bg-amber-500/95 dark:bg-amber-600/95 text-white backdrop-blur-md rounded-2xl p-2 px-3 shadow-lg flex items-center gap-2.5 max-w-4xl mx-auto w-full anim-slide-down">
-            <Sparkles className="w-4 h-4 text-amber-100 shrink-0" />
-            <div className="flex-1 min-w-0 text-xs truncate">
-              <span className="font-bold">{aiPatternInsight.title}</span> — {aiPatternInsight.description}
-            </div>
-            <button
-              onClick={() => setActiveModal('routes')}
-              className="text-[11px] bg-white text-slate-900 px-2.5 py-1 rounded-xl font-bold shrink-0 shadow-sm hover:bg-slate-100 transition-colors"
-            >
-              Avoid Route
-            </button>
-            <button
-              onClick={() => setIsAiAlertDismissed(true)}
-              className="p-1 text-white/80 hover:text-white rounded-lg transition-colors"
-              title="Dismiss warning"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-
-        {/* Collapsible Intelligence Panel */}
-        {panelOpen && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200/60 dark:border-slate-700/50 overflow-hidden anim-slide-up mt-2 max-w-md pointer-events-auto">
-            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nearby Active Hazards</span>
-              <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-medium">Near {locationName.split(',')[0]}</span>
-            </div>
-            <div className="divide-y divide-slate-100 dark:divide-slate-700/50 max-h-52 overflow-y-auto">
-              {hazards.map((h) => (
-                <button
-                  key={h.id}
-                  onClick={() => {
-                    handleHazardClick(h)
-                    setPanelOpen(false)
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors text-left"
-                >
-                  <span className="text-base">{h.emoji}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{h.label}</span>
-                      {h.verified > 0 && <span className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-bold px-1.5 rounded">Verified</span>}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">{h.distance} · {h.confidence}% confidence</div>
-                  </div>
-                  <StatusDot risk={h.severity} />
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* ── Map controls — bottom right ──────────────────────── */}
-      <div className="absolute right-3 sm:right-4 z-10 flex flex-col gap-2 pointer-events-none" style={{ bottom: appState === 'emergency' ? '150px' : '100px' }}>
+      {/* ── Left Floating Panel ("CONDITIONS") ── */}
+      <div className="absolute top-20 left-4 z-20 w-72 sm:w-80 bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/90 rounded-2xl p-4 shadow-2xl text-white pointer-events-auto anim-slide-up">
+        <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+          <span className="text-[10px] font-mono tracking-widest text-slate-400 font-bold uppercase">CONDITIONS</span>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between py-1 cursor-pointer hover:text-blue-400 transition-colors">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              <span>River levels</span>
+            </div>
+            <span className="text-[9px] font-bold tracking-widest text-slate-400 uppercase bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700/50">PAGASA</span>
+          </div>
+
+          <div className="py-1">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-200 cursor-pointer">
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              <span>Community reports</span>
+            </div>
+            <div className="text-[11px] text-slate-400 ml-5 mt-1">1 active report near you.</div>
+          </div>
+
+          {/* Access Emergency Hotlines Card */}
+          <div className="bg-[#151e32] border border-slate-800/90 rounded-xl p-3.5 mt-3 shadow-inner">
+            <div className="flex items-center gap-2 font-bold text-xs text-white mb-1.5">
+              <MapPin className="w-4 h-4 text-blue-400 shrink-0" />
+              <span>Access Local Emergency Hotlines</span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              Allow location access to show emergency hotlines specific to your area. This helps you get the most relevant emergency contacts during flood situations.
+            </p>
+            <button
+              onClick={handleLocateMe}
+              className="w-full mt-3 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              <span>Allow Location</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Floating Water Depth Legend ("WATER DEPTH") ── */}
+      <div className="absolute bottom-6 left-4 z-20 w-56 bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800/90 rounded-2xl p-3.5 shadow-2xl text-white pointer-events-auto anim-slide-up">
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[10px] font-mono tracking-widest text-slate-400 font-bold uppercase">WATER DEPTH</span>
+          <button className="text-slate-500 hover:text-slate-300">
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+        <div className="space-y-2 text-xs font-medium text-slate-300">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-teal-400 shadow-xs shadow-teal-400/50" />
+            <span>Ankle deep</span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-xs shadow-amber-400/50" />
+            <span>Knee deep</span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-xs shadow-orange-500/50" />
+            <span>Waist deep</span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-xs shadow-red-500/50" />
+            <span>Chest deep or higher</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Map controls — Right Stack ──────────────────────── */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2 pointer-events-auto">
         <button
-          onClick={handleLocateMe}
-          title="Center on my location"
-          className="pointer-events-auto w-10 h-10 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-full shadow-md border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:text-cyan-500 dark:hover:text-cyan-400 hover:bg-white dark:hover:bg-slate-800 transition-all active:scale-95 group"
-        >
-          <Locate className={`w-4 h-4 transition-transform ${isLocationLoading ? 'animate-spin text-cyan-500' : 'group-hover:scale-110'}`} />
-        </button>
-        <button
-          onClick={() => setLayersOpen((l) => !l)}
-          className={`pointer-events-auto w-10 h-10 rounded-full shadow-md border flex items-center justify-center transition-all active:scale-95 backdrop-blur-md ${layersOpen ? 'bg-cyan-500/90 border-cyan-400 text-white' : 'bg-white/90 dark:bg-slate-800/90 border-slate-200/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-cyan-500 dark:hover:text-cyan-400'}`}
+          onClick={() => setLayersOpen(!layersOpen)}
+          className="w-10 h-10 rounded-2xl bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center shadow-xl hover:bg-slate-800 transition-all cursor-pointer"
+          title="Map Layers"
         >
           <Layers className="w-4 h-4" />
         </button>
+        <div className="flex flex-col bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800 rounded-2xl shadow-xl overflow-hidden divide-y divide-slate-800">
+          <button
+            onClick={() => mapCanvasRef.current?.zoomIn()}
+            className="w-10 h-10 text-slate-300 hover:text-white flex items-center justify-center hover:bg-slate-800 transition-all cursor-pointer font-bold text-lg"
+            title="Zoom In"
+          >
+            +
+          </button>
+          <button
+            onClick={() => mapCanvasRef.current?.zoomOut()}
+            className="w-10 h-10 text-slate-300 hover:text-white flex items-center justify-center hover:bg-slate-800 transition-all cursor-pointer font-bold text-lg"
+            title="Zoom Out"
+          >
+            -
+          </button>
+        </div>
+        <button
+          onClick={handleLocateMe}
+          className="w-10 h-10 rounded-2xl bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center shadow-xl hover:bg-slate-800 transition-all cursor-pointer"
+          title="Recenter Location"
+        >
+          <Locate className="w-4 h-4" />
+        </button>
       </div>
 
-      {/* Layers dropdown */}
-      {layersOpen && (
-        <div className="absolute right-14 z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200/50 dark:border-slate-700/50 p-4 w-56 anim-slide-up" style={{ bottom: appState === 'emergency' ? '180px' : '130px' }}>
-          <label className="flex items-center gap-2.5 py-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showRadar}
-              onChange={(e) => setShowRadar(e.target.checked)}
-              className="w-3.5 h-3.5 accent-cyan-500"
-            />
-            <span className="text-xs text-slate-700 dark:text-slate-300 font-bold">PAGASA Weather Radar</span>
-          </label>
-          {[{ id: 'hazards', label: 'Hazard Danger Zones' }, { id: 'evac', label: 'Evacuation Shelters' }, { id: '3d', label: '3D Buildings' }].map((l) => (
-            <label key={l.id} className="flex items-center gap-2.5 py-1.5 cursor-pointer">
-              <input type="checkbox" defaultChecked={l.id !== '3d'} className="w-3.5 h-3.5 accent-cyan-500" />
-              <span className="text-xs text-slate-700 dark:text-slate-300">{l.label}</span>
-            </label>
-          ))}
-        </div>
-      )}
+      {/* Primary Bottom Right CTA ("+ Report flood") */}
+      <div className="absolute bottom-6 right-6 z-30 pointer-events-auto">
+        <button
+          onClick={handleOpenReportModal}
+          className="bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs px-5 py-3.5 rounded-2xl shadow-xl shadow-blue-600/40 flex items-center gap-2 transition-all active:scale-95 cursor-pointer border border-blue-400/30"
+        >
+          <span className="text-base font-normal">+</span>
+          <span>Report flood</span>
+        </button>
+      </div>
 
-
-
-      {/* 🎙️ GABAI AI Chatbot Button 🎙️ */}
+      {/* 🎙️ GABAI AI Chatbot Button (Bottom Center) 🎙️ */}
       <div
         className="absolute left-1/2 -translate-x-1/2 z-20 pointer-events-none transition-all duration-500"
-        style={{ bottom: appState === 'emergency' ? '108px' : '58px' }}
+        style={{ bottom: appState === 'emergency' ? '108px' : '24px' }}
       >
         <div className="relative flex items-center justify-center group">
-          {/* Ambient Glow */}
-          <div className={`absolute w-[110%] h-[130%] rounded-full blur-xl transition-all duration-700 ${voice.state !== 'idle' ? 'bg-red-500/40 scale-125' : 'bg-cyan-500/30 group-hover:bg-cyan-400/50 group-hover:scale-110'}`} />
-
-          {voice.state === 'listening' && (
-            <>
-              <div className="absolute w-[130%] h-[150%] rounded-full border-2 border-red-400/30 mic-ring-1 pointer-events-none" />
-              <div className="absolute w-[130%] h-[150%] rounded-full border border-red-400/20 mic-ring-2 pointer-events-none" />
-            </>
-          )}
-
           <button
             onClick={handleMicPress}
             title="Press to speak to GABAI"
-            className={`pointer-events-auto relative flex items-center gap-2.5 px-6 py-3.5 rounded-full transition-all duration-300 ${
-              voice.state !== 'idle'
-                ? 'shadow-[0_8px_32px_rgba(239,68,68,0.5)] scale-105'
-                : 'shadow-[0_8px_24px_rgba(6,182,212,0.4)] hover:shadow-[0_12px_32px_rgba(6,182,212,0.6)] hover:scale-105 active:scale-95'
-            } ${voice.state === 'idle' ? 'mic-idle' : ''}`}
+            className="pointer-events-auto relative flex items-center gap-2.5 px-6 py-3.5 rounded-full transition-all duration-300 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-xl shadow-blue-600/30 border border-white/20 hover:scale-105 active:scale-95 cursor-pointer"
           >
-            {/* Background Gradients */}
-            <div className={`absolute inset-0 rounded-full transition-all duration-500 ${
-              voice.state !== 'idle'
-                ? 'bg-gradient-to-b from-rose-400 to-red-600'
-                : 'bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600'
-            }`} />
-            
-            <div className="absolute inset-0 rounded-full border-[1.5px] border-white/40 mix-blend-overlay" />
-            <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
-            
-            <div className="relative z-10 flex items-center gap-2.5 text-white">
-              <span className="font-black tracking-wide text-sm drop-shadow-md">
-                GABAI
-              </span>
-              <Sparkles className="w-4 h-4 text-cyan-200 drop-shadow-md" />
-            </div>
+            <span className="font-black tracking-wide text-xs drop-shadow-md">
+              GABAI
+            </span>
+            <Sparkles className="w-4 h-4 text-cyan-200 drop-shadow-md" />
           </button>
-        </div>
-      </div>
-
-      {/* ── Bottom Action Bar ────────────────────────────────── */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none">
-        <div className="bg-gradient-to-t from-white via-white/80 dark:from-slate-900 dark:via-slate-900/80 to-transparent pt-12 pb-4 px-3 sm:px-4">
-          <div className="flex items-center gap-2 max-w-lg mx-auto">
-            {[
-              { icon: Navigation, label: 'Safe Route', action: () => setActiveModal('routes'), primary: true },
-              { icon: TriangleAlert, label: 'Report Hazard', action: handleOpenReportModal },
-            ].map(({ icon: Icon, label, action, primary, danger }) => (
-              <button
-                key={label}
-                onClick={action}
-                className={`pointer-events-auto flex-1 flex flex-col items-center gap-1.5 py-3 rounded-2xl shadow-sm border border-slate-200/50 dark:border-slate-700/50 text-[11px] font-semibold transition-all active:scale-95 ${
-                  primary
-                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-transparent hover:bg-slate-800 dark:hover:bg-slate-100'
-                    : danger
-                    ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-100 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-900/50'
-                    : 'bg-white/80 dark:bg-slate-800/80 backdrop-blur-md text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {label}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
