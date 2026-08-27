@@ -178,24 +178,26 @@ export function useVoiceAssistant(
         const localIntent = parseLocalIntent(finalTranscript);
 
         const handleFallback = () => {
-          let fallbackReply = 'Narinig ko ang iyong ulat.';
-          if (localIntent.action === 'REPORT_HAZARD') {
-            fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
-          } else if (localIntent.action === 'SAFE_ROUTE') {
-            fallbackReply = 'Ipinapakita ang pinakaligtas na ruta sa evacuation shelter.';
-          } else if (localIntent.action === 'NAVIGATE') {
-            fallbackReply = `Naghahanap ng ligtas na ruta papuntang ${localIntent.destination || 'iyong destinasyon'}.`;
-          }
+          setTimeout(() => {
+            let fallbackReply = 'Narinig ko ang iyong ulat.';
+            if (localIntent.action === 'REPORT_HAZARD') {
+              fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
+            } else if (localIntent.action === 'SAFE_ROUTE') {
+              fallbackReply = 'Ipinapakita ang pinakaligtas na ruta sa evacuation shelter.';
+            } else if (localIntent.action === 'NAVIGATE') {
+              fallbackReply = `Naghahanap ng ligtas na ruta papuntang ${localIntent.destination || 'iyong destinasyon'}.`;
+            }
 
-          setResponse(fallbackReply);
-          speakResponse(fallbackReply, languageRef.current);
+            setResponse(fallbackReply);
+            speakResponse(fallbackReply, languageRef.current);
 
-          if (
-            onActionRef.current &&
-            (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE' || localIntent.action === 'NAVIGATE')
-          ) {
-            onActionRef.current(localIntent);
-          }
+            if (
+              onActionRef.current &&
+              (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE' || localIntent.action === 'NAVIGATE')
+            ) {
+              onActionRef.current(localIntent);
+            }
+          }, 1500);
         };
 
         if (!API_BASE_URL) {
@@ -298,25 +300,27 @@ export function useVoiceAssistant(
     const localIntent = parseLocalIntent(text);
 
     const handleFallback = () => {
-      let fallbackReply = 'Narinig ko ang iyong tanong.';
-      if (localIntent.action === 'REPORT_HAZARD') {
-        fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
-      } else if (localIntent.action === 'SAFE_ROUTE') {
-        fallbackReply = 'Ipinapakita ang pinakaligtas na ruta sa evacuation shelter.';
-      } else if (localIntent.action === 'NAVIGATE') {
-        fallbackReply = `Naghahanap ng ligtas na ruta papuntang ${localIntent.destination || 'iyong destinasyon'}.`;
-      }
+      setTimeout(() => {
+        let fallbackReply = 'Narinig ko ang iyong tanong.';
+        if (localIntent.action === 'REPORT_HAZARD') {
+          fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
+        } else if (localIntent.action === 'SAFE_ROUTE') {
+          fallbackReply = 'Ipinapakita ang pinakaligtas na ruta sa evacuation shelter.';
+        } else if (localIntent.action === 'NAVIGATE') {
+          fallbackReply = `Naghahanap ng ligtas na ruta papuntang ${localIntent.destination || 'iyong destinasyon'}.`;
+        }
 
-      setResponse(fallbackReply);
-      if (!skipVoice) speakResponse(fallbackReply, languageRef.current);
-      else setState('idle');
+        setResponse(fallbackReply);
+        if (!skipVoice) speakResponse(fallbackReply, languageRef.current);
+        else setState('idle');
 
-      if (
-        onActionRef.current &&
-        (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE' || localIntent.action === 'NAVIGATE')
-      ) {
-        onActionRef.current(localIntent);
-      }
+        if (
+          onActionRef.current &&
+          (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE' || localIntent.action === 'NAVIGATE')
+        ) {
+          onActionRef.current(localIntent);
+        }
+      }, 1500);
     };
 
     if (!API_BASE_URL) {
