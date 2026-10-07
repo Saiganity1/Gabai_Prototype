@@ -1,6 +1,47 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..700&display=swap');
 @import 'tailwindcss';
 
+@theme {
+  /* Gabai Official Brand Palette */
+  --color-rich-black: #00072d;
+  --color-dark-navy: #051650;
+  --color-royal-blue: #0a2472;
+  --color-caribbean-blue: #123499;
+  --color-ice-white: #eef2ff;
+
+  --color-brand-black: #00072d;
+  --color-brand-midnight: #051650;
+  --color-brand-primary: #0a2472;
+  --color-brand-accent: #123499;
+  --color-brand-surface: #f0f4fd;
+  --color-brand-white: #eef2ff;
+
+  /* Overriding and tinting theme scales to harmonize the whole application */
+  --color-cyan-950: #00072d;
+  --color-cyan-900: #051650;
+  --color-cyan-800: #0a2472;
+  --color-cyan-700: #0e2d86;
+  --color-cyan-600: #123499;
+  --color-cyan-500: #1a45b8;
+  --color-cyan-400: #3367d6;
+  --color-cyan-300: #628cee;
+  --color-cyan-200: #a5bff7;
+  --color-cyan-100: #d6e3fc;
+  --color-cyan-50: #eef3ff;
+
+  --color-blue-950: #00072d;
+  --color-blue-900: #051650;
+  --color-blue-800: #0a2472;
+  --color-blue-700: #0e2d86;
+  --color-blue-600: #123499;
+  --color-blue-500: #1a45b8;
+
+  --color-slate-950: #00072d;
+  --color-slate-900: #051650;
+  --color-slate-800: #081d58;
+  --color-slate-700: #0d2870;
+}
+
 * {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
@@ -27,11 +68,11 @@ html, body {
 /* Scrollbar hiding */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(18, 52, 153, 0.35); border-radius: 2px; }
 
 @keyframes mic-breathe {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.5), 0 4px 12px rgba(0,0,0,0.15); }
-  50% { box-shadow: 0 0 0 10px rgba(6, 182, 212, 0), 0 4px 12px rgba(0,0,0,0.15); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(18, 52, 153, 0.55), 0 4px 14px rgba(0, 7, 45, 0.25); }
+  50% { box-shadow: 0 0 0 12px rgba(18, 52, 153, 0), 0 4px 14px rgba(0, 7, 45, 0.25); }
 }
 
 @keyframes mic-ring-1 {

@@ -118,16 +118,16 @@ export function GabaiChatbot({
   return (
     <div className="fixed inset-x-3 bottom-20 top-20 sm:inset-x-auto sm:right-6 sm:bottom-24 sm:top-auto sm:w-[430px] sm:h-[630px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden z-50 transition-all duration-300 anim-scale-up">
       {/* Header */}
-      <div className="bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 p-4 flex items-center justify-between shadow-md shrink-0">
+      <div className="bg-gradient-to-r from-[#00072d] via-[#051650] to-[#0a2472] p-4 flex items-center justify-between shadow-md shrink-0 border-b border-[#123499]/30">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner">
+          <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner">
             <Bot className="w-6 h-6 text-white" />
           </div>
           <div>
             <h3 className="text-white font-extrabold text-base flex items-center gap-1.5">
-              GABAI AI Co-Pilot <Sparkles className="w-4 h-4 text-cyan-300 animate-pulse" />
+              GABAI AI Co-Pilot <Sparkles className="w-4 h-4 text-[#a5bff7] animate-pulse" />
             </h3>
-            <p className="text-cyan-100 text-[11px] font-medium flex items-center gap-1">
+            <p className="text-slate-300 text-[11px] font-medium flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
               Disaster Navigation & Flood Avoidance
             </p>
@@ -135,7 +135,7 @@ export function GabaiChatbot({
         </div>
         <button
           onClick={onClose}
-          className="w-8 h-8 rounded-full bg-black/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+          className="w-8 h-8 rounded-full bg-black/20 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
@@ -167,8 +167,8 @@ export function GabaiChatbot({
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
                   msg.sender === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gradient-to-tr from-cyan-500 to-blue-600 text-white'
+                    ? 'bg-[#0a2472] text-white'
+                    : 'bg-gradient-to-tr from-[#0a2472] to-[#123499] text-white'
                 }`}
               >
                 {msg.sender === 'user' ? <User className="w-3.5 h-3.5" /> : <Bot className="w-4 h-4" />}
@@ -177,7 +177,7 @@ export function GabaiChatbot({
                 <div
                   className={`p-3 rounded-2xl text-xs font-medium leading-relaxed shadow-sm whitespace-pre-line ${
                     msg.sender === 'user'
-                      ? 'bg-blue-600 text-white rounded-tr-xs'
+                      ? 'bg-[#0a2472] text-white rounded-tr-xs'
                       : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200/60 dark:border-slate-700/60 rounded-tl-xs'
                   }`}
                 >
@@ -186,14 +186,14 @@ export function GabaiChatbot({
 
                 {/* Inline Interactive Route Card */}
                 {msg.routeCard && (
-                  <div className="anim-slide-up bg-gradient-to-br from-blue-500/10 via-cyan-500/10 to-indigo-500/10 border border-cyan-500/30 dark:border-cyan-500/20 rounded-2xl p-3 shadow-md flex flex-col gap-2">
+                  <div className="anim-slide-up bg-gradient-to-br from-[#051650]/20 via-[#0a2472]/15 to-[#123499]/15 border border-[#123499]/30 rounded-2xl p-3 shadow-md flex flex-col gap-2">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-xl bg-cyan-500 text-white flex items-center justify-center shadow-sm shrink-0">
+                        <div className="w-7 h-7 rounded-xl bg-[#0a2472] text-white flex items-center justify-center shadow-sm shrink-0">
                           <MapPin className="w-3.5 h-3.5" />
                         </div>
                         <div className="min-w-0">
-                          <div className="text-[10px] uppercase font-bold text-cyan-600 dark:text-cyan-400 tracking-wider">
+                          <div className="text-[10px] uppercase font-bold text-[#123499] dark:text-[#a5bff7] tracking-wider">
                             Safe Destination
                           </div>
                           <div className="text-xs font-black text-slate-900 dark:text-white truncate max-w-[200px]">
@@ -219,7 +219,7 @@ export function GabaiChatbot({
                             onStartNavigation()
                             onClose()
                           }}
-                          className="flex-1 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-xl font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                          className="flex-1 py-2 bg-gradient-to-r from-[#0a2472] to-[#123499] hover:from-[#051650] hover:to-[#0a2472] text-white rounded-xl font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
                         >
                           <Navigation className="w-3.5 h-3.5" />
                           <span>Start Navigation</span>
@@ -318,7 +318,7 @@ export function GabaiChatbot({
             type="button"
             onClick={() => handleSend()}
             disabled={!inputText.trim() || isThinking || voice.state !== 'idle'}
-            className="w-8 h-8 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-full hover:from-blue-700 hover:to-cyan-700 disabled:opacity-40 transition-all flex items-center justify-center shrink-0 cursor-pointer shadow-sm active:scale-95"
+            className="w-8 h-8 bg-gradient-to-r from-[#0a2472] to-[#123499] text-white rounded-full hover:from-[#051650] hover:to-[#0a2472] disabled:opacity-40 transition-all flex items-center justify-center shrink-0 cursor-pointer shadow-sm active:scale-95"
           >
             <Send className="w-3.5 h-3.5" />
           </button>

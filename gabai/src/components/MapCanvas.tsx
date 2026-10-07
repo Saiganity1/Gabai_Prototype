@@ -542,7 +542,7 @@ function interpolateSegment(
               <polyline
                 points={line.points}
                 fill="none"
-                stroke="#0F172A"
+                stroke="#00072d"
                 strokeWidth="9"
                 strokeOpacity="0.85"
                 strokeLinecap="round"
@@ -783,7 +783,7 @@ function interpolateSegment(
               'line-join': 'round',
             }}
             paint={{
-              'line-color': '#0F172A',
+              'line-color': '#00072d',
               'line-width': ['case', ['get', 'isSelected'], 11, 8.5],
               'line-opacity': 0.85,
             }}
@@ -830,7 +830,7 @@ function interpolateSegment(
               'line-join': 'round',
             }}
             paint={{
-              'line-color': '#2563EB',
+              'line-color': '#123499',
               'line-width': ['case', ['get', 'isSelected'], 22, 16],
               'line-blur': 2,
               'line-opacity': 0.55,
@@ -846,7 +846,7 @@ function interpolateSegment(
               'line-join': 'round',
             }}
             paint={{
-              'line-color': '#0F172A',
+              'line-color': '#00072d',
               'line-width': ['case', ['get', 'isSelected'], 11, 8.5],
               'line-opacity': 0.85,
             }}
@@ -861,7 +861,7 @@ function interpolateSegment(
               'line-join': 'round',
             }}
             paint={{
-              'line-color': '#2563EB',
+              'line-color': '#0a2472',
               'line-width': ['case', ['get', 'isSelected'], 8, 6],
               'line-opacity': 1.0,
             }}
@@ -891,7 +891,7 @@ function interpolateSegment(
           id="user-accuracy-fill"
           type="fill"
           paint={{
-            'fill-color': '#06B6D4',
+            'fill-color': '#123499',
             'fill-opacity': 0.12,
           }}
         />
@@ -899,7 +899,7 @@ function interpolateSegment(
           id="user-accuracy-line"
           type="line"
           paint={{
-            'line-color': '#06B6D4',
+            'line-color': '#123499',
             'line-width': 1.5,
             'line-opacity': 0.6,
           }}
@@ -909,9 +909,9 @@ function interpolateSegment(
       {/* User GPS Live Beacon Marker */}
       <Marker longitude={userLng} latitude={userLat} anchor="center">
         <div className="relative flex items-center justify-center pointer-events-none">
-          <div className="absolute w-8 h-8 rounded-full bg-cyan-500/30 animate-ping" />
-          <div className="absolute w-6 h-6 rounded-full bg-cyan-400/40 animate-pulse" />
-          <div className="relative w-4 h-4 bg-cyan-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
+          <div className="absolute w-8 h-8 rounded-full bg-[#123499]/30 animate-ping" />
+          <div className="absolute w-6 h-6 rounded-full bg-[#0a2472]/40 animate-pulse" />
+          <div className="relative w-4 h-4 bg-[#123499] rounded-full border-2 border-white shadow-lg flex items-center justify-center">
             <div className="w-1.5 h-1.5 bg-white rounded-full" />
           </div>
         </div>
