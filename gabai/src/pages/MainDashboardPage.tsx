@@ -18,6 +18,7 @@ import { ActiveModal, AppState } from '../types'
 import { StatusDot } from '../components/ui/StatusDot'
 import { RiskBadge } from '../components/ui/RiskBadge'
 import { GabaiChatbot } from '../components/GabaiChatbot'
+import GabaiLogo from '../components/GabaiLogo'
 import { searchRealWorldPlaces } from '../utils/placeSearch'
 import { fetchRoadSegmentPath } from '../utils/routingEngine'
 import { analyzeRouteWithAI } from '../utils/aiRouteAdvisor'
@@ -1002,13 +1003,13 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       <div className={`absolute left-0 right-0 z-10 px-3 pt-3 sm:px-5 sm:pt-4 flex flex-col gap-2 pointer-events-none ${appState === 'emergency' ? 'top-12' : 'top-0'}`}>
         <div className="flex items-center gap-3 pointer-events-auto w-full justify-between">
           {/* Left Brand Badge */}
-          <div className={`backdrop-blur-2xl border rounded-2xl p-2 px-3.5 flex items-center gap-3 shrink-0 transition-all ${
+          <div className={`backdrop-blur-2xl border rounded-2xl p-2 px-3 flex items-center gap-2.5 shrink-0 transition-all ${
             darkMode
               ? 'bg-[#0f172a]/95 border-slate-800/80 shadow-2xl text-white'
               : 'bg-white/95 border-slate-200/90 shadow-xl text-slate-900'
           }`}>
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-600/30 shrink-0">
-              <Shield className="w-4.5 h-4.5 text-white" strokeWidth={2.5} />
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0">
+              <GabaiLogo size="sm" animated glow />
             </div>
             <div className="flex flex-col">
               <span className={`font-black text-sm tracking-tight leading-none ${darkMode ? 'text-white' : 'text-slate-900'}`}>GABAI</span>
@@ -1415,12 +1416,13 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         <button
           onClick={handleMicPress}
           title="Press to speak to GABAI"
-          className="h-12 px-5 rounded-2xl relative flex items-center gap-2 transition-all duration-300 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-xl shadow-blue-600/30 border border-white/20 hover:scale-105 active:scale-95 cursor-pointer text-xs font-extrabold shrink-0"
+          className="h-12 px-4 rounded-2xl relative flex items-center gap-2.5 transition-all duration-300 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-xl shadow-blue-600/30 border border-white/20 hover:scale-105 active:scale-95 cursor-pointer text-xs font-extrabold shrink-0 group"
         >
+          <GabaiLogo size="xs" transparent />
           <span className="tracking-wide drop-shadow-md">
-            GABAI
+            GABAI AI
           </span>
-          <Sparkles className="w-4 h-4 text-cyan-200 drop-shadow-md" />
+          <Sparkles className="w-3.5 h-3.5 text-cyan-200 drop-shadow-md animate-pulse" />
         </button>
 
         {/* Primary Report Flood Button */}

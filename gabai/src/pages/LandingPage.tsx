@@ -1,4 +1,5 @@
 import { Shield, ChevronRight, Sun, Moon, AlertTriangle } from 'lucide-react'
+import GabaiLogo from '../components/GabaiLogo'
 
 interface Props {
   onEnter: () => void
@@ -26,10 +27,8 @@ export default function Landing({ onEnter, darkMode, toggleDark }: Props) {
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-6 py-4 sm:px-8">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-cyan-500 flex items-center justify-center shadow-sm">
-            <Shield className="w-4 h-4 text-white" strokeWidth={2.5} />
-          </div>
-          <span className="font-semibold text-slate-900 dark:text-white tracking-tight text-lg">GABAI</span>
+          <GabaiLogo size="sm" animated />
+          <span className="font-extrabold text-slate-900 dark:text-white tracking-tight text-lg">GABAI</span>
         </div>
         <button
           onClick={toggleDark}
@@ -42,9 +41,17 @@ export default function Landing({ onEnter, darkMode, toggleDark }: Props) {
 
       {/* Main */}
       <main className="relative z-10 flex flex-col items-center justify-center flex-1 px-6 text-center pb-8">
-        <div className="max-w-md">
+        <div className="max-w-md flex flex-col items-center">
+          {/* Hero Logo Emblem */}
+          <div className="mb-6 relative group">
+            <div className="absolute -inset-3 bg-gradient-to-r from-cyan-500/30 to-blue-600/30 rounded-3xl blur-2xl opacity-70 group-hover:opacity-100 transition duration-500" />
+            <div className="relative p-3.5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/80 dark:border-slate-800 shadow-2xl transition-transform hover:scale-105 duration-300">
+              <GabaiLogo size="xl" animated glow />
+            </div>
+          </div>
+
           {/* Live indicator */}
-          <div className="inline-flex items-center gap-2 bg-cyan-50 dark:bg-cyan-950 border border-cyan-200 dark:border-cyan-800 text-cyan-700 dark:text-cyan-400 text-xs font-medium px-3 py-1.5 rounded-full mb-8">
+          <div className="inline-flex items-center gap-2 bg-cyan-50 dark:bg-cyan-950 border border-cyan-200 dark:border-cyan-800 text-cyan-700 dark:text-cyan-400 text-xs font-medium px-3.5 py-1.5 rounded-full mb-6 shadow-sm">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
             AI Disaster Intelligence · Active
           </div>

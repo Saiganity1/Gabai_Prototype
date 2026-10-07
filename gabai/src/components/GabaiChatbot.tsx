@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Eye,
 } from 'lucide-react'
+import GabaiLogo from './GabaiLogo'
 
 export interface ChatMessage {
   sender: 'user' | 'gabai'
@@ -120,8 +121,8 @@ export function GabaiChatbot({
       {/* Header */}
       <div className="bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 p-4 flex items-center justify-between shadow-md shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner">
-            <Bot className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md p-1 flex items-center justify-center shadow-inner">
+            <GabaiLogo size="sm" animated glow />
           </div>
           <div>
             <h3 className="text-white font-extrabold text-base flex items-center gap-1.5">
@@ -165,13 +166,13 @@ export function GabaiChatbot({
               }`}
             >
               <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
+                className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
                   msg.sender === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gradient-to-tr from-cyan-500 to-blue-600 text-white'
+                    ? 'bg-blue-600 text-white rounded-full'
+                    : 'bg-white/90 dark:bg-slate-800/90 p-0.5 border border-cyan-500/30'
                 }`}
               >
-                {msg.sender === 'user' ? <User className="w-3.5 h-3.5" /> : <Bot className="w-4 h-4" />}
+                {msg.sender === 'user' ? <User className="w-3.5 h-3.5" /> : <GabaiLogo size="xs" />}
               </div>
               <div className="flex flex-col gap-2">
                 <div
