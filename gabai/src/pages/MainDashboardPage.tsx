@@ -1004,22 +1004,22 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           {/* Left Brand Badge */}
           <div className={`backdrop-blur-2xl border rounded-2xl p-2 px-3.5 flex items-center gap-3 shrink-0 transition-all ${
             darkMode
-              ? 'bg-[#051650]/95 border-[#123499]/30 shadow-2xl text-white'
+              ? 'bg-[#0f172a]/95 border-slate-800/80 shadow-2xl text-white'
               : 'bg-white/95 border-slate-200/90 shadow-xl text-slate-900'
           }`}>
-            <div className="w-9 h-9 rounded-xl bg-[#0a2472] flex items-center justify-center text-white shadow-md shadow-[#0a2472]/40 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-600/30 shrink-0">
               <Shield className="w-4.5 h-4.5 text-white" strokeWidth={2.5} />
             </div>
             <div className="flex flex-col">
               <span className={`font-black text-sm tracking-tight leading-none ${darkMode ? 'text-white' : 'text-slate-900'}`}>GABAI</span>
-              <span className={`text-[10px] font-medium mt-1 leading-none hidden sm:inline ${darkMode ? 'text-slate-300' : 'text-slate-500'}`}>Live flood conditions, Philippines</span>
+              <span className={`text-[10px] font-medium mt-1 leading-none hidden sm:inline ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Live flood conditions, Philippines</span>
             </div>
           </div>
 
           {/* Center Search / Route Pill ("Plan a route") */}
-          <form onSubmit={handleSearchSubmit} className={`flex-1 flex items-center gap-2.5 backdrop-blur-2xl border rounded-2xl p-2 px-4 transition-all max-w-md mx-auto focus-within:border-[#123499] focus-within:ring-1 focus-within:ring-[#123499]/50 ${
+          <form onSubmit={handleSearchSubmit} className={`flex-1 flex items-center gap-2.5 backdrop-blur-2xl border rounded-2xl p-2 px-4 transition-all max-w-md mx-auto focus-within:border-blue-500/60 focus-within:ring-1 focus-within:ring-blue-500/30 ${
             darkMode
-              ? 'bg-[#051650]/95 border-[#123499]/30 shadow-2xl text-slate-100'
+              ? 'bg-[#0f172a]/95 border-slate-800/80 shadow-2xl text-slate-100'
               : 'bg-white/95 border-slate-200/90 shadow-xl text-slate-900'
           }`}>
             <button
@@ -1065,7 +1065,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           {/* Right Weather & Control Pills (Pushed to far right edge) */}
           <div className={`backdrop-blur-2xl border rounded-2xl p-2 px-3.5 flex items-center gap-3 text-xs font-semibold shrink-0 ml-auto transition-all ${
             darkMode
-              ? 'bg-[#051650]/95 border-[#123499]/30 shadow-2xl text-slate-300'
+              ? 'bg-[#0f172a]/95 border-slate-800/80 shadow-2xl text-slate-300'
               : 'bg-white/95 border-slate-200/90 shadow-xl text-slate-700'
           }`}>
             <div className="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
@@ -1137,7 +1137,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         {searchFocused && searchResults.length > 0 && (
           <div className={`max-w-md mx-auto w-full pointer-events-auto backdrop-blur-2xl rounded-2xl border overflow-hidden z-50 anim-slide-up max-h-72 overflow-y-auto ${
             darkMode
-              ? 'bg-[#051650]/95 border-[#123499]/30 shadow-2xl text-white'
+              ? 'bg-[#0f172a]/95 border-slate-800 shadow-2xl text-white'
               : 'bg-white/95 border-slate-200 shadow-xl text-slate-900'
           }`}>
             <div className={`px-3 py-2 border-b text-[10px] font-bold uppercase tracking-wider ${
@@ -1175,7 +1175,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         {conditionsOpen ? (
           <div className={`backdrop-blur-2xl border rounded-2xl p-4 anim-slide-up max-h-[calc(100vh-280px)] overflow-y-auto shrink transition-all pointer-events-auto ${
             darkMode
-              ? 'bg-[#051650]/95 border-[#123499]/30 shadow-2xl text-white'
+              ? 'bg-[#0f172a]/95 border-slate-800/90 shadow-2xl text-white'
               : 'bg-white/95 border-slate-200/90 shadow-xl text-slate-900'
           }`}>
             <div className={`flex items-center justify-between mb-3 pb-2 border-b ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
@@ -1218,11 +1218,11 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
               {!locationAllowedForHotlines ? (
                 <div className={`border rounded-xl p-3.5 mt-3 shadow-inner ${
                   darkMode
-                    ? 'bg-[#081d58] border-[#123499]/40 text-white'
+                    ? 'bg-[#151e32] border-slate-800/90 text-white'
                     : 'bg-slate-50 border-slate-200 text-slate-900'
                 }`}>
                   <div className={`flex items-center gap-2 font-bold text-xs mb-1.5 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                    <MapPin className="w-4 h-4 text-[#123499] dark:text-[#a5bff7] shrink-0" />
+                    <MapPin className="w-4 h-4 text-blue-500 shrink-0" />
                     <span>Access Local Emergency Hotlines</span>
                   </div>
                   <p className={`text-[11px] leading-relaxed ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
@@ -1233,7 +1233,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                       handleLocateMe()
                       setLocationAllowedForHotlines(true)
                     }}
-                    className="w-full mt-3 bg-[#0a2472] hover:bg-[#123499] text-white font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-lg shadow-[#0a2472]/40 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+                    className="w-full mt-3 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
                   >
                     <CheckCircle className="w-3.5 h-3.5" />
                     <span>Allow Location</span>
@@ -1242,7 +1242,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
               ) : (
                 <div className={`border rounded-xl p-3.5 mt-3 shadow-inner anim-slide-up ${
                   darkMode
-                    ? 'bg-[#081d58] border-[#123499]/40'
+                    ? 'bg-[#151e32] border-blue-900/50'
                     : 'bg-blue-50/60 border-blue-200'
                 }`}>
                   <div className="flex items-center justify-between mb-2">
@@ -1307,7 +1307,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             onClick={() => setConditionsOpen(true)}
             className={`w-11 h-11 rounded-2xl backdrop-blur-2xl border flex items-center justify-center transition-all cursor-pointer pointer-events-auto anim-scale-up shrink-0 ${
               darkMode
-                ? 'bg-[#051650]/95 border-[#123499]/30 text-slate-300 hover:text-white hover:bg-[#0a2472] shadow-2xl'
+                ? 'bg-[#0f172a]/95 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 shadow-2xl'
                 : 'bg-white/95 border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 shadow-xl'
             }`}
             title="Expand CONDITIONS panel"
@@ -1320,7 +1320,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         {showLegend && (
           <div className={`w-56 backdrop-blur-2xl border rounded-2xl p-3.5 anim-slide-up shrink-0 transition-all pointer-events-auto ${
             darkMode
-              ? 'bg-[#051650]/95 border-[#123499]/30 shadow-2xl text-white'
+              ? 'bg-[#0f172a]/95 border-slate-800/90 shadow-2xl text-white'
               : 'bg-white/95 border-slate-200/90 shadow-xl text-slate-900'
           }`}>
             <div className="flex items-center justify-between mb-2.5">
@@ -1361,7 +1361,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           onClick={() => setLayersOpen(!layersOpen)}
           className={`w-10 h-10 rounded-2xl backdrop-blur-2xl border flex items-center justify-center transition-all cursor-pointer ${
             darkMode
-              ? 'bg-[#051650]/95 border-[#123499]/30 text-slate-300 hover:text-white hover:bg-[#0a2472] shadow-2xl'
+              ? 'bg-[#0f172a]/95 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 shadow-2xl'
               : 'bg-white/95 border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 shadow-xl'
           }`}
           title="Map Layers"
@@ -1370,14 +1370,14 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         </button>
         <div className={`flex flex-col backdrop-blur-2xl border rounded-2xl shadow-xl overflow-hidden divide-y ${
           darkMode
-            ? 'bg-[#051650]/95 border-[#123499]/30 divide-[#123499]/20 shadow-2xl'
+            ? 'bg-[#0f172a]/95 border-slate-800 divide-slate-800 shadow-2xl'
             : 'bg-white/95 border-slate-200 divide-slate-200 shadow-xl'
         }`}>
           <button
             onClick={() => mapCanvasRef.current?.zoomIn()}
             className={`w-10 h-10 flex items-center justify-center transition-all cursor-pointer font-bold text-lg ${
               darkMode
-                ? 'text-slate-300 hover:text-white hover:bg-[#0a2472]'
+                ? 'text-slate-300 hover:text-white hover:bg-slate-800'
                 : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
             }`}
             title="Zoom In"
@@ -1388,7 +1388,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             onClick={() => mapCanvasRef.current?.zoomOut()}
             className={`w-10 h-10 flex items-center justify-center transition-all cursor-pointer font-bold text-lg ${
               darkMode
-                ? 'text-slate-300 hover:text-white hover:bg-[#0a2472]'
+                ? 'text-slate-300 hover:text-white hover:bg-slate-800'
                 : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
             }`}
             title="Zoom Out"
@@ -1400,7 +1400,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           onClick={handleLocateMe}
           className={`w-10 h-10 rounded-2xl backdrop-blur-2xl border flex items-center justify-center transition-all cursor-pointer ${
             darkMode
-              ? 'bg-[#051650]/95 border-[#123499]/30 text-slate-300 hover:text-white hover:bg-[#0a2472] shadow-2xl'
+              ? 'bg-[#0f172a]/95 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 shadow-2xl'
               : 'bg-white/95 border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 shadow-xl'
           }`}
           title="Recenter Location"
@@ -1415,18 +1415,18 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         <button
           onClick={handleMicPress}
           title="Press to speak to GABAI"
-          className="h-12 px-5 rounded-2xl relative flex items-center gap-2 transition-all duration-300 bg-gradient-to-r from-[#0a2472] via-[#123499] to-[#1e4ed8] text-white shadow-xl shadow-[#0a2472]/40 border border-white/20 hover:scale-105 active:scale-95 cursor-pointer text-xs font-extrabold shrink-0"
+          className="h-12 px-5 rounded-2xl relative flex items-center gap-2 transition-all duration-300 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-xl shadow-blue-600/30 border border-white/20 hover:scale-105 active:scale-95 cursor-pointer text-xs font-extrabold shrink-0"
         >
           <span className="tracking-wide drop-shadow-md">
             GABAI
           </span>
-          <Sparkles className="w-4 h-4 text-[#a5bff7] drop-shadow-md" />
+          <Sparkles className="w-4 h-4 text-cyan-200 drop-shadow-md" />
         </button>
 
         {/* Primary Report Flood Button */}
         <button
           onClick={handleOpenReportModal}
-          className="h-12 px-5 rounded-2xl bg-[#0a2472] hover:bg-[#123499] text-white font-extrabold text-xs flex items-center gap-2 shadow-xl shadow-[#0a2472]/40 transition-all hover:scale-105 active:scale-95 cursor-pointer border border-[#123499]/40 shrink-0"
+          className="h-12 px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs flex items-center gap-2 shadow-xl shadow-blue-600/40 transition-all hover:scale-105 active:scale-95 cursor-pointer border border-blue-400/30 shrink-0"
         >
           <span className="text-base font-normal">+</span>
           <span>Report flood</span>
@@ -1758,14 +1758,14 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
                 {/* ── AI Neural Route Optimizer Card ── */}
                 {aiRouteAnalysis && (
-                  <div className="mb-3.5 bg-gradient-to-br from-[#00072d]/95 via-[#051650]/95 to-[#0a2472]/90 text-white rounded-2xl p-3.5 border border-[#123499]/50 shadow-lg relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-[#123499]/20 rounded-full blur-2xl pointer-events-none" />
+                  <div className="mb-3.5 bg-gradient-to-br from-indigo-950/90 via-slate-900/95 to-slate-900/90 text-white rounded-2xl p-3.5 border border-cyan-500/40 shadow-lg relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
                     <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-[#0a2472] border border-[#123499] flex items-center justify-center text-[#a5bff7]">
+                        <div className="w-6 h-6 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
                           <Sparkles className="w-3.5 h-3.5 animate-pulse" />
                         </div>
-                        <span className="text-xs font-black tracking-wide text-[#a5bff7] uppercase">
+                        <span className="text-xs font-black tracking-wide text-cyan-300 uppercase">
                           AI Neural Route Optimizer
                         </span>
                       </div>

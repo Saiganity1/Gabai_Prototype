@@ -378,13 +378,13 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
           <div className="flex items-center justify-between gap-2 flex-wrap">
             {/* OpCen Logo & Location */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#051650] via-[#0a2472] to-[#123499] flex items-center justify-center shadow-lg shadow-[#0a2472]/40 shrink-0 border border-[#123499]/50">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 flex items-center justify-center shadow-lg shrink-0 border border-blue-400/40">
                 <Shield className="w-5 h-5 text-white" strokeWidth={2.5} />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-black text-sm tracking-tight text-white">GABAI COMMAND</span>
-                  <span className="bg-[#0a2472]/40 text-[#a5bff7] border border-[#123499]/40 text-[9px] font-black px-1.5 py-0.5 rounded uppercase">
+                  <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[9px] font-black px-1.5 py-0.5 rounded uppercase">
                     DISASTER OPCEN
                   </span>
                   <span
