@@ -1,8 +1,10 @@
 import React from 'react'
+import { GABAI_LOGO_DATA_URI } from '../constants/logoData'
 
 interface GabaiLogoProps {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | number
   className?: string
+  src?: string
   transparent?: boolean
   withText?: boolean
   subtitle?: string
@@ -13,6 +15,7 @@ interface GabaiLogoProps {
 export default function GabaiLogo({
   size = 'md',
   className = '',
+  src,
   transparent = true,
   withText = false,
   subtitle,
@@ -33,7 +36,8 @@ export default function GabaiLogo({
 
   const customStyle = typeof size === 'number' ? { width: `${size}px`, height: `${size}px` } : undefined
 
-  const logoSrc = transparent ? '/gabai-logo-transparent.png' : '/gabai-logo.png'
+  // Default to embedded inline data URI so it works 100% reliably in all environments (Figma Make, Vercel, offline, localhost)
+  const logoSrc = src || GABAI_LOGO_DATA_URI || (transparent ? '/gabai-logo-transparent.png' : '/gabai-logo.png')
 
   return (
     <div className={`inline-flex items-center gap-3 select-none ${className}`}>
@@ -49,6 +53,12 @@ export default function GabaiLogo({
         <img
           src={logoSrc}
           alt="GABAI Logo"
+          onError={(e) => {
+            const target = e.currentTarget
+            if (target.src !== GABAI_LOGO_DATA_URI) {
+              target.src = GABAI_LOGO_DATA_URI
+            }
+          }}
           className={`w-full h-full object-contain filter drop-shadow-[0_2px_8px_rgba(6,182,212,0.25)] ${
             animated ? 'hover:rotate-3 transition-transform duration-300' : ''
           }`}
