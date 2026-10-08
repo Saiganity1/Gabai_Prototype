@@ -71,6 +71,8 @@ interface Props {
   isPickingPoint?: boolean
   onResolveHazard?: (h: Hazard) => void
   onVerifyHazard?: (h: Hazard) => void
+  floodedRouteSegment?: [number, number][] | null
+  pulsingRouteHazard?: { lat: number; lng: number; label: string } | null
 }
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -136,6 +138,8 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     isPickingPoint,
     onResolveHazard,
     onVerifyHazard,
+    floodedRouteSegment,
+    pulsingRouteHazard,
   },
   ref
 ) {
@@ -991,6 +995,83 @@ function interpolateSegment(
             />
           </Source>
         </>
+      )}
+
+      {/* ── Flooded Segment On User Route (Marked High-Visibility Red) ── */}
+      {floodedRouteSegment && floodedRouteSegment.length > 1 && (
+        <Source
+          id="route-hazard-flooded-segment"
+          type="geojson"
+          data={{
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: floodedRouteSegment,
+            },
+            properties: {},
+          }}
+        >
+          <Layer
+            id="route-hazard-flooded-glow"
+            type="line"
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            paint={{
+              'line-color': '#EF4444',
+              'line-width': 22,
+              'line-opacity': 0.6,
+              'line-blur': 4,
+            }}
+          />
+          <Layer
+            id="route-hazard-flooded-edge"
+            type="line"
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            paint={{
+              'line-color': '#7F1D1D',
+              'line-width': 12,
+              'line-opacity': 0.95,
+            }}
+          />
+          <Layer
+            id="route-hazard-flooded-core"
+            type="line"
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            paint={{
+              'line-color': '#DC2626',
+              'line-width': 8,
+              'line-opacity': 1.0,
+            }}
+          />
+          <Layer
+            id="route-hazard-flooded-stripe"
+            type="line"
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            paint={{
+              'line-color': '#FFFFFF',
+              'line-width': 2.5,
+              'line-dasharray': [2, 2],
+              'line-opacity': 0.95,
+            }}
+          />
+        </Source>
+      )}
+
+      {/* ── Pulsing Marker When Hazard is Directly On User's Route ── */}
+      {pulsingRouteHazard && (
+        <Marker longitude={pulsingRouteHazard.lng} latitude={pulsingRouteHazard.lat} anchor="center">
+          <div className="relative flex items-center justify-center pointer-events-none z-40">
+            <div className="absolute w-14 h-14 rounded-full bg-red-600/40 animate-ping" />
+            <div className="absolute w-9 h-9 rounded-full bg-red-500/60 animate-pulse" />
+            <div className="relative w-8 h-8 rounded-full bg-red-600 border-2 border-white shadow-2xl flex items-center justify-center text-white text-xs font-black">
+              🌊
+            </div>
+            {pulsingRouteHazard.label && (
+              <div className="absolute -bottom-6 whitespace-nowrap bg-red-600 text-white font-extrabold text-[9px] px-2 py-0.5 rounded-full border border-white/40 shadow-lg">
+                ⚠️ {pulsingRouteHazard.label}
+              </div>
+            )}
+          </div>
+        </Marker>
       )}
 
       {/* ── Active Target Destination Pin ── */}

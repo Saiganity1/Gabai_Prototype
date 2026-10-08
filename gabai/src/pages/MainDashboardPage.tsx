@@ -24,6 +24,9 @@ import { fetchRoadSegmentPath } from '../utils/routingEngine'
 import { analyzeRouteWithAI } from '../utils/aiRouteAdvisor'
 import { geminiAnalyzeFloodPhoto, geminiAnalyzeRoute, geminiChatAssistant, geminiGeocodePlace } from '../utils/geminiClient'
 import { calculateDistanceKm } from '../hooks/useUserLocation'
+import { useRouteHazardMonitor } from '../hooks/useRouteHazardMonitor'
+import HazardAlertModal from '../components/HazardAlertModal'
+import HazardSimulationPanel from '../components/HazardSimulationPanel'
 
 const isLocalhost =
   typeof window !== 'undefined' &&
@@ -39,6 +42,7 @@ interface Props {
 export default function MainApp({ darkMode, toggleDark }: Props) {
   const {
     hazards,
+    reports,
     myReportIds,
     evacCenters,
     userLocation,
@@ -119,6 +123,28 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const publicHazards = useMemo(() => {
     return hazards.filter((h) => isHazardPubliclyVisible(h, myReportIds))
   }, [hazards, myReportIds])
+
+  // ── Live Route Hazard Alert Monitor ──
+  const activeRouteForHazardMonitor = useMemo(() => {
+    if (!routes || !selectedRoute) return null
+    return routes[selectedRoute] || null
+  }, [routes, selectedRoute])
+
+  const {
+    activeAlert: routeHazardAlert,
+    redSegmentOnRoute,
+    pulsingHazardPoint,
+    dismissAlert: dismissRouteHazardAlert,
+    confirmContinueAnyway: confirmRouteHazardContinue,
+    setSimulatedPosition,
+    injectSimulatedHazardAhead,
+  } = useRouteHazardMonitor({
+    activeRoute: activeRouteForHazardMonitor,
+    isNavigating: isDrivingHUDActive || activeModal === 'routes',
+    userLocation,
+    hazards: publicHazards,
+    reports,
+  })
 
   const toggle3DMode = () => {
     setIs3D((prev) => {
@@ -929,6 +955,8 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           onToggle3D={toggle3DMode}
           isPickingRoadSegment={isPickingPointMode}
           isPickingPoint={Boolean(isPickingPointMode || isMapClickDestinationMode)}
+          floodedRouteSegment={redSegmentOnRoute}
+          pulsingRouteHazard={pulsingHazardPoint}
         />
       </div>
 
@@ -2354,6 +2382,45 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Route Hazard Simulator Panel (Test Mode) ── */}
+      <HazardSimulationPanel
+        activeRoute={activeRouteForHazardMonitor}
+        isNavigating={isDrivingHUDActive || activeModal === 'routes'}
+        onUpdatePosition={setSimulatedPosition}
+        onInjectFakeReport={injectSimulatedHazardAhead}
+        darkMode={darkMode}
+      />
+
+      {/* ── Live Route Hazard Alert Modal ── */}
+      {routeHazardAlert && activeRouteForHazardMonitor && (
+        <HazardAlertModal
+          alertData={routeHazardAlert}
+          darkMode={darkMode}
+          currentRoute={activeRouteForHazardMonitor}
+          destination={
+            destination || {
+              lat: userLocation.lat + 0.02,
+              lng: userLocation.lng - 0.015,
+              name: 'Safe Evacuation Center',
+            }
+          }
+          existingHazards={publicHazards}
+          evacCenters={evacCenters}
+          onAcceptNewRoute={(newRoute) => {
+            setSelectedRoute(newRoute.id as any)
+            dismissRouteHazardAlert()
+          }}
+          onContinueAnyway={(hazardId) => {
+            confirmRouteHazardContinue(hazardId)
+          }}
+          onDismiss={dismissRouteHazardAlert}
+          onNavigateToShelter={(shelter) => {
+            setDestination(shelter)
+            dismissRouteHazardAlert()
+          }}
+        />
       )}
     </div>
   )
