@@ -36,7 +36,7 @@ interface GabaiChatbotProps {
   routes?: any
   onStartNavigation?: () => void
   onViewOnMap?: (dest?: any) => void
-  onSendMessage?: (text: string) => Promise<{ text: string; routeCard?: any } | string>
+  onSendMessage?: (text: string, history?: ChatMessage[]) => Promise<{ text: string; routeCard?: any } | string>
 }
 
 export function GabaiChatbot({
@@ -79,7 +79,7 @@ export function GabaiChatbot({
     if (onSendMessage) {
       setIsThinking(true)
       try {
-        const res = await onSendMessage(text)
+        const res = await onSendMessage(text, messages)
         setIsThinking(false)
         if (typeof res === 'string') {
           setMessages((prev) => [...prev, { sender: 'gabai', text: res }])

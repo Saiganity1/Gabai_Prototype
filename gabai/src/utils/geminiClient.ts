@@ -6,6 +6,8 @@
 export const GEMINI_API_KEY =
   import.meta.env.VITE_GEMINI_API_KEY || ''
 
+import { buildMultilingualSystemPrompt, ChatHistoryTurn } from './multilingualCoPilot'
+
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`
 
 export interface GeminiRouteAdvice {
@@ -189,32 +191,41 @@ export async function geminiChatAssistant(
       durationMin: number
       isClear: boolean
     }
+    history?: ChatHistoryTurn[]
   }
 ): Promise<string | null> {
   if (!GEMINI_API_KEY) return null
 
-  const prompt = `You are GABAI, an official AI disaster navigation and public safety assistant in Pampanga, Philippines.
-STRICT DATA INTEGRITY RULES (DO NOT HALLUCINATE):
-1. Use ONLY the provided verified ground-truth data below. NEVER invent fake hazard numbers, imaginary impassable roads, or exaggerated weather events.
-2. If routeDetails are provided, the route has ALREADY been calculated by GABAI's routing engine and is 100% CLEAR and SAFE. Confirm the exact destination and travel time.
-3. If the user asks if there is flood in a place, refer ONLY to the verified active hazard list. If a place is not in the list, state that no active flood reports exist there.
-
-GROUND-TRUTH DATA:
-- Current Location: ${context.currentLocation}
-${context.routeDetails ? `- Safe Calculated Route: To ${context.routeDetails.destinationName} (${context.routeDetails.distanceKm.toFixed(1)} km · ~${context.routeDetails.durationMin} mins) — Status: Flood-Free & Passable` : ''}
-- Verified Active Flood Road Segments in Pampanga: ${context.activeHazardsList && context.activeHazardsList.length > 0 ? context.activeHazardsList.join('; ') : 'None (All major roads passable)'}
-- Key Evacuation Centers: ${(context.evacuationCenters || []).slice(0, 4).join(', ')}
-
-User Query: "${userQuery}"
-
-Task: Provide a concise (1-2 sentences), accurate, reassuring response in the user's language (Tagalog/English). State exact facts only.`
+  const prompt = buildMultilingualSystemPrompt({
+    userQuery,
+    currentLocation: context.currentLocation,
+    activeHazardsList: context.activeHazardsList,
+    evacuationCenters: context.evacuationCenters,
+    routeDetails: context.routeDetails,
+  })
 
   try {
+    const contents: any[] = []
+
+    if (context.history && context.history.length > 0) {
+      for (const turn of context.history.slice(-4)) {
+        contents.push({
+          role: turn.role === 'model' ? 'model' : 'user',
+          parts: [{ text: turn.text }],
+        })
+      }
+    }
+
+    contents.push({
+      role: 'user',
+      parts: [{ text: prompt }],
+    })
+
     const res = await fetch(GEMINI_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        contents,
       }),
     })
 

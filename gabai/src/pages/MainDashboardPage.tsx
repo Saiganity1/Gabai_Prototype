@@ -27,6 +27,12 @@ import { calculateDistanceKm } from '../hooks/useUserLocation'
 import { useRouteHazardMonitor } from '../hooks/useRouteHazardMonitor'
 import HazardAlertModal from '../components/HazardAlertModal'
 import HazardSimulationPanel from '../components/HazardSimulationPanel'
+import {
+  formatLocalizedRouteCardText,
+  formatLocalizedFloodResponse,
+  formatLocalizedFallback,
+  ChatHistoryTurn,
+} from '../utils/multilingualCoPilot'
 
 const isLocalhost =
   typeof window !== 'undefined' &&
@@ -391,7 +397,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   }
 
   // Intelligent Chatbot Message Processor
-  const handleProcessChatMessage = async (text: string): Promise<{ text: string; routeCard?: any }> => {
+  const handleProcessChatMessage = async (text: string, rawHistory?: any[]): Promise<{ text: string; routeCard?: any }> => {
     try {
       const lower = text.toLowerCase().trim()
 
@@ -416,31 +422,70 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         }
       }
 
-      // 2. Check if user is asking about flood status / hazards in an area
-      if (
+      // 2. Multilingual Flood Status & Road Passability Inquiries (e.g. "Bawal ba dumaan sa San Mateo?", "Atin bang albug...", "Baha ba...")
+      const isFloodInquiry =
         lower.includes('baha ba') ||
         lower.includes('may baha') ||
         lower.includes('saan may baha') ||
         lower.includes('safe ba ang daan') ||
-        lower.includes('baha sa')
-      ) {
-        const activeFloods = publicHazards.filter((h) => h.status !== 'Resolved' && h.status !== 'Rejected by LGU')
-        if (activeFloods.length === 0) {
-          return {
-            text: '✅ Magandang balita! Sa kasalukuyan, walang naiulat na aktibong baha sa mga pangunahing kalsada sa Pampanga. Ligtas ang mga daanan.',
-          }
-        }
+        lower.includes('baha sa') ||
+        lower.includes('bawal ba dumaan') ||
+        lower.includes('bawal ba muagi') ||
+        lower.includes('dili ba maagian') ||
+        lower.includes('mabalin kadi lumabas') ||
+        lower.includes('adda kadi layus') ||
+        lower.includes('atin bang albug') ||
+        lower.includes('bawal bang duman') ||
+        lower.includes('is it flooded') ||
+        lower.includes('can i pass') ||
+        lower.includes('passable ba')
 
-        // Check if user mentioned a specific location
+      if (isFloodInquiry) {
+        const activeFloods = publicHazards.filter((h) => h.status !== 'Resolved' && h.status !== 'Rejected by LGU')
+
+        // Check if user mentioned a specific location or road
         const matching = activeFloods.filter((h) => {
           const road = (h.roadSegment?.roadName || h.label || '').toLowerCase()
           return road && lower.includes(road.slice(0, 6))
         })
 
+        // Extract queried location name candidate if present
+        const placeCandidate = text
+          .replace(/^(?:bawal\s+ba\s+dumaan\s+sa|bawal\s+ba\s+muagi\s+sa|mabalin\s+kadi\s+lumabas\s+idiay|atin\s+bang\s+albug\s+king|baha\s+ba\s+sa|may\s+baha\s+ba\s+sa|can\s+i\s+pass\s+through|is\s+it\s+flooded\s+in|is\s+it\s+flooded\s+at)\s+/i, '')
+          .replace(/[\?\.\!]+$/, '')
+          .trim()
+
         if (matching.length > 0) {
           const m = matching[0]
           return {
-            text: `⚠️ Mag-ingat! May naiulat na baha sa ${m.roadSegment?.roadName || m.label} (${m.waterDepth || 'Knee Deep'}). Katayuan: ${m.status || 'Not Passable to Light Vehicles'}. Inirerekomenda ang paggamit ng alternate bypass route.`,
+            text: formatLocalizedFloodResponse({
+              roadOrPlace: m.roadSegment?.roadName || m.label,
+              isFlooded: true,
+              waterDepth: m.waterDepth,
+              status: m.status,
+              queryText: text,
+            }),
+          }
+        }
+
+        if (placeCandidate && placeCandidate.length > 2 && !lower.includes('kalsada') && !lower.includes('daan')) {
+          // Road is clear / not in active flood hazard list
+          return {
+            text: formatLocalizedFloodResponse({
+              roadOrPlace: placeCandidate,
+              isFlooded: false,
+              queryText: text,
+            }),
+          }
+        }
+
+        if (activeFloods.length === 0) {
+          return {
+            text: formatLocalizedFloodResponse({
+              roadOrPlace: 'mga kalsada sa Pampanga',
+              isFlooded: false,
+              queryText: text,
+            }),
           }
         }
 
@@ -454,7 +499,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         }
       }
 
-      // 3. Extract destination query
+      // 3. Extract destination query with multi-lingual prefixes
       const destRaw =
         lower
           .replace(/^(?:find\s+|show\s+|give\s+|get\s+)?(?:a\s+)?(?:safe\s+)?(?:route|direction|directions|way|path)\s+(?:to|going to|towards|for)\s+/i, '')
@@ -466,6 +511,9 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           .replace(/^(?:daan|ruta|direksyon)\s+(?:papunta|papuntang|patungo|patungong|sa)\s+/i, '')
           .replace(/^(?:dalhin\s+mo\s+ako|ihatid\s+ako)\s+(?:sa|papuntang)\s+/i, '')
           .replace(/^(?:munta|muntang|magpunta|dalan|dala)\s+(?:ku\s+)?(?:king|king\s+lugar|papuntang|karin|king)\s+/i, '')
+          .replace(/^(?:nukarin\s+ing\s+dalan\s+munta|nukarin\s+ing\s+dalan\s+papuntang)\s+/i, '')
+          .replace(/^(?:asa\s+ang\s+dalan\s+padulong|padung\s+sa|dalan\s+padulong)\s+/i, '')
+          .replace(/^(?:ayan\s+ti\s+kalsada\s+mapan|mapan\s+idiay|ayan\s+ti\s+dalan)\s+/i, '')
           .replace(/[\?\.\!]+$/, '')
           .trim()
 
@@ -599,7 +647,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         ).length
 
         return {
-          text: `🧭 Nakahanap ako ng pinakaligtas na ruta papuntang ${target.name} (${distKm.toFixed(1)} km · humigit-kumulang ${estMin} mins). Awtomatikong iniiwasan ang mga bahang kalsada sa paligid.`,
+          text: formatLocalizedRouteCardText(target.name, distKm, estMin, text),
           routeCard: {
             destinationName: target.name,
             address: target.address,
@@ -619,11 +667,21 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         .map((h) => `${h.roadSegment?.roadName || h.label} (${h.waterDepth || 'Flood'})`)
 
       try {
+        const history: ChatHistoryTurn[] = Array.isArray(rawHistory)
+          ? rawHistory
+              .filter((m: any) => m && m.text)
+              .map((m: any) => ({
+                role: m.sender === 'user' ? ('user' as const) : ('model' as const),
+                text: m.text,
+              }))
+          : []
+
         const aiAnswer = await geminiChatAssistant(text, {
           currentLocation: locationName || 'Pampanga',
           activeHazardsList: activeHazardsList.slice(0, 6),
           activeHazardsCount: activeHazardsList.length,
           evacuationCenters: evacCenters.map((e) => e.name),
+          history,
         })
 
         if (aiAnswer) {
@@ -632,12 +690,12 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       } catch {}
 
       return {
-        text: `Handa akong gabayan ka patungo sa kahit saang lugar sa Pampanga tulad ng "${targetQuery}". Maaari mo ring subukan ang "Route to SM City Pampanga", "Route to San Luis Freedom Park", o magtanong ukol sa baha.`,
+        text: formatLocalizedFallback(targetQuery || 'Pampanga', text),
       }
     } catch (err) {
       console.warn('Chatbot processing fallback:', err)
       return {
-        text: 'Ligtas at bukas ang mga pangunahing kalsada sa Pampanga. I-type ang iyong destinasyon (hal. "Route to San Luis Freedom park" o "Route to Clark Airport") upang makakuha ng flood-free route.',
+        text: formatLocalizedFallback('Pampanga', text),
       }
     }
   }
