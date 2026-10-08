@@ -130,7 +130,7 @@ export async function calculateDetourAroundHazard(
     if (!candidate || !candidate.geoJSON?.geometry?.coordinates) continue
 
     const coords = candidate.geoJSON.geometry.coordinates as [number, number][]
-    const intersection = routeIntersectsHazards(coords, [hazardToAvoid], 0.15)
+    const intersection = routeIntersectsHazards(coords, [hazardToAvoid], 0.05)
 
     if (!intersection.isUnsafe) {
       bestSafeRoute = candidate
@@ -138,11 +138,11 @@ export async function calculateDetourAroundHazard(
     }
   }
 
-  // If even 'safe' is slightly close, check if its min distance is better than 100m
+  // If even 'safe' is slightly close, check if its min distance is better than 40m
   if (!bestSafeRoute && computedRoutes.safe) {
     const coords = computedRoutes.safe.geoJSON?.geometry?.coordinates as [number, number][]
     if (coords) {
-      const intersection = routeIntersectsHazards(coords, [hazardToAvoid], 0.08)
+      const intersection = routeIntersectsHazards(coords, [hazardToAvoid], 0.04)
       if (!intersection.isUnsafe) {
         bestSafeRoute = computedRoutes.safe
       }

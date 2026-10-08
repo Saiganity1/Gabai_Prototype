@@ -26,6 +26,7 @@ interface Props {
   destination: { lat: number; lng: number; name?: string }
   existingHazards: Hazard[]
   evacCenters?: Array<{ name: string; lat: number; lng: number; status?: string }>
+  userLocation?: { lat: number; lng: number }
   onAcceptNewRoute: (newRoute: RouteInfo) => void
   onContinueAnyway: (hazardId: string | number) => void
   onDismiss: () => void
@@ -41,6 +42,7 @@ export default function HazardAlertModal({
   destination,
   existingHazards,
   evacCenters,
+  userLocation,
   onAcceptNewRoute,
   onContinueAnyway,
   onDismiss,
@@ -88,11 +90,12 @@ export default function HazardAlertModal({
     setIsCalculatingReroute(true)
 
     try {
-      const [lng, lat] = alertData.evaluation.hazardPointOnRoute
-      const userCoords = {
-        lat: alertData.evaluation.hazardPointOnRoute ? lat : alertData.hazard.lat,
-        lng: alertData.evaluation.hazardPointOnRoute ? lng : alertData.hazard.lng,
-      }
+      const firstCoord = currentRoute?.geoJSON?.geometry?.coordinates?.[0]
+      const userCoords = userLocation
+        ? userLocation
+        : firstCoord
+        ? { lat: firstCoord[1], lng: firstCoord[0] }
+        : { lat: alertData.hazard.lat, lng: alertData.hazard.lng }
 
       const result = await calculateDetourAroundHazard(
         userCoords,

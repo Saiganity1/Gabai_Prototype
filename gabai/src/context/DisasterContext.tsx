@@ -1150,6 +1150,35 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [reports, broadcastCloudEvent]
   )
 
+  // ── Unified Routing Hazards (All official hazards + active citizen reports) ──
+  const allRoutingHazards = useMemo(() => {
+    const hazList = [...hazards]
+    const knownIds = new Set(hazList.map((h) => String(h.id)))
+
+    reports.forEach((r) => {
+      if (r.status === 'rejected' || r.status === 'resolved') return
+      const repHazardId = r.hazardId ? String(r.hazardId) : String(r.id)
+      if (!knownIds.has(repHazardId) && !knownIds.has(String(r.id))) {
+        hazList.push({
+          id: repHazardId,
+          type: r.type || 'flood',
+          label: r.desc || 'Reported Road Flood',
+          severity: r.severity || 'high',
+          lat: r.lat,
+          lng: r.lng,
+          isRoadSegment: r.isRoadSegment,
+          roadSegment: r.roadSegment,
+          passability: r.passability,
+          waterDepth: r.waterDepth,
+          status: r.status,
+          verified: r.status === 'verified' ? 1 : 0,
+        } as Hazard)
+      }
+    })
+
+    return hazList
+  }, [hazards, reports])
+
   // ── Dynamic Safe Routes Engine with Real-World Road Network Routing ──
   const initialRoutes = useMemo(() => {
     const dest = destination || {
@@ -1162,9 +1191,9 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       userLoc.coords.lng,
       dest.lat,
       dest.lng,
-      hazards
+      allRoutingHazards
     )
-  }, [userLoc.coords.lat, userLoc.coords.lng, destination, evacCenters, hazards])
+  }, [userLoc.coords.lat, userLoc.coords.lng, destination, evacCenters, allRoutingHazards])
 
   const [liveRoutes, setLiveRoutes] = useState<Record<'safe' | 'balanced' | 'fast', RouteInfo> | null>(null)
   const latestRequestIdRef = useRef(0)
@@ -1183,13 +1212,13 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       userLoc.coords.lng,
       dest.lat,
       dest.lng,
-      hazards
+      allRoutingHazards
     ).then((res) => {
       if (currentRequestId === latestRequestIdRef.current && res) {
         setLiveRoutes(res)
       }
     })
-  }, [userLoc.coords.lat, userLoc.coords.lng, destination, evacCenters, hazards])
+  }, [userLoc.coords.lat, userLoc.coords.lng, destination, evacCenters, allRoutingHazards])
 
   const routes = liveRoutes || initialRoutes
 

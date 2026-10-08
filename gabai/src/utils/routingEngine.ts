@@ -100,7 +100,7 @@ function samplePolylineDensely(path: [number, number][], stepDeg = 0.0002): [num
 /**
  * Checks if a route polyline intersects or comes within unsafe proximity of any active flood hazard (including blue LGU flood lines)
  */
-export function routeIntersectsHazards(coords: [number, number][], hazards: Hazard[], safeBufferKm = 0.20): {
+export function routeIntersectsHazards(coords: [number, number][], hazards: Hazard[], safeBufferKm = 0.05): {
   isUnsafe: boolean
   minHazardDistanceKm: number
   blockingHazards: Hazard[]
@@ -155,7 +155,10 @@ export function routeIntersectsHazards(coords: [number, number][], hazards: Haza
       d = getMinDistanceToPolylineKm(h.lat, h.lng, coords)
     }
 
-    const hazardThresholdKm = Math.max(0.10, (h.radius || 100) / 1000) + safeBufferKm
+    const hazardThresholdKm = h.isRoadSegment
+      ? Math.max(0.04, safeBufferKm)
+      : Math.max(0.05, (h.radius || 60) / 1000) + safeBufferKm
+
     if (d < minDistance) minDistance = d
     if (directlyCrosses || d <= hazardThresholdKm) {
       blocking.push(h)
@@ -248,6 +251,54 @@ export function generateDynamicRoutes(
     [destLat, destLng],
   ]
 
+  // Check if direct linear path conflicts with any active hazard
+  const directCheck = routeIntersectsHazards(roadWaypoints, activeHazards, 0.05)
+  let safeWaypoints: [number, number][] = roadWaypoints
+  let balancedWaypoints: [number, number][] = roadWaypoints
+
+  if (directCheck.isUnsafe && activeHazards.length > 0) {
+    const latDiff = destLat - originLat
+    const lngDiff = destLng - originLng
+    const len = Math.hypot(latDiff, lngDiff) || 1
+    const perpLat = -lngDiff / len
+    const perpLng = latDiff / len
+
+    // Midpoint of the route bent laterally away from the flood hazard
+    const midLat = (originLat + destLat) / 2
+    const midLng = (originLng + destLng) / 2
+
+    const arcOffsetDeg = 0.012
+    const waypointsLeft: [number, number][] = [
+      [originLat, originLng],
+      [midLat + perpLat * arcOffsetDeg, midLng + perpLng * arcOffsetDeg],
+      [destLat, destLng],
+    ]
+    const waypointsRight: [number, number][] = [
+      [originLat, originLng],
+      [midLat - perpLat * arcOffsetDeg, midLng - perpLng * arcOffsetDeg],
+      [destLat, destLng],
+    ]
+
+    const leftCheck = routeIntersectsHazards(waypointsLeft, activeHazards, 0.05)
+    const rightCheck = routeIntersectsHazards(waypointsRight, activeHazards, 0.05)
+
+    if (!leftCheck.isUnsafe) {
+      safeWaypoints = waypointsLeft
+      balancedWaypoints = rightCheck.isUnsafe ? waypointsLeft : waypointsRight
+    } else if (!rightCheck.isUnsafe) {
+      safeWaypoints = waypointsRight
+      balancedWaypoints = waypointsRight
+    } else {
+      if (leftCheck.minHazardDistanceKm >= rightCheck.minHazardDistanceKm) {
+        safeWaypoints = waypointsLeft
+        balancedWaypoints = waypointsRight
+      } else {
+        safeWaypoints = waypointsRight
+        balancedWaypoints = waypointsLeft
+      }
+    }
+  }
+
   const estMin = Math.max(1, Math.round((directDist / 30) * 60))
 
   return {
@@ -255,15 +306,17 @@ export function generateDynamicRoutes(
       id: 'safe',
       label: '⚡ AI Optimal (Fastest & 100% Flood-Free)',
       time: `${estMin} min (${directDist.toFixed(1)} km)`,
-      detail: '🛡️ AI Selected: Real asphalt road trajectory to Point B',
+      detail: directCheck.isUnsafe
+        ? '🛡️ AI Detour: Arc route avoiding active flood zone'
+        : '🛡️ AI Selected: Real asphalt road trajectory to Point B',
       risk: 'low',
-      geoJSON: createRouteGeoJSON(roadWaypoints),
+      geoJSON: createRouteGeoJSON(safeWaypoints),
       distanceKm: directDist,
       steps: [
         {
-          instruction: 'Proceed toward Destination along Road Network',
+          instruction: 'Proceed toward Destination along Safe Road Network',
           distance: `${(directDist * 1000).toFixed(0)} m`,
-          subtext: 'Routing along verified OpenStreetMap asphalt roads',
+          subtext: 'Routing along verified flood-free road corridor',
           icon: 'straight',
         },
       ],
@@ -274,15 +327,17 @@ export function generateDynamicRoutes(
       time: `${estMin + 2} min (${(directDist * 1.1).toFixed(1)} km)`,
       detail: '🍃 Smooth cruising arterial · 100% safe & dry',
       risk: 'low',
-      geoJSON: createRouteGeoJSON(roadWaypoints),
+      geoJSON: createRouteGeoJSON(balancedWaypoints),
       distanceKm: directDist * 1.1,
     },
     fast: {
       id: 'fast',
       label: 'Direct Highway Route',
       time: `${estMin} min (${directDist.toFixed(1)} km)`,
-      detail: 'Direct road network path',
-      risk: activeHazards.length > 0 ? 'medium' : 'low',
+      detail: directCheck.isUnsafe
+        ? '⚠️ Direct highway passes through reported flood area'
+        : 'Direct road network path',
+      risk: directCheck.isUnsafe ? 'high' : 'low',
       geoJSON: createRouteGeoJSON(roadWaypoints),
       distanceKm: directDist,
     },
@@ -365,7 +420,7 @@ export async function fetchAccurateRealWorldRoutes(
     const primaryCoords: [number, number][] = primaryRoute.geometry?.coordinates || []
 
     // 1. Evaluate Direct Route against all active hazards using full polyline & segment geometry
-    const directHazardCheck = routeIntersectsHazards(primaryCoords, activeHazards, 0.20)
+    const directHazardCheck = routeIntersectsHazards(primaryCoords, activeHazards, 0.05)
     const hasHazardOnDirect = directHazardCheck.isUnsafe
 
     // 2. Multi-Candidate AI Route Optimizer: Gather all candidate road trajectories
@@ -392,7 +447,7 @@ export async function fetchAccurateRealWorldRoutes(
     for (let i = 1; i < allOsrmRoutes.length; i++) {
       const r = allOsrmRoutes[i]
       const coords = r.geometry?.coordinates || []
-      const altCheck = routeIntersectsHazards(coords, activeHazards, 0.20)
+      const altCheck = routeIntersectsHazards(coords, activeHazards, 0.05)
       candidateBypasses.push({
         route: r,
         distanceKm: r.distance / 1000,
@@ -535,7 +590,7 @@ export async function fetchAccurateRealWorldRoutes(
             const candidateCoords: [number, number][] = candidateRoute.geometry?.coordinates || []
 
             // Strictly check entire detour polyline against all active flood hazard buffers
-            const detourHazardCheck = routeIntersectsHazards(candidateCoords, activeHazards, 0.15)
+            const detourHazardCheck = routeIntersectsHazards(candidateCoords, activeHazards, 0.05)
 
             return {
               route: candidateRoute,

@@ -148,9 +148,9 @@
 # ---------------------------------------------------------------------------
 # Gabai Web Application Assets (Must NOT use Git LFS - web build dependencies)
 # ---------------------------------------------------------------------------
-gabai/** -filter -diff -merge
-gabai/public/* -filter -diff -merge
-gabai/public/*.png -filter -diff -merge
-gabai/public/*.ico -filter -diff -merge
-gabai/src/** -filter -diff -merge
+gabai/** -filter
+gabai/public/* -filter
+gabai/public/*.png -filter
+gabai/public/*.ico -filter
+gabai/src/** text
 

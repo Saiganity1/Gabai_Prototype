@@ -130,11 +130,28 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
     return hazards.filter((h) => isHazardPubliclyVisible(h, myReportIds))
   }, [hazards, myReportIds])
 
+  // ── Custom Detour Route (when driver accepts a bypass around a detected flood) ──
+  const [customDetourRoute, setCustomDetourRoute] = useState<RouteInfo | null>(null)
+
+  useEffect(() => {
+    setCustomDetourRoute(null)
+  }, [destination])
+
+  const effectiveRoutes = useMemo(() => {
+    if (!customDetourRoute || !routes) return routes
+    return {
+      ...routes,
+      [selectedRoute]: customDetourRoute,
+      safe: customDetourRoute,
+    }
+  }, [routes, customDetourRoute, selectedRoute])
+
   // ── Live Route Hazard Alert Monitor ──
   const activeRouteForHazardMonitor = useMemo(() => {
+    if (customDetourRoute) return customDetourRoute
     if (!routes || !selectedRoute) return null
     return routes[selectedRoute] || null
-  }, [routes, selectedRoute])
+  }, [customDetourRoute, routes, selectedRoute])
 
   const {
     activeAlert: routeHazardAlert,
@@ -969,7 +986,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       {/* ── Active Fullscreen Driving HUD ───────────────────── */}
       {isDrivingHUDActive && routes && (
         <DrivingHUD
-          route={routes[selectedRoute]}
+          route={customDetourRoute || routes[selectedRoute]}
           destinationName={destination?.name || 'Safe Evacuation Center'}
           nearbyHazards={hazards}
           userSpeed={userLocation.speed}
@@ -1001,7 +1018,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           userLocation={userLocation}
           hazards={publicHazards}
           evacCenters={evacCenters}
-          routes={routes}
+          routes={effectiveRoutes}
           destination={destination}
           onMapClick={handleMapClick}
           showRadar={showRadar}
@@ -1883,7 +1900,10 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                     return (
                       <button
                         key={r.id}
-                        onClick={() => setSelectedRoute(r.id)}
+                        onClick={() => {
+                          setSelectedRoute(r.id)
+                          setCustomDetourRoute(null)
+                        }}
                         className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all text-left cursor-pointer ${
                           selectedRoute === r.id
                             ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 shadow-sm scale-[1.01]'
@@ -2457,6 +2477,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           alertData={routeHazardAlert}
           darkMode={darkMode}
           currentRoute={activeRouteForHazardMonitor}
+          userLocation={userLocation}
           destination={
             destination || {
               lat: userLocation.lat + 0.02,
@@ -2467,6 +2488,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           existingHazards={publicHazards}
           evacCenters={evacCenters}
           onAcceptNewRoute={(newRoute) => {
+            setCustomDetourRoute(newRoute)
             setSelectedRoute(newRoute.id as any)
             dismissRouteHazardAlert()
           }}
@@ -2475,6 +2497,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           }}
           onDismiss={dismissRouteHazardAlert}
           onNavigateToShelter={(shelter) => {
+            setCustomDetourRoute(null)
             setDestination(shelter)
             dismissRouteHazardAlert()
           }}

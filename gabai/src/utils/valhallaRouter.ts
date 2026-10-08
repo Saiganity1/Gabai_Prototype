@@ -7,6 +7,7 @@
  * - OpenStreetMap accurate road network navigation
  * - Automatic decoding of Valhalla polyline6 geometry
  * - Seamless normalization into GABAI route format
+ * - High-speed POST queries with tight polygon corridors
  * - Graceful fallback to OSRM / dynamic geometric routing
  */
 
@@ -58,27 +59,31 @@ export function decodeValhallaPolyline6(str: string): [number, number][] {
 /**
  * Converts a GABAI Hazard (point or road segment) into a closed polygon ring [lng, lat][]
  * suitable for Valhalla's exclude_polygons parameter.
+ * Uses a tight corridor sleeve around road segments so parallel bypass streets remain open.
  */
-export function hazardToExcludePolygon(hazard: Hazard, bufferMeters = 200): [number, number][] {
+export function hazardToExcludePolygon(hazard: Hazard, bufferMeters = 75): [number, number][] {
   if (hazard.isRoadSegment && hazard.roadSegment?.path && hazard.roadSegment.path.length > 1) {
     const path = hazard.roadSegment.path
-    const lats = path.map((p) => p[1])
-    const lngs = path.map((p) => p[0])
-    const minLat = Math.min(...lats)
-    const maxLat = Math.max(...lats)
-    const minLng = Math.min(...lngs)
-    const maxLng = Math.max(...lngs)
+    const leftSide: [number, number][] = []
+    const rightSide: [number, number][] = []
 
-    const latBuf = bufferMeters / 111320
-    const lngBuf = bufferMeters / (111320 * Math.cos((minLat * Math.PI) / 180))
+    for (let i = 0; i < path.length; i++) {
+      const curr = path[i]
+      const prev = path[Math.max(0, i - 1)]
+      const next = path[Math.min(path.length - 1, i + 1)]
+      const dLng = next[0] - prev[0]
+      const dLat = next[1] - prev[1]
+      const len = Math.hypot(dLng, dLat) || 1
+      const perpLng = -dLat / len
+      const perpLat = dLng / len
+      const latBuf = bufferMeters / 111320
+      const lngBuf = bufferMeters / (111320 * Math.cos((curr[1] * Math.PI) / 180))
 
-    return [
-      [minLng - lngBuf, minLat - latBuf],
-      [maxLng + lngBuf, minLat - latBuf],
-      [maxLng + lngBuf, maxLat + latBuf],
-      [minLng - lngBuf, maxLat + latBuf],
-      [minLng - lngBuf, minLat - latBuf],
-    ]
+      leftSide.push([curr[0] + perpLng * lngBuf, curr[1] + perpLat * latBuf])
+      rightSide.push([curr[0] - perpLng * lngBuf, curr[1] - perpLat * latBuf])
+    }
+
+    return [...leftSide, ...rightSide.reverse(), leftSide[0]]
   }
 
   // Circular polygon approximation for point hazards (8 vertices)
@@ -161,7 +166,7 @@ export interface ValhallaCandidate {
 }
 
 /**
- * Queries the Valhalla routing engine with optional exclude_polygons
+ * Queries the Valhalla routing engine with POST method and optional exclude_polygons
  */
 export async function queryValhallaRoute(params: {
   originLat: number
@@ -171,7 +176,7 @@ export async function queryValhallaRoute(params: {
   excludePolygons?: [number, number][][]
   timeoutMs?: number
 }): Promise<any | null> {
-  const { originLat, originLng, destLat, destLng, excludePolygons, timeoutMs = 4000 } = params
+  const { originLat, originLng, destLat, destLng, excludePolygons, timeoutMs = 4500 } = params
 
   try {
     const requestBody: any = {
@@ -192,12 +197,14 @@ export async function queryValhallaRoute(params: {
       requestBody.exclude_polygons = excludePolygons
     }
 
-    const url = `${VALHALLA_API_URL}?json=${encodeURIComponent(JSON.stringify(requestBody))}`
-    const res = await fetch(url, {
+    const res = await fetch(VALHALLA_API_URL, {
+      method: 'POST',
       signal: AbortSignal.timeout(timeoutMs),
       headers: {
+        'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
+      body: JSON.stringify(requestBody),
     })
 
     if (!res.ok) return null
@@ -206,7 +213,7 @@ export async function queryValhallaRoute(params: {
     if (!data.trip || !data.trip.legs || data.trip.legs.length === 0) return null
 
     return convertValhallaTripToOsrmFormat(data.trip)
-  } catch (err) {
+  } catch {
     // Graceful silent fallback if Valhalla is unreachable
     return null
   }
@@ -228,15 +235,15 @@ export async function fetchValhallaCandidates(
   const floodPolygons: [number, number][][] = []
   for (const hz of activeHazards) {
     if (hz && hz.status !== 'Resolved') {
-      const poly = hazardToExcludePolygon(hz, 180)
+      const poly = hazardToExcludePolygon(hz, 75)
       if (poly.length >= 4) {
         floodPolygons.push(poly)
       }
     }
   }
 
-  // Limit to at most 12 polygons to stay within reasonable URL/payload lengths
-  const boundedPolygons = floodPolygons.slice(0, 12)
+  // Limit to at most 16 polygons to keep fast response
+  const boundedPolygons = floodPolygons.slice(0, 16)
 
   const requests: Promise<any>[] = []
 
@@ -272,7 +279,7 @@ export async function fetchValhallaCandidates(
 
   if (directTrip && directTrip.geometry?.coordinates?.length > 1) {
     const coords: [number, number][] = directTrip.geometry.coordinates
-    const hazardCheck = routeIntersectsHazards(coords, activeHazards, 0.2)
+    const hazardCheck = routeIntersectsHazards(coords, activeHazards, 0.05)
     candidates.push({
       route: directTrip,
       distanceKm: directTrip.distance / 1000,
@@ -286,7 +293,7 @@ export async function fetchValhallaCandidates(
 
   if (safeTrip && safeTrip.geometry?.coordinates?.length > 1) {
     const coords: [number, number][] = safeTrip.geometry.coordinates
-    const hazardCheck = routeIntersectsHazards(coords, activeHazards, 0.2)
+    const hazardCheck = routeIntersectsHazards(coords, activeHazards, 0.05)
     candidates.push({
       route: safeTrip,
       distanceKm: safeTrip.distance / 1000,
