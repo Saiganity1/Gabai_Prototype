@@ -8,11 +8,6 @@ export const ROUTE_OPTIONS = [
 
 export const REPORT_TYPES = [
   { id: 'flood', emoji: '🌊', label: 'Flood' },
-  { id: 'road', emoji: '🚧', label: 'Road Blocked' },
-  { id: 'fire', emoji: '🔥', label: 'Fire' },
-  { id: 'power', emoji: '⚡', label: 'Power Outage' },
-  { id: 'person', emoji: '🧍', label: 'Person in Danger' },
-  { id: 'other', emoji: '⚠️', label: 'Other' },
 ]
 
 export const EVAC_CENTERS = [

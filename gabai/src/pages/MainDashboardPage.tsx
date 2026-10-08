@@ -1957,8 +1957,8 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
               <>
                 {/* Scrollable Form Body */}
                 <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-3 space-y-3">
-                  {/* Category Selection Grid */}
-                  <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                  {/* Category Selection */}
+                  <div className="grid grid-cols-1 gap-1.5 sm:gap-2">
                     {REPORT_TYPES.map((t) => (
                       <button
                         key={t.id}
