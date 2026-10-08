@@ -1,6 +1,7 @@
 import { Hazard } from '../components/MapCanvas'
 import { calculateDistanceKm } from '../hooks/useUserLocation'
 import { geminiDecideRoute, CandidateRouteData, extractRouteTelemetry, computeAdvancedFuel } from './aiRouteDecision'
+import { fetchValhallaCandidates } from './valhallaRouter'
 
 export interface RouteStep {
   instruction: string
@@ -400,6 +401,22 @@ export async function fetchAccurateRealWorldRoutes(
         minHazardDistKm: altCheck.minHazardDistanceKm,
         isDetour: false,
       })
+    }
+
+    // Query Valhalla routing engine with native flood exclusion polygons
+    try {
+      const valhallaCandidates = await fetchValhallaCandidates(
+        originLat,
+        originLng,
+        destLat,
+        destLng,
+        activeHazards
+      )
+      for (const vc of valhallaCandidates) {
+        candidateBypasses.push(vc)
+      }
+    } catch {
+      // Graceful fallback if Valhalla request is interrupted
     }
 
     // ALWAYS search for alternative bypass routes when there are active hazards on the map
