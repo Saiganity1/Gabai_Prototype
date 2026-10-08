@@ -126,7 +126,7 @@ export function GabaiChatbot({
           </div>
           <div>
             <h3 className="text-white font-extrabold text-base flex items-center gap-1.5">
-              GABAI AI Co-Pilot <Sparkles className="w-4 h-4 text-cyan-300 animate-pulse" />
+              GABAI <Sparkles className="w-4 h-4 text-cyan-300 animate-pulse" />
             </h3>
             <p className="text-cyan-100 text-[11px] font-medium flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
