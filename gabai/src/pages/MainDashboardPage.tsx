@@ -54,6 +54,7 @@ import {
   googleGeocodePlace,
 } from "../utils/geminiClient";
 import { calculateDistanceKm } from "../hooks/useUserLocation";
+import { useRouteHazardMonitor } from "../hooks/useRouteHazardMonitor";
 import HazardSimulationPanel from "../components/HazardSimulationPanel";
 import {
   formatLocalizedRouteCardText,
