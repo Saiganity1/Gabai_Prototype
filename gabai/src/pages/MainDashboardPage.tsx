@@ -1102,126 +1102,65 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         </div>
       )}
 
-      {/* ── Top Floating Header Dock (BAHABA Inspired UI) ── */}
-      <div className={`absolute left-0 right-0 z-10 px-3 pt-3 sm:px-5 sm:pt-4 flex flex-col gap-2 pointer-events-none ${appState === 'emergency' ? 'top-12' : 'top-0'}`}>
-        <div className="flex items-center gap-3 pointer-events-auto w-full justify-between">
-          {/* Left Brand Badge */}
-          <div className={`backdrop-blur-2xl border rounded-2xl p-2 px-3 flex items-center gap-2.5 shrink-0 transition-all ${
-            darkMode
-              ? 'bg-[#0f172a]/95 border-slate-800/80 shadow-2xl text-white'
-              : 'bg-white/95 border-slate-200/90 shadow-xl text-slate-900'
-          }`}>
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0">
-              <GabaiLogo size="sm" animated glow />
+      {/* ── Top Header Navigation Bar (Unified Whole Bar) ── */}
+      <header className={`absolute left-0 right-0 z-30 transition-all duration-300 pointer-events-auto ${appState === 'emergency' ? 'top-10' : 'top-0'}`}>
+        <div className={`w-full backdrop-blur-2xl border-b px-3 sm:px-5 py-2 sm:py-2.5 flex items-center justify-between gap-2.5 sm:gap-4 shadow-lg transition-colors ${
+          darkMode
+            ? 'bg-[#0f172a]/95 border-slate-800/80 text-white shadow-slate-950/40'
+            : 'bg-white/95 border-slate-200/90 text-slate-900 shadow-slate-200/60'
+        }`}>
+          {/* Left Brand Badge & Quick Navigation Controls */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-2.5">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0">
+                <GabaiLogo size="sm" animated glow />
+              </div>
+              <div className="flex flex-col">
+                <span className={`font-black text-sm tracking-tight leading-none ${darkMode ? 'text-white' : 'text-slate-900'}`}>GABAI</span>
+                <span className={`text-[10px] font-medium mt-1 leading-none hidden sm:inline ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Live flood conditions, Philippines</span>
+              </div>
             </div>
-            <div className="flex flex-col">
-              <span className={`font-black text-sm tracking-tight leading-none ${darkMode ? 'text-white' : 'text-slate-900'}`}>GABAI</span>
-              <span className={`text-[10px] font-medium mt-1 leading-none hidden sm:inline ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Live flood conditions, Philippines</span>
-            </div>
-          </div>
 
-          {/* Center Search / Route Pill ("Plan a route") */}
-          <form onSubmit={handleSearchSubmit} className={`flex-1 flex items-center gap-2.5 backdrop-blur-2xl border rounded-2xl p-2 px-4 transition-all max-w-md mx-auto focus-within:border-blue-500/60 focus-within:ring-1 focus-within:ring-blue-500/30 ${
-            darkMode
-              ? 'bg-[#0f172a]/95 border-slate-800/80 shadow-2xl text-slate-100'
-              : 'bg-white/95 border-slate-200/90 shadow-xl text-slate-900'
-          }`}>
-            <button
-              type="button"
-              onClick={() => setActiveModal('routes')}
-              className={`transition-colors shrink-0 cursor-pointer p-0.5 ${darkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-500 hover:text-blue-600'}`}
-              title="Open Safe Route Planner"
-            >
-              <Navigation className="w-4 h-4" />
-            </button>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Plan a route..."
-              onFocus={() => setSearchFocused(true)}
-              className={`flex-1 bg-transparent text-xs font-medium outline-none truncate ${
-                darkMode ? 'text-slate-100 placeholder-slate-400' : 'text-slate-900 placeholder-slate-400'
-              }`}
-            />
-            {isSearching && <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin shrink-0" />}
-            {searchQuery && (
+            {/* Quick Action Controls (About, LGU, 3D, Theme Toggle) */}
+            <div className="flex items-center gap-1 sm:gap-1.5 ml-1">
               <button
                 type="button"
-                onClick={() => { setSearchQuery(''); setSearchResults([]) }}
-                className={`p-0.5 shrink-0 ${darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
+                onClick={() => setActiveModal('about')}
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                  darkMode
+                    ? 'bg-slate-800/80 hover:bg-slate-800 text-slate-200 border-slate-700/60'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
+                }`}
               >
-                <X className="w-3.5 h-3.5" />
+                About
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setActiveModal('routes')}
-              className={`p-1 rounded-lg transition-all cursor-pointer shrink-0 ${
-                darkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-900'
-              }`}
-              title="Select Evacuation Route"
-            >
-              <ChevronDown className="w-3.5 h-3.5" />
-            </button>
-          </form>
 
-          {/* Right Weather & Control Pills (Pushed to far right edge) */}
-          <div className={`backdrop-blur-2xl border rounded-2xl p-2 px-3.5 flex items-center gap-3 text-xs font-semibold shrink-0 ml-auto transition-all ${
-            darkMode
-              ? 'bg-[#0f172a]/95 border-slate-800/80 shadow-2xl text-slate-300'
-              : 'bg-white/95 border-slate-200/90 shadow-xl text-slate-700'
-          }`}>
-            <div className="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
-              <CloudRain className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">100% rain</span>
-            </div>
-            <span className={darkMode ? 'text-slate-700 hidden md:inline' : 'text-slate-300 hidden md:inline'}>|</span>
-            <div className={`flex items-center gap-1.5 hidden lg:flex ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-              <Radio className={`w-3.5 h-3.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`} />
-              <span>22 km/h</span>
-            </div>
-            <span className={darkMode ? 'text-slate-700 hidden lg:inline' : 'text-slate-300 hidden lg:inline'}>|</span>
-            <span className={`hidden lg:inline ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Partly cloudy</span>
-            
-            <button
-              onClick={() => setActiveModal('about')}
-              className={`px-3 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                darkMode
-                  ? 'bg-slate-800/80 hover:bg-slate-800 text-slate-200 border-slate-700/60'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
-              }`}
-            >
-              About
-            </button>
+              <Link
+                to="/lgu"
+                className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                  darkMode
+                    ? 'bg-slate-800/80 hover:bg-blue-900/40 text-slate-200 hover:text-white border-slate-700/60'
+                    : 'bg-slate-100 hover:bg-blue-50 text-slate-800 hover:text-blue-900 border-slate-200'
+                }`}
+                title="Open Official LGU Emergency Operations Center"
+              >
+                <span>🏢</span>
+                <span className="hidden xs:inline">LGU</span>
+              </Link>
 
-            {/* LGU Command Center Link Button */}
-            <Link
-              to="/lgu"
-              className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
-                darkMode
-                  ? 'bg-slate-800/80 hover:bg-blue-900/40 text-slate-200 hover:text-white border-slate-700/60'
-                  : 'bg-slate-100 hover:bg-blue-50 text-slate-800 hover:text-blue-900 border-slate-200'
-              }`}
-              title="Open Official LGU Emergency Operations Center"
-            >
-              <span>🏢</span>
-              <span>LGU</span>
-            </Link>
-
-            {/* Theme & 3D Toggles */}
-            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={toggle3DMode}
-                className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                className={`px-2 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                   darkMode
                     ? 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:text-white'
                     : 'bg-slate-100 text-slate-700 border-slate-200 hover:text-slate-900'
                 }`}
+                title="Toggle 3D Buildings View"
               >
                 {is3D ? '3D' : '2D'}
               </button>
+
               <button
                 type="button"
                 onClick={toggleDark}
@@ -1230,51 +1169,120 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                     ? 'bg-slate-800/80 border-slate-700/60 text-amber-400 hover:text-amber-300'
                     : 'bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900'
                 }`}
+                aria-label="Toggle theme"
               >
                 {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
               </button>
             </div>
           </div>
-        </div>
 
-        {/* Live Search Autocomplete Dropdown */}
-        {searchFocused && searchResults.length > 0 && (
-          <div className={`max-w-md mx-auto w-full pointer-events-auto backdrop-blur-2xl rounded-2xl border overflow-hidden z-50 anim-slide-up max-h-72 overflow-y-auto ${
-            darkMode
-              ? 'bg-[#0f172a]/95 border-slate-800 shadow-2xl text-white'
-              : 'bg-white/95 border-slate-200 shadow-xl text-slate-900'
-          }`}>
-            <div className={`px-3 py-2 border-b text-[10px] font-bold uppercase tracking-wider ${
-              darkMode
-                ? 'bg-slate-900/80 border-slate-800 text-slate-400'
-                : 'bg-slate-100 border-slate-200 text-slate-500'
-            }`}>
-              Locations & Landmarks
-            </div>
-            {searchResults.map((res, i) => (
+          {/* Center Search / Route Pill ("Plan a route...") & Autocomplete */}
+          <div className="relative flex-1 max-w-xs sm:max-w-sm md:max-w-md mx-auto">
+            <form
+              onSubmit={handleSearchSubmit}
+              className={`w-full flex items-center gap-2.5 rounded-xl border px-3 py-1.5 transition-all focus-within:border-blue-500/60 focus-within:ring-1 focus-within:ring-blue-500/30 ${
+                darkMode
+                  ? 'bg-slate-900/80 border-slate-800 text-slate-100'
+                  : 'bg-slate-100/90 border-slate-200 text-slate-900'
+              }`}
+            >
               <button
-                key={`${res.name}-${i}`}
-                onMouseDown={() => handleSelectSearchResult(res)}
-                className={`w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 transition-colors border-b last:border-0 ${
-                  darkMode
-                    ? 'hover:bg-slate-800/60 border-slate-800/40 text-white'
-                    : 'hover:bg-slate-100 border-slate-200/60 text-slate-900'
-                }`}
+                type="button"
+                onClick={() => setActiveModal('routes')}
+                className={`transition-colors shrink-0 cursor-pointer p-0.5 ${darkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-500 hover:text-blue-600'}`}
+                title="Open Safe Route Planner"
               >
-                <span className="text-lg">{res.emoji || '📍'}</span>
-                <div className="flex-1 min-w-0">
-                  <div className={`text-xs font-bold truncate ${darkMode ? 'text-white' : 'text-slate-900'}`}>{res.name}</div>
-                  <div className={`text-[10px] truncate mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{res.address}</div>
-                </div>
-                <ChevronRight className={`w-3.5 h-3.5 shrink-0 ${darkMode ? 'text-slate-400' : 'text-slate-400'}`} />
+                <Navigation className="w-4 h-4" />
               </button>
-            ))}
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Plan a route..."
+                onFocus={() => setSearchFocused(true)}
+                className={`flex-1 bg-transparent text-xs font-medium outline-none truncate ${
+                  darkMode ? 'text-slate-100 placeholder-slate-400' : 'text-slate-900 placeholder-slate-400'
+                }`}
+              />
+              {isSearching && <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin shrink-0" />}
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => { setSearchQuery(''); setSearchResults([]) }}
+                  className={`p-0.5 shrink-0 ${darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setActiveModal('routes')}
+                className={`p-1 rounded-lg transition-all cursor-pointer shrink-0 ${
+                  darkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-900'
+                }`}
+                title="Select Evacuation Route"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </form>
+
+            {/* Live Search Autocomplete Dropdown */}
+            {searchFocused && searchResults.length > 0 && (
+              <div className={`absolute top-full left-0 right-0 mt-2 backdrop-blur-2xl rounded-2xl border overflow-hidden z-50 shadow-2xl anim-slide-up max-h-72 overflow-y-auto ${
+                darkMode
+                  ? 'bg-[#0f172a]/98 border-slate-800 text-white'
+                  : 'bg-white/98 border-slate-200 text-slate-900'
+              }`}>
+                <div className={`px-3 py-2 border-b text-[10px] font-bold uppercase tracking-wider ${
+                  darkMode
+                    ? 'bg-slate-900/80 border-slate-800 text-slate-400'
+                    : 'bg-slate-100 border-slate-200 text-slate-500'
+                }`}>
+                  Locations & Landmarks
+                </div>
+                {searchResults.map((res, i) => (
+                  <button
+                    key={`${res.name}-${i}`}
+                    onMouseDown={() => handleSelectSearchResult(res)}
+                    className={`w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 transition-colors border-b last:border-0 ${
+                      darkMode
+                        ? 'hover:bg-slate-800/60 border-slate-800/40 text-white'
+                        : 'hover:bg-slate-100 border-slate-200/60 text-slate-900'
+                    }`}
+                  >
+                    <span className="text-lg">{res.emoji || '📍'}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-xs font-bold truncate ${darkMode ? 'text-white' : 'text-slate-900'}`}>{res.name}</div>
+                      <div className={`text-[10px] truncate mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{res.address}</div>
+                    </div>
+                    <ChevronRight className={`w-3.5 h-3.5 shrink-0 ${darkMode ? 'text-slate-400' : 'text-slate-400'}`} />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+
+          {/* Right Live Weather & Atmospheric Conditions */}
+          <div className={`flex items-center gap-2.5 sm:gap-3 text-xs font-semibold shrink-0 ml-auto ${
+            darkMode ? 'text-slate-300' : 'text-slate-700'
+          }`}>
+            <div className="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
+              <CloudRain className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden sm:inline">100% rain</span>
+            </div>
+            <span className={darkMode ? 'text-slate-700 hidden sm:inline' : 'text-slate-300 hidden sm:inline'}>|</span>
+            <div className={`flex items-center gap-1.5 hidden md:flex ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+              <Radio className={`w-3.5 h-3.5 shrink-0 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+              <span>22 km/h</span>
+            </div>
+            <span className={darkMode ? 'text-slate-700 hidden lg:inline' : 'text-slate-300 hidden lg:inline'}>|</span>
+            <span className={`hidden lg:inline ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Partly cloudy</span>
+          </div>
+        </div>
+      </header>
 
       {/* ── Left Sidebar Column (CONDITIONS & WATER DEPTH Legend) ── */}
-      <div className="absolute top-20 left-4 z-20 w-72 sm:w-80 flex flex-col gap-3 pointer-events-none max-h-[calc(100vh-100px)]">
+      <div className={`absolute left-4 z-20 w-72 sm:w-80 flex flex-col gap-3 pointer-events-none max-h-[calc(100vh-100px)] transition-all duration-300 ${appState === 'emergency' ? 'top-24' : 'top-16 sm:top-[68px]'}`}>
         {/* Floating CONDITIONS Panel */}
         {conditionsOpen ? (
           <div className={`backdrop-blur-2xl border rounded-2xl p-4 anim-slide-up max-h-[calc(100vh-280px)] overflow-y-auto shrink transition-all pointer-events-auto ${
