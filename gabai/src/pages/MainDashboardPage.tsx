@@ -22,7 +22,7 @@ import GabaiLogo from '../components/GabaiLogo'
 import { searchRealWorldPlaces } from '../utils/placeSearch'
 import { fetchRoadSegmentPath } from '../utils/routingEngine'
 import { analyzeRouteWithAI } from '../utils/aiRouteAdvisor'
-import { geminiAnalyzeFloodPhoto, geminiAnalyzeRoute, geminiChatAssistant, geminiGeocodePlace } from '../utils/geminiClient'
+import { geminiAnalyzeFloodPhoto, geminiAnalyzeRoute, geminiChatAssistant, geminiGeocodePlace, googleGeocodePlace } from '../utils/geminiClient'
 import { calculateDistanceKm } from '../hooks/useUserLocation'
 import { useRouteHazardMonitor } from '../hooks/useRouteHazardMonitor'
 import HazardAlertModal from '../components/HazardAlertModal'
@@ -563,28 +563,36 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       }
 
       // 3. Extract destination query with multi-lingual prefixes
-      const destRaw =
-        lower
-          .replace(/^(?:find\s+|show\s+|give\s+|get\s+)?(?:a\s+)?(?:safe\s+)?(?:route|direction|directions|way|path)\s+(?:to|going to|towards|for)\s+/i, '')
-          .replace(/^(?:navigate|nav|drive|take me|bring me|go|guide me|lead me|route)\s+(?:to|towards)?\s*/i, '')
-          .replace(/^(?:how\s+(?:do\s+i|to|can\s+i)\s+(?:get|go|reach|drive)\s+(?:to|at))\s+/i, '')
-          .replace(/^(?:maghanap|hanap|ipakita|bigyan|alamin)\s+(?:ng\s+)?(?:ligtas\s+na\s+)?(?:ruta|daan|direksyon)\s+(?:papunta|papuntang|patungo|patungong|para\s+sa|sa)\s+/i, '')
-          .replace(/^(?:paano\s+(?:pumunta|makapunta|makarating|dumaan))\s+(?:sa|papuntang|patungong)\s+/i, '')
-          .replace(/^(?:pupunta|punta|papunta|papuntang|patungo|patungong|biyahe|byahe|byaheng)\s+(?:ako\s+)?(?:sa|kay|nang)?\s*/i, '')
-          .replace(/^(?:daan|ruta|direksyon)\s+(?:papunta|papuntang|patungo|patungong|sa)\s+/i, '')
-          .replace(/^(?:dalhin\s+mo\s+ako|ihatid\s+ako)\s+(?:sa|papuntang)\s+/i, '')
-          .replace(/^(?:munta|muntang|magpunta|dalan|dala)\s+(?:ku\s+)?(?:king|king\s+lugar|papuntang|karin|king)\s+/i, '')
-          .replace(/^(?:nukarin\s+ing\s+dalan\s+munta|nukarin\s+ing\s+dalan\s+papuntang)\s+/i, '')
-          .replace(/^(?:asa\s+ang\s+dalan\s+padulong|padung\s+sa|dalan\s+padulong)\s+/i, '')
-          .replace(/^(?:ayan\s+ti\s+kalsada\s+mapan|mapan\s+idiay|ayan\s+ti\s+dalan)\s+/i, '')
-          .replace(/[\?\.\!]+$/, '')
-          .trim()
+      const hasNavIntent =
+        /\b(?:punta|pupunta|pumunta|magpunta|papunta|papuntang|patungo|patungong|biyahe|byahe|byaheng|dalhin|ihatid|ihahatid|dumaan|makapunta|makarating|munta|muntang|padulong|mapan)\b/i.test(lower) ||
+        /\b(?:go|going|reach|drive|navigate|route|directions?|way|take me|bring me|lead me|guide me|head to)\b/i.test(lower) ||
+        /\b(?:gusto\s+(?:ko|kong)|nais\s+(?:ko|kong)|bisa\s+ku|pwede\s+bang|paki|paano|how\s+to|how\s+do\s+i|can\s+you)\b/i.test(lower)
+
+      let destRaw = lower
+        .replace(/^(?:find\s+|show\s+|give\s+|get\s+)?(?:a\s+)?(?:safe\s+)?(?:route|direction|directions|way|path)\s+(?:to|going to|towards|for)\s+/i, '')
+        .replace(/^(?:navigate|nav|drive|take me|bring me|go|guide me|lead me|route)\s+(?:to|towards)?\s*/i, '')
+        .replace(/^(?:how\s+(?:do\s+i|to|can\s+i)\s+(?:get|go|reach|drive)\s+(?:to|at))\s+/i, '')
+        .replace(/^(?:maghanap|hanap|ipakita|bigyan|alamin)\s+(?:ng\s+)?(?:ligtas\s+na\s+)?(?:ruta|daan|direksyon)\s+(?:papunta|papuntang|patungo|patungong|para\s+sa|sa)\s+/i, '')
+        .replace(/^(?:gusto\s+(?:ko|kong)\s+|nais\s+(?:ko|kong)\s+|pwede\s+bang\s+|maaari\s+bang\s+|paki\s+)?(?:pumunta|magpunta|makapunta|makarating|pumaroon)\s+(?:sa|kay|nang)?\s*/i, '')
+        .replace(/^(?:gusto\s+(?:ko|kong)\s+|nais\s+(?:ko|kong)\s+)?(?:dalhin\s+mo\s+(?:ako|kami)|ihatid\s+mo\s+(?:ako|kami)|dala\s+mu\s+ku)\s+(?:sa|king)?\s*/i, '')
+        .replace(/^(?:i\s+(?:want|need|would\s+like|wanna)\s+to\s+go\s+to|can\s+you\s+(?:take|bring|guide|lead)\s+me\s+to|please\s+(?:take|bring|guide|lead|navigate)\s+me\s+to)\s+/i, '')
+        .replace(/^(?:paano\s+(?:pumunta|makapunta|makarating|dumaan))\s+(?:sa|papuntang|patungong)\s+/i, '')
+        .replace(/^(?:saan\s+(?:ang\s+)?(?:daan|ruta|direksyon)\s+(?:papunta|patungo|sa))\s+/i, '')
+        .replace(/^(?:pupunta|punta|papunta|papuntang|patungo|patungong|biyahe|byahe|byaheng)\s+(?:ako|kami|tayo)?\s*(?:sa|kay|nang)?\s*/i, '')
+        .replace(/^(?:daan|ruta|direksyon)\s+(?:papunta|papuntang|patungo|patungong|sa)\s+/i, '')
+        .replace(/^(?:bisa\s+ku\s+)?(?:munta|muntang|magpunta|dalan|dala)\s+(?:ku\s+)?(?:king|king\s+lugar|papuntang|karin)?\s*/i, '')
+        .replace(/^(?:nukarin\s+ing\s+dalan\s+munta|nukarin\s+ing\s+dalan\s+papuntang)\s+/i, '')
+        .replace(/^(?:asa\s+ang\s+dalan\s+padulong|padung\s+sa|dalan\s+padulong)\s+/i, '')
+        .replace(/^(?:ayan\s+ti\s+kalsada\s+mapan|mapan\s+idiay|ayan\s+ti\s+dalan)\s+/i, '')
+        .replace(/[\?\.\!]+$/, '')
+        .trim()
 
       const targetQuery = destRaw || (lower.includes('hospital') ? 'Hospital' : lower.includes('shelter') || lower.includes('evac') ? 'Evacuation Center' : text)
       const q = targetQuery.toLowerCase()
 
       // Cleaned search term removing administrative prefixes & normalizing abbreviations
       const cleanedTarget = q
+        .replace(/\b(?:gusto\s+(?:ko|kong)|pumunta|magpunta|papunta|dalhin\s+mo\s+ako)\s+(?:sa|kay)?\b/gi, '')
         .replace(/^(?:the\s+)?(?:municipality\s+of|munisipyo\s+ng|bayan\s+ng|city\s+of|lungsod\s+ng|province\s+of)\s+/i, '')
         .replace(/\b(?:pampanga|philippines|ph)\b/gi, '')
         .replace(/\bsto\.?\b/gi, 'santo')
@@ -593,7 +601,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         .trim()
 
       // Exhaustive Directory of all 21 Pampanga LGUs, Major Hospitals, Specific Malls, and Parks
-      // Exhaustive Directory of all 21 Pampanga LGUs, Major Hospitals, Universities, Schools, Malls, and Parks
       const KNOWN_PAMPANGA_PLACES = [
         // Schools, Colleges & Universities
         { name: "St. Mary's Angels College of Pampanga (SMACP)", address: 'Sto. Domingo, Santa Ana / Mexico, Pampanga', lat: 15.0850, lng: 120.7620, keywords: ['smacp', 'saint mary', 'st mary', 'st. mary', 'saint marys', 'st marys', 'smacp sto domingo', 'saint mary school', "saint mary's", 'saint mary school on sto', 'smacp santo domingo', 'saint marys angels'] },
@@ -601,6 +608,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         { name: 'Angeles University Foundation (AUF)', address: 'MacArthur Highway, Angeles City, Pampanga', lat: 15.1509, lng: 120.5960, keywords: ['auf', 'angeles university foundation', 'auf medical center'] },
         { name: 'Don Honorio Ventura State University (DHVSU)', address: 'Bacolor, Pampanga', lat: 14.9975, lng: 120.6540, keywords: ['dhvsu', 'don honorio', 'dhvtsu', 'dhvsu bacolor', 'dhvsu mexico'] },
         { name: 'University of the Assumption', address: 'Unisite Subd, San Fernando, Pampanga', lat: 15.0442, lng: 120.6865, keywords: ['ua', 'university of the assumption', 'assumption san fernando'] },
+        { name: 'Holy Family Academy (HFA)', address: 'Sto. Rosario St, Angeles City, Pampanga', lat: 15.1360, lng: 120.5880, keywords: ['holy family academy', 'hfa', 'hfa angeles'] },
         { name: 'San Luis National High School', address: 'San Luis, Pampanga', lat: 15.0380, lng: 120.7950, keywords: ['san luis national high school', 'san luis high school', 'slnhs'] },
         { name: 'Pampanga High School', address: 'High School Blvd, San Fernando, Pampanga', lat: 15.0270, lng: 120.6930, keywords: ['pampanga high school', 'phs', 'phs san fernando'] },
         { name: 'San Sebastian Elementary School', address: 'San Sebastian, San Luis, Pampanga', lat: 15.0425, lng: 120.7913, keywords: ['san sebastian elementary school', 'san sebastian school'] },
@@ -612,17 +620,26 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         { name: 'SM City Telabastagan', address: 'Telabastagan, San Fernando, Pampanga', lat: 15.0886, lng: 120.6277, keywords: ['sm city telabastagan', 'sm telabastagan'] },
         { name: 'Robinsons Starmills Pampanga', address: 'Jose Abad Santos Ave, San Fernando, Pampanga', lat: 15.0483, lng: 120.6994, keywords: ['robinsons starmills', 'starmills pampanga', 'robinsons pampanga'] },
         { name: 'Marquee Mall', address: 'Pulung Maragul, Angeles City, Pampanga', lat: 15.1558, lng: 120.6033, keywords: ['marquee mall', 'marquee angeles'] },
+        { name: 'Nepo Mall Angeles', address: 'St. Joseph St, Angeles City, Pampanga', lat: 15.1378, lng: 120.5888, keywords: ['nepo mall', 'nepo angeles', 'nepo quad'] },
 
         // Transport, Airports & Civic Parks
         { name: 'Clark International Airport', address: 'Clark Freeport Zone, Mabalacat, Pampanga', lat: 15.1859, lng: 120.5596, keywords: ['clark international airport', 'clark airport', 'crk airport', 'crk', 'clark field'] },
+        { name: 'Dau Bus Terminal', address: 'MacArthur Highway, Dau, Mabalacat, Pampanga', lat: 15.1764, lng: 120.5894, keywords: ['dau terminal', 'dau bus terminal', 'dau mabalacat', 'terminal dau', 'dau bus'] },
         { name: 'Clark Parade Grounds', address: 'Clark Freeport Zone, Pampanga', lat: 15.1769, lng: 120.5312, keywords: ['clark parade grounds', 'parade grounds', 'cdc parade grounds'] },
+        { name: 'Clark Global City', address: 'Clark Freeport Zone, Mabalacat, Pampanga', lat: 15.1780, lng: 120.5400, keywords: ['clark global city', 'cgc clark'] },
         { name: 'Bayanihan Park (Astro Park)', address: 'Balibago, Angeles City, Pampanga', lat: 15.1663, lng: 120.5901, keywords: ['bayanihan park', 'astro park', 'balibago park'] },
         { name: 'Pampanga Provincial Capitol', address: 'Capitol Compound, San Fernando, Pampanga', lat: 15.0343, lng: 120.6868, keywords: ['pampanga provincial capitol', 'pampanga capitol', 'provincial capitol san fernando'] },
         { name: 'MacArthur Highway Commercial Strip', address: 'MacArthur Highway, San Fernando, Pampanga', lat: 15.0390, lng: 120.6840, keywords: ['macarthur highway', 'dolores flyover'] },
+        { name: 'Metropolitan Cathedral of San Fernando', address: 'Consunji St, San Fernando, Pampanga', lat: 15.0289, lng: 120.6908, keywords: ['san fernando cathedral', 'metropolitan cathedral', 'cathedral san fernando'] },
+        { name: 'Holy Rosary Parish Church', address: 'Sto. Rosario St, Angeles City, Pampanga', lat: 15.1352, lng: 120.5900, keywords: ['holy rosary parish', 'pisamban maragul', 'angeles church'] },
+        { name: 'Alviera Ayala Land', address: 'Porac Access Rd, Porac, Pampanga', lat: 15.0680, lng: 120.5350, keywords: ['alviera', 'alviera porac', 'sandbox alviera'] },
+        { name: 'Guagua Public Market', address: 'Plaza Burgos, Guagua, Pampanga', lat: 14.9660, lng: 120.6330, keywords: ['guagua public market', 'palengke ng guagua', 'guagua market'] },
 
         // Hospitals & Medical Centers
         { name: 'Mexico Community Hospital', address: 'San Carlos, Mexico, Pampanga', lat: 15.0645, lng: 120.7225, keywords: ['mexico community hospital', 'mexico hospital', 'hospital sa mexico'] },
         { name: 'Jose B. Lingad Memorial General Hospital', address: 'Dolores, San Fernando, Pampanga', lat: 15.0385, lng: 120.6848, keywords: ['jose b lingad memorial', 'jblmgh', 'lingad hospital', 'jose b lingad'] },
+        { name: 'The Medical City Clark', address: 'Clark Global City, Mabalacat, Pampanga', lat: 15.1770, lng: 120.5420, keywords: ['the medical city clark', 'tmc clark', 'medical city clark'] },
+        { name: 'Mother Teresa of Calcutta Medical Center', address: 'MacArthur Highway, San Fernando, Pampanga', lat: 15.0450, lng: 120.6920, keywords: ['mother teresa of calcutta', 'calcutta hospital', 'calcutta san fernando'] },
 
         // 21 Municipalities & City Halls
         { name: 'Santo Tomas Municipal Hall', address: 'Santo Tomas, Pampanga', lat: 15.0069, lng: 120.7147, keywords: ['santo tomas', 'sto tomas', 'sto. tomas', 'municipality of sto tomas', 'municipality of santo tomas', 'bayan ng sto tomas'] },
@@ -651,66 +668,94 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
       let target: { name: string; address?: string; lat: number; lng: number } | null = null
 
-      // Tier 1: High-precision match against known verified Pampanga landmarks first
-      const exactLandmarkMatch = KNOWN_PAMPANGA_PLACES.find((p) =>
-        p.keywords.some((k) => cleanedTarget.includes(k) || k.includes(cleanedTarget) || q.includes(k) || k.includes(q))
-      )
-      if (exactLandmarkMatch) {
-        target = { name: exactLandmarkMatch.name, address: exactLandmarkMatch.address, lat: exactLandmarkMatch.lat, lng: exactLandmarkMatch.lng }
-      }
+      // Check if user is asking to navigate or go somewhere, or typed a specific place
+      const isDestinationRequest =
+        hasNavIntent ||
+        KNOWN_PAMPANGA_PLACES.some((p) => p.keywords.some((k) => cleanedTarget.includes(k) || k.includes(cleanedTarget))) ||
+        (cleanedTarget.length >= 3 && !lower.includes('kumusta') && !lower.includes('kamusta') && !lower.includes('ano ang'))
 
-      // Tier 2: Check local evacuation centers
-      if (!target) {
-        const localMatch = evacCenters.find(
-          (e) => e.name.toLowerCase().includes(cleanedTarget) || (e.address && e.address.toLowerCase().includes(cleanedTarget))
-        )
-        if (localMatch) {
-          target = { name: localMatch.name, address: localMatch.address, lat: localMatch.lat, lng: localMatch.lng }
-        }
-      }
-
-      // Tier 3: Check OpenStreetMap Nominatim for specific named venues (schools, churches, hospitals, streets)
-      if (!target && cleanedTarget.length > 2) {
+      if (isDestinationRequest) {
+        // Priority 1: Google Gemini AI Geocoding Resolver (Searches destination & extracts precise GPS coordinates)
         try {
-          const osmMatches = await searchRealWorldPlaces(cleanedTarget, userLocation.lat, userLocation.lng)
-          if (osmMatches && osmMatches.length > 0) {
-            target = {
-              name: osmMatches[0].name,
-              address: osmMatches[0].address,
-              lat: osmMatches[0].lat,
-              lng: osmMatches[0].lng,
-            }
-          }
-        } catch {}
-      }
-
-      // Tier 4: Precision AI Geocoding Resolver (resolves any school, college, acronym, or local venue in Pampanga)
-      if (!target && (cleanedTarget.length >= 2 || lower.includes('route') || lower.includes('daan') || lower.includes('punta'))) {
-        try {
-          const aiResolved = await geminiGeocodePlace(targetQuery || text, userLocation)
-          if (aiResolved) {
+          const aiResolved = await geminiGeocodePlace(cleanedTarget || targetQuery || text, userLocation)
+          if (aiResolved && aiResolved.lat && aiResolved.lng) {
             target = aiResolved
           }
-        } catch {}
-      }
+        } catch (err) {
+          console.warn('Gemini geocoding attempt:', err)
+        }
 
-      // Tier 5: Generic shelter / emergency request fallback
-      if (!target && (lower.includes('shelter') || lower.includes('evac') || lower.includes('ligtas') || lower.includes('emergency') || lower.includes('hospital'))) {
-        if (evacCenters.length > 0) {
-          target = { name: evacCenters[0].name, address: evacCenters[0].address, lat: evacCenters[0].lat, lng: evacCenters[0].lng }
+        // Priority 2: Google Maps Geocoding Resolver (Used when Google Maps Key is configured)
+        if (!target) {
+          try {
+            const googleResolved = await googleGeocodePlace(cleanedTarget || targetQuery, userLocation)
+            if (googleResolved && googleResolved.lat && googleResolved.lng) {
+              target = googleResolved
+            }
+          } catch (err) {
+            console.warn('Google Maps geocoding attempt:', err)
+          }
+        }
+
+        // Priority 3: High-precision match against known verified Pampanga landmarks
+        if (!target) {
+          const exactLandmarkMatch = KNOWN_PAMPANGA_PLACES.find((p) =>
+            p.keywords.some((k) => cleanedTarget.includes(k) || k.includes(cleanedTarget) || q.includes(k) || k.includes(q))
+          )
+          if (exactLandmarkMatch) {
+            target = { name: exactLandmarkMatch.name, address: exactLandmarkMatch.address, lat: exactLandmarkMatch.lat, lng: exactLandmarkMatch.lng }
+          }
+        }
+
+        // Priority 4: Check local designated evacuation centers
+        if (!target) {
+          const localMatch = evacCenters.find(
+            (e) => e.name.toLowerCase().includes(cleanedTarget) || (e.address && e.address.toLowerCase().includes(cleanedTarget))
+          )
+          if (localMatch) {
+            target = { name: localMatch.name, address: localMatch.address, lat: localMatch.lat, lng: localMatch.lng }
+          }
+        }
+
+        // Priority 5: OpenStreetMap Nominatim for specific named venues (schools, churches, hospitals, streets)
+        if (!target && cleanedTarget.length > 2) {
+          try {
+            const osmMatches = await searchRealWorldPlaces(cleanedTarget, userLocation.lat, userLocation.lng)
+            if (osmMatches && osmMatches.length > 0) {
+              target = {
+                name: osmMatches[0].name,
+                address: osmMatches[0].address,
+                lat: osmMatches[0].lat,
+                lng: osmMatches[0].lng,
+              }
+            }
+          } catch {}
+        }
+
+        // Priority 6: Generic shelter / emergency request fallback
+        if (!target && (lower.includes('shelter') || lower.includes('evac') || lower.includes('ligtas') || lower.includes('emergency') || lower.includes('hospital'))) {
+          if (evacCenters.length > 0) {
+            target = { name: evacCenters[0].name, address: evacCenters[0].address, lat: evacCenters[0].lat, lng: evacCenters[0].lng }
+          }
         }
       }
 
       if (target) {
+        // Feed coordinates into system navigation & trigger real-world route recalculation
         setDestination(target)
+        mapCanvasRef.current?.flyToCoords(target.lat, target.lng, 15)
+
         const distKm = calculateDistanceKm(userLocation.lat, userLocation.lng, target.lat, target.lng)
         const estMin = Math.max(3, Math.round((distKm / 35) * 60))
         const activeBypassedCount = publicHazards.filter(
           (h) => h.status !== 'Resolved' && h.status !== 'Rejected by LGU'
         ).length
 
+        const baseMsg = formatLocalizedRouteCardText(target.name, distKm, estMin, text)
+        const coordSnippet = `\n📍 Coordinates: ${target.lat.toFixed(5)}, ${target.lng.toFixed(5)}`
+
         return {
-          text: formatLocalizedRouteCardText(target.name, distKm, estMin, text),
+          text: `${baseMsg}${coordSnippet}`,
           routeCard: {
             destinationName: target.name,
             address: target.address,
@@ -721,6 +766,12 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             lat: target.lat,
             lng: target.lng,
           },
+        }
+      }
+
+      if (hasNavIntent && !target) {
+        return {
+          text: `Hindi ko mahanap ang eksaktong GPS coordinates para sa "${destRaw || text}". Maaari mo bang ilagay ang buong pangalan o bayan upang ma-search ito gamit ang Gemini AI o Google Maps at maikarga ang ligtas na ruta sa mapa?`,
         }
       }
 

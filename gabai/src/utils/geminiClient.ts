@@ -238,7 +238,42 @@ export async function geminiChatAssistant(
 }
 
 /**
- * AI Geocoding Resolver: Resolves any school, building, acronym (SMACP, AUF, HAU), or local venue in Pampanga to exact GPS coordinates
+ * Google Maps Geocoding Resolver (Used when Google Maps Key is configured)
+ */
+export async function googleGeocodePlace(
+  placeQuery: string,
+  userLocation?: { lat: number; lng: number }
+): Promise<{ name: string; address: string; lat: number; lng: number } | null> {
+  const apiKey = (import.meta as any).env.VITE_GOOGLE_MAPS_KEY || (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY
+  if (!apiKey) return null
+
+  try {
+    const locBias = userLocation ? `&location=${userLocation.lat},${userLocation.lng}&radius=50000` : ''
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+      placeQuery + ', Pampanga, Philippines'
+    )}${locBias}&key=${apiKey}`
+
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const data = await res.json()
+    if (data.status === 'OK' && Array.isArray(data.results) && data.results.length > 0) {
+      const top = data.results[0]
+      return {
+        name: top.formatted_address.split(',')[0] || placeQuery,
+        address: top.formatted_address,
+        lat: top.geometry.location.lat,
+        lng: top.geometry.location.lng,
+      }
+    }
+  } catch (err) {
+    console.warn('Google Maps geocoding error:', err)
+  }
+  return null
+}
+
+/**
+ * AI Geocoding Resolver: Resolves any destination request, landmark, building, acronym (SMACP, AUF, HAU)
+ * to exact GPS coordinates via Google Gemini AI
  */
 export async function geminiGeocodePlace(
   placeQuery: string,
@@ -246,18 +281,21 @@ export async function geminiGeocodePlace(
 ): Promise<{ name: string; address: string; lat: number; lng: number } | null> {
   if (!GEMINI_API_KEY) return null
 
-  const prompt = `You are a precision geographic entity resolver for Pampanga, Philippines.
-Resolve this user query: "${placeQuery}"
-Context: User is currently near ${userLocation ? `${userLocation.lat}, ${userLocation.lng}` : 'Pampanga'}.
-Identify the real-world venue, school, university, hospital, church, barangay, or landmark in Pampanga (e.g. "SMACP" = "St. Mary's Angels College of Pampanga" in Sto. Domingo, Mexico/Santa Ana, Pampanga).
+  const prompt = `You are GABAI AI precision geographic entity and coordinates resolver for the Philippines (focused on Pampanga, Central Luzon, and Metro Manila).
+The user wants to navigate to or find coordinates for: "${placeQuery}"
+Current user GPS location context: ${userLocation ? `Latitude ${userLocation.lat}, Longitude ${userLocation.lng}` : 'Pampanga, Central Luzon, Philippines'}.
 
-Respond ONLY in valid JSON:
+Instructions:
+1. Extract the intended real-world destination venue, mall, hospital, school, university, church, terminal, public market, park, airport, barangay, or landmark from the user's message (even if spoken in conversational Tagalog/Taglish like "gusto ko pumunta sa SM City Clark" or "dalhin mo ako sa Angeles City Hall").
+2. Determine its EXACT real-world latitude and longitude coordinates in the Philippines (especially Pampanga).
+
+Respond ONLY with valid JSON in this exact structure:
 {
-  "name": "Official Full Name of the Venue",
-  "address": "Specific Barangay, Municipality, Pampanga",
-  "lat": 15.0850,
-  "lng": 120.7620,
-  "confidence": 0.95
+  "name": "Official Full Name of the Venue / Landmark",
+  "address": "Barangay, Municipality/City, Province, Philippines",
+  "lat": 15.1712,
+  "lng": 120.5898,
+  "confidence": 0.98
 }`
 
   try {
@@ -276,7 +314,15 @@ Respond ONLY in valid JSON:
     if (!rawText) return null
 
     const parsed = JSON.parse(rawText)
-    if (parsed && parsed.lat && parsed.lng && parsed.lat > 14.5 && parsed.lat < 16.0 && parsed.lng > 120.0 && parsed.lng < 121.5) {
+    if (
+      parsed &&
+      parsed.lat &&
+      parsed.lng &&
+      parsed.lat >= 4.5 &&
+      parsed.lat <= 21.5 &&
+      parsed.lng >= 116.0 &&
+      parsed.lng <= 127.0
+    ) {
       return {
         name: parsed.name || placeQuery,
         address: parsed.address || 'Pampanga, Philippines',
@@ -285,7 +331,8 @@ Respond ONLY in valid JSON:
       }
     }
     return null
-  } catch {
+  } catch (err) {
+    console.warn('Gemini geocoding error:', err)
     return null
   }
 }

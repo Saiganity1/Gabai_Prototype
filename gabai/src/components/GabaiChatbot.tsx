@@ -200,6 +200,11 @@ export function GabaiChatbot({
                           <div className="text-xs font-black text-slate-900 dark:text-white truncate max-w-[200px]">
                             {msg.routeCard.destinationName}
                           </div>
+                          {msg.routeCard.lat !== undefined && msg.routeCard.lng !== undefined && (
+                            <div className="text-[9px] font-mono font-bold text-slate-500 dark:text-slate-400 mt-0.5">
+                              📍 {msg.routeCard.lat.toFixed(5)}, {msg.routeCard.lng.toFixed(5)}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shrink-0">
