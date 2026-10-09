@@ -110,6 +110,40 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const [floodWaterDepth, setFloodWaterDepth] = useState('Knee Deep (0.45m)')
   const [isPickingPointMode, setIsPickingPointMode] = useState<'from' | 'to' | null>(null)
 
+  // 🛡️ Anti-Spam & Geofencing Defense states (Crowdsource Security)
+  const [reportCooldownSec, setReportCooldownSec] = useState<number>(0)
+  const [reportErrorMsg, setReportErrorMsg] = useState<string | null>(null)
+
+  // Monitor device cooldown timer (120s rate limit)
+  useEffect(() => {
+    const checkCooldown = () => {
+      const lastReport = Number(localStorage.getItem('gabai_last_report_timestamp') || 0)
+      const diffMs = Date.now() - lastReport
+      const COOLDOWN_MS = 120_000 // 2 minutes cooldown
+      if (diffMs < COOLDOWN_MS) {
+        setReportCooldownSec(Math.ceil((COOLDOWN_MS - diffMs) / 1000))
+      } else {
+        setReportCooldownSec(0)
+      }
+    }
+    checkCooldown()
+    const interval = setInterval(checkCooldown, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Calculate distance between user device GPS and reported incident (Proof-of-Location)
+  const reportDistanceKm = useMemo(() => {
+    let targetLat = userLocation.lat
+    let targetLng = userLocation.lng
+    if (isRoadSegmentMode && floodStartPoint) {
+      targetLat = floodStartPoint.lat
+      targetLng = floodStartPoint.lng
+    }
+    return calculateDistanceKm(userLocation.lat, userLocation.lng, targetLat, targetLng)
+  }, [userLocation.lat, userLocation.lng, isRoadSegmentMode, floodStartPoint])
+
+  const isGeofenceViolated = reportDistanceKm > 1.5
+
   // Map Layer & Perspective Controls
   const [is3D, setIs3D] = useState(true)
   const [isSatellite, setIsSatellite] = useState(false)
@@ -301,14 +335,20 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   // Handle AI Voice & Chatbot Action triggers
   const handleVoiceAction = (payload: VoiceActionPayload) => {
     if (payload.action === 'REPORT_HAZARD') {
-      const { hazard } = addHazardReport({
-        type: payload.hazardType || 'flood',
-        description: `Voice AI Report: ${payload.transcript}`,
-        severity: payload.severity || 'high',
-        citizenName: 'Voice Assistant (Live Citizen)',
-      })
-      setSelectedHazard(hazard)
-      setActiveModal('hazard')
+      try {
+        const { hazard } = addHazardReport({
+          type: payload.hazardType || 'flood',
+          description: `Voice AI Report: ${payload.transcript}`,
+          severity: payload.severity || 'high',
+          citizenName: 'Voice Assistant (Live Citizen)',
+        })
+        if (hazard) {
+          setSelectedHazard(hazard)
+          setActiveModal('hazard')
+        }
+      } catch (err: any) {
+        console.warn('Voice hazard report blocked by anti-spam:', err?.message)
+      }
     } else if (payload.action === 'SAFE_ROUTE') {
       if (evacCenters.length > 0) {
         // Find nearest evac center
@@ -427,15 +467,21 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         !lower.includes('saan') &&
         !lower.includes('baha ba')
       ) {
-        const { hazard } = addHazardReport({
-          type: 'flood',
-          description: `Chatbot Report: ${text}`,
-          severity: 'high',
-          citizenName: 'Chatbot (Live Citizen)',
-        })
-        setSelectedHazard(hazard)
-        return {
-          text: '📢 Naitala ko na ang flood report mo. Naipasa na ito sa LGU Command Center para sa agarang beripikasyon at aksyon.',
+        try {
+          const { hazard } = addHazardReport({
+            type: 'flood',
+            description: `Chatbot Report: ${text}`,
+            severity: 'high',
+            citizenName: 'Chatbot (Live Citizen)',
+          })
+          if (hazard) setSelectedHazard(hazard)
+          return {
+            text: '📢 Naitala ko na ang flood report mo. Naipasa na ito sa LGU Command Center para sa agarang beripikasyon at aksyon.',
+          }
+        } catch (err: any) {
+          return {
+            text: `⚠️ Anti-Spam Security: ${err?.message || 'Hindi naipasa ang report dahil sa rate-limiting o GPS geofence constraint.'}`,
+          }
         }
       }
 
@@ -897,35 +943,62 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   }
 
   const submitReport = async () => {
+    setReportErrorMsg(null)
+
+    // 🛡️ 1. Rate Limiting Check (2 mins cooldown)
+    const lastReportTime = Number(localStorage.getItem('gabai_last_report_timestamp') || 0)
+    const timeSinceLast = Date.now() - lastReportTime
+    if (timeSinceLast < 120_000) {
+      const remainingSec = Math.ceil((120_000 - timeSinceLast) / 1000)
+      setReportErrorMsg(`⏳ Anti-Spam Rate Limit Active: Device cooldown in effect (${remainingSec}s remaining). Please wait before submitting another report.`)
+      return
+    }
+
+    // 🛡️ 2. Proof-of-Location Geofence Check (1.5 km)
+    if (isGeofenceViolated) {
+      setReportErrorMsg(`🛡️ Anti-Spam Geofence Blocked: Proof-of-Location required. You are ${reportDistanceKm.toFixed(1)} km away. Reports are restricted to within 1.5 km of your verified GPS device to prevent fake remote reports.`)
+      return
+    }
+
     setReportStep('analyzing')
 
     let snappedPath: [number, number][] | undefined = undefined
     if (isRoadSegmentMode && floodStartPoint && floodEndPoint) {
-      const roadCoords = await fetchRoadSegmentPath(floodStartPoint, floodEndPoint)
-      if (roadCoords && roadCoords.length > 1) {
-        snappedPath = roadCoords
+      try {
+        const roadCoords = await fetchRoadSegmentPath(floodStartPoint, floodEndPoint)
+        if (roadCoords && roadCoords.length > 1) {
+          snappedPath = roadCoords
+        }
+      } catch (err) {
+        console.warn('Road snapping fallback:', err)
       }
     }
 
     setTimeout(() => {
-      addHazardReport({
-        type: reportType,
-        description: reportDesc || undefined,
-        severity: reportSeverity,
-        isRoadSegment: isRoadSegmentMode,
-        roadSegment:
-          isRoadSegmentMode && floodStartPoint && floodEndPoint
-            ? {
-                from: floodStartPoint,
-                to: floodEndPoint,
-                path: snappedPath,
-                roadName: roadName || `${locationName.split(',')[0]} Road`,
-              }
-            : undefined,
-        passability: floodPassability,
-        waterDepth: floodWaterDepth,
-      })
-      setReportStep('done')
+      try {
+        addHazardReport({
+          type: reportType,
+          description: reportDesc || undefined,
+          severity: reportSeverity,
+          isRoadSegment: isRoadSegmentMode,
+          roadSegment:
+            isRoadSegmentMode && floodStartPoint && floodEndPoint
+              ? {
+                  from: floodStartPoint,
+                  to: floodEndPoint,
+                  path: snappedPath,
+                  roadName: roadName || `${locationName.split(',')[0]} Road`,
+                }
+              : undefined,
+          passability: floodPassability,
+          waterDepth: floodWaterDepth,
+        })
+        setReportStep('done')
+        setReportCooldownSec(120)
+      } catch (err: any) {
+        setReportStep('form')
+        setReportErrorMsg(err?.message || 'Submission failed. Please verify GPS proximity and cooldown.')
+      }
     }, 800)
   }
 
@@ -2197,12 +2270,76 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                     )}
                   </div>
 
-                  {/* Auto GPS Location */}
-                  <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/80 rounded-xl px-3 py-2 border border-slate-100 dark:border-slate-700/40">
-                    <MapPin className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
-                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate">
-                      Auto-GPS · {locationName}
-                    </span>
+                  {/* Auto GPS Location & Proof-of-Location Geofencing Status */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/80 rounded-xl px-3 py-2 border border-slate-100 dark:border-slate-700/40">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <MapPin className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate">
+                          Device GPS · {locationName}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md shrink-0">
+                        GPS Active
+                      </span>
+                    </div>
+
+                    {/* 🛡️ Proof-of-Location Geofence Badge */}
+                    <div
+                      className={`rounded-xl p-2.5 flex items-start gap-2 text-left border transition-all ${
+                        isGeofenceViolated
+                          ? 'bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-200'
+                          : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-200'
+                      }`}
+                    >
+                      <Shield className={`w-4 h-4 shrink-0 mt-0.5 ${isGeofenceViolated ? 'text-rose-500' : 'text-emerald-500'}`} />
+                      <div className="text-[11px] leading-snug flex-1">
+                        <div className="font-bold flex items-center justify-between gap-1">
+                          <span>Proof-of-Location Geofencing</span>
+                          <span
+                            className={`text-[9px] uppercase px-1.5 py-0.5 rounded font-black tracking-wider ${
+                              isGeofenceViolated
+                                ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300'
+                                : 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300'
+                            }`}
+                          >
+                            {isGeofenceViolated ? 'Out of 1.5km Range' : 'Verified Nearby'}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[10px] opacity-90">
+                          {isGeofenceViolated
+                            ? `⚠️ Hazard location is ${reportDistanceKm.toFixed(1)} km away. Motorists can only report hazards within 1.5 km of their device GPS to prevent fake remote reports.`
+                            : `✓ Incident is within ${reportDistanceKm < 0.1 ? '< 100m' : `${reportDistanceKm.toFixed(2)} km`} of your device (Max 1.5 km Geofence passed).`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* ⏳ Device Rate Limiting Cooldown Badge */}
+                    <div className="bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl px-3 py-2 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <Clock className={`w-3.5 h-3.5 ${reportCooldownSec > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`} />
+                        <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          Device Rate Limit (2m cooldown)
+                        </span>
+                      </div>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          reportCooldownSec > 0
+                            ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 font-mono'
+                            : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        {reportCooldownSec > 0 ? `${reportCooldownSec}s remaining` : 'Ready'}
+                      </span>
+                    </div>
+
+                    {/* Error Banner */}
+                    {reportErrorMsg && (
+                      <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-2.5 flex items-start gap-2 text-rose-700 dark:text-rose-300 text-xs">
+                        <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                        <span className="text-[11px] font-medium leading-snug">{reportErrorMsg}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Description input */}
@@ -2218,7 +2355,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                   <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2.5 flex items-start gap-2 text-left">
                     <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                     <div className="text-[10px] sm:text-[11px] text-amber-900 dark:text-amber-200 leading-snug">
-                      <span className="font-bold">Anti-Spam LGU Verification:</span> To prevent false reports, your submission will be reviewed and verified by the LGU Command Center before appearing on other motorists' live maps.
+                      <span className="font-bold">Anti-Spam Crowdsource Defense:</span> Proof-of-Location Geofencing (1.5 km), Device Rate Limiting (120s cooldown), and LGU Command Center triage protect motorists from false flood alerts.
                     </div>
                   </div>
                 </div>
@@ -2227,10 +2364,22 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                 <div className="shrink-0 p-3 sm:p-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-100 dark:border-slate-800/80">
                   <button
                     onClick={submitReport}
-                    disabled={!reportType}
-                    className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-3 sm:py-3.5 rounded-xl disabled:opacity-40 transition-all hover:bg-slate-800 dark:hover:bg-slate-100 shadow-md text-xs sm:text-sm cursor-pointer"
+                    disabled={!reportType || reportCooldownSec > 0 || isGeofenceViolated}
+                    className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-3 sm:py-3.5 rounded-xl disabled:opacity-40 transition-all hover:bg-slate-800 dark:hover:bg-slate-100 shadow-md text-xs sm:text-sm cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    Submit Report to LGU Command Center
+                    {reportCooldownSec > 0 ? (
+                      <>
+                        <Clock className="w-4 h-4 animate-spin text-amber-500" />
+                        <span>⏳ Anti-Spam Cooldown ({reportCooldownSec}s remaining)</span>
+                      </>
+                    ) : isGeofenceViolated ? (
+                      <>
+                        <ShieldAlert className="w-4 h-4 text-rose-500" />
+                        <span>🚫 Location Exceeds 1.5km GPS Geofence</span>
+                      </>
+                    ) : (
+                      <span>Submit Report to LGU Command Center</span>
+                    )}
                   </button>
                 </div>
               </>

@@ -61,7 +61,7 @@ export function decodeValhallaPolyline6(str: string): [number, number][] {
  * suitable for Valhalla's exclude_polygons parameter.
  * Uses a tight corridor sleeve around road segments so parallel bypass streets remain open.
  */
-export function hazardToExcludePolygon(hazard: Hazard, bufferMeters = 75): [number, number][] {
+export function hazardToExcludePolygon(hazard: Hazard, bufferMeters = 40): [number, number][] {
   if (hazard.isRoadSegment && hazard.roadSegment?.path && hazard.roadSegment.path.length > 1) {
     const path = hazard.roadSegment.path
     const leftSide: [number, number][] = []
@@ -235,7 +235,7 @@ export async function fetchValhallaCandidates(
   const floodPolygons: [number, number][][] = []
   for (const hz of activeHazards) {
     if (hz && hz.status !== 'Resolved') {
-      const poly = hazardToExcludePolygon(hz, 75)
+      const poly = hazardToExcludePolygon(hz, 40)
       if (poly.length >= 4) {
         floodPolygons.push(poly)
       }
@@ -279,7 +279,7 @@ export async function fetchValhallaCandidates(
 
   if (directTrip && directTrip.geometry?.coordinates?.length > 1) {
     const coords: [number, number][] = directTrip.geometry.coordinates
-    const hazardCheck = routeIntersectsHazards(coords, activeHazards, 0.05)
+    const hazardCheck = routeIntersectsHazards(coords, activeHazards, 0.035)
     candidates.push({
       route: directTrip,
       distanceKm: directTrip.distance / 1000,
@@ -293,7 +293,7 @@ export async function fetchValhallaCandidates(
 
   if (safeTrip && safeTrip.geometry?.coordinates?.length > 1) {
     const coords: [number, number][] = safeTrip.geometry.coordinates
-    const hazardCheck = routeIntersectsHazards(coords, activeHazards, 0.05)
+    const hazardCheck = routeIntersectsHazards(coords, activeHazards, 0.035)
     candidates.push({
       route: safeTrip,
       distanceKm: safeTrip.distance / 1000,

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { HazardsService } from '../hazards/hazards.service';
@@ -27,6 +27,7 @@ export interface LocalReport {
 @Injectable()
 export class ReportsService {
   private readonly logger = new Logger(ReportsService.name);
+  private lastSubmissionByCitizen = new Map<string, number>();
 
   private inMemoryReports: LocalReport[] = [
     {
@@ -120,12 +121,29 @@ export class ReportsService {
   }
 
   async create(dto: CreateReportDto) {
+    // 🛡️ ANTI-SPAM DEFENSE 1: Geographic Boundary Validation (Philippine Territory)
+    if (dto.lat < 4.5 || dto.lat > 21.5 || dto.lng < 116.0 || dto.lng > 127.0) {
+      throw new BadRequestException('Invalid geographic coordinates: Outside Philippine territory.');
+    }
+
+    const citizen = dto.citizenName || dto.citizen || 'Anonymous Citizen';
+
+    // 🛡️ ANTI-SPAM DEFENSE 2: Rate Limiting Cooldown (60 seconds per reporter on API)
+    const lastSub = this.lastSubmissionByCitizen.get(citizen);
+    if (lastSub && Date.now() - lastSub < 60_000) {
+      const remainingSec = Math.ceil((60_000 - (Date.now() - lastSub)) / 1000);
+      throw new HttpException(
+        `Rate limit exceeded: Please wait ${remainingSec}s before submitting another report.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    this.lastSubmissionByCitizen.set(citizen, Date.now());
+
     const reportId = `rep-${Date.now()}`;
     const reportType = dto.type.toUpperCase();
     const emoji = dto.emoji || (reportType === 'FLOOD' ? '🌊' : reportType === 'FIRE' ? '🔥' : '🚧');
 
     const reportDesc = dto.description || dto.desc || `${reportType} Hazard`;
-    const citizen = dto.citizenName || dto.citizen || 'Anonymous Citizen';
 
     let hazardId = dto.hazardId;
     if (!hazardId) {

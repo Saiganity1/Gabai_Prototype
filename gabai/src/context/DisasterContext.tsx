@@ -810,6 +810,43 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       const reportLat = effectiveLat
       const reportLng = effectiveLng
+
+      const isLguOfficial =
+        Boolean(citizenName && (
+          citizenName.toLowerCase().includes('lgu') ||
+          citizenName.toLowerCase().includes('commander') ||
+          citizenName.toLowerCase().includes('admin') ||
+          citizenName.toLowerCase().includes('official')
+        ))
+
+      if (!isLguOfficial) {
+        // 🛡️ ANTI-SPAM DEFENSE 1: Device Rate Limiting / Cooldown (2 minutes cooldown)
+        const lastReportTime = Number(localStorage.getItem('gabai_last_report_timestamp') || 0)
+        const timeSinceLastReport = Date.now() - lastReportTime
+        const COOLDOWN_MS = 120_000 // 2 minutes cooldown
+        if (timeSinceLastReport < COOLDOWN_MS) {
+          const remainingSec = Math.ceil((COOLDOWN_MS - timeSinceLastReport) / 1000)
+          const msg = `⏳ Anti-Spam Cooldown Active: Please wait ${remainingSec}s before submitting another report.`
+          setLastActionMessage(msg)
+          throw new Error(msg)
+        }
+
+        // 🛡️ ANTI-SPAM DEFENSE 2: GPS Proximity Geofencing (Proof-of-Location)
+        // Enforces that citizen reporting must be within 1.5 km of their verified GPS position
+        const distFromUserKm = calculateDistanceKm(
+          userLoc.coords.lat,
+          userLoc.coords.lng,
+          reportLat,
+          reportLng
+        )
+        const MAX_GEOFENCE_KM = 1.5
+        if (distFromUserKm > MAX_GEOFENCE_KM) {
+          const errorMsg = `🛡️ Anti-Spam Geofence: Proof-of-Location required. You can only report hazards within 1.5 km of your verified GPS position (currently ${distFromUserKm.toFixed(1)} km away).`
+          setLastActionMessage(errorMsg)
+          throw new Error(errorMsg)
+        }
+      }
+
       const newHazardId = `haz-${Date.now()}`
       const newReportId = `rep-${Date.now()}`
 
@@ -862,8 +899,9 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isMine: true,
       }
 
-      // Record in local reporting ID list
+      // Record in local reporting ID list and update anti-spam rate-limit timestamp
       setMyReportIds((prev) => [...prev, String(newReportId), String(newHazardId)])
+      localStorage.setItem('gabai_last_report_timestamp', String(Date.now()))
 
       setHazards((prev) => [newHazard, ...prev])
       setReports((prev) => [newReport, ...prev])
