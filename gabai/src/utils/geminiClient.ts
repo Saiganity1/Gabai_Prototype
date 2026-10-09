@@ -3,16 +3,16 @@
  * Powered by Gemini 3.8 Flash with Key Rotation & High-Precision Geocoding
  */
 
-import { buildMultilingualSystemPrompt, ChatHistoryTurn } from './multilingualCoPilot'
+import { buildMultilingualSystemPrompt, ChatHistoryTurn } from "./multilingualCoPilot";
 
 function decodeKey(b64: string): string {
   try {
-    if (typeof atob === 'function') return atob(b64)
-    if (typeof Buffer !== 'undefined') return Buffer.from(b64, 'base64').toString('utf8')
+    if (typeof atob === "function") return atob(b64);
+    if (typeof Buffer !== "undefined") return Buffer.from(b64, "base64").toString("utf8");
   } catch {
-    return ''
+    return "";
   }
-  return ''
+  return "";
 }
 
 // API Key Pool supporting automatic rotation and quota failover
@@ -20,21 +20,21 @@ export const GEMINI_API_KEYS: string[] = [
   import.meta.env.VITE_GEMINI_API_KEY,
   (import.meta as any).env?.VITE_GEMINI_API_KEY_2,
   (import.meta as any).env?.VITE_GEMINI_API_KEY_3,
-].filter((k): k is string => typeof k === 'string' && k.trim().length > 15 && !k.startsWith('AQ.'))
+].filter((k): k is string => typeof k === "string" && k.trim().length > 15 && !k.startsWith("AQ."));
 
-export const GEMINI_API_KEY = GEMINI_API_KEYS[0] || ''
+export const GEMINI_API_KEY = GEMINI_API_KEYS[0] || "";
 
-let activeKeyIndex = 0
+let activeKeyIndex = 0;
 
 export function getActiveGeminiKey(): string {
-  if (GEMINI_API_KEYS.length === 0) return ''
-  return GEMINI_API_KEYS[activeKeyIndex % GEMINI_API_KEYS.length]
+  if (GEMINI_API_KEYS.length === 0) return "";
+  return GEMINI_API_KEYS[activeKeyIndex % GEMINI_API_KEYS.length];
 }
 
 export function rotateGeminiKey(): string {
-  if (GEMINI_API_KEYS.length <= 1) return getActiveGeminiKey()
-  activeKeyIndex = (activeKeyIndex + 1) % GEMINI_API_KEYS.length
-  return getActiveGeminiKey()
+  if (GEMINI_API_KEYS.length <= 1) return getActiveGeminiKey();
+  activeKeyIndex = (activeKeyIndex + 1) % GEMINI_API_KEYS.length;
+  return getActiveGeminiKey();
 }
 
 /**
@@ -42,64 +42,70 @@ export function rotateGeminiKey(): string {
  */
 export async function callGeminiGenerateContent(
   payload: any,
-  options: { timeoutMs?: number; model?: string } = {}
+  options: { timeoutMs?: number; model?: string } = {},
 ): Promise<any | null> {
-  const model = options.model || 'gemini-1.5-flash'
-  const timeoutMs = options.timeoutMs || 6000
-  const maxAttempts = Math.max(1, GEMINI_API_KEYS.length)
+  const model = options.model || "gemini-1.5-flash";
+  const timeoutMs = options.timeoutMs || 6000;
+  const maxAttempts = Math.max(1, GEMINI_API_KEYS.length);
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const key = getActiveGeminiKey()
-    if (!key) return null
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`
+    const key = getActiveGeminiKey();
+    if (!key) return null;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
 
     try {
       const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         signal: AbortSignal.timeout(timeoutMs),
         body: JSON.stringify(payload),
-      })
+      });
 
       if (res.ok) {
-        const data = await res.json()
-        return data
+        const data = await res.json();
+        return data;
       }
 
       // On unauthorized (401), rate limit (429), quota exhaustion (403), or transient server error, rotate key & retry
-      if (res.status === 401 || res.status === 429 || res.status === 403 || res.status === 404 || res.status >= 500) {
-        rotateGeminiKey()
-        continue
+      if (
+        res.status === 401 ||
+        res.status === 429 ||
+        res.status === 403 ||
+        res.status === 404 ||
+        res.status >= 500
+      ) {
+        rotateGeminiKey();
+        continue;
       }
-      return null
+      return null;
     } catch {
-      rotateGeminiKey()
+      rotateGeminiKey();
     }
   }
 
-  return null
+  return null;
 }
 
 export interface GeminiRouteAdvice {
-  confidence: number
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'
-  summary: string
-  recommendations: string[]
-  passabilityVerdict: string
+  confidence: number;
+  riskLevel: "LOW" | "MEDIUM" | "HIGH";
+  summary: string;
+  recommendations: string[];
+  passabilityVerdict: string;
 }
 
 /**
  * Real-time Gemini AI Route Analysis & Flood Defense Evaluation
  */
 export async function geminiAnalyzeRoute(params: {
-  originName: string
-  destinationName: string
-  distanceKm: number
-  durationMin: number
-  bypassedHazards: number
-  activeHazardsNearby: number
+  originName: string;
+  destinationName: string;
+  distanceKm: number;
+  durationMin: number;
+  bypassedHazards: number;
+  activeHazardsNearby: number;
 }): Promise<GeminiRouteAdvice | null> {
-  if (GEMINI_API_KEYS.length === 0) return null
+  if (GEMINI_API_KEYS.length === 0) return null;
 
   const prompt = `You are GABAI AI, an intelligent Philippine disaster navigation co-pilot.
 Analyze this driving route:
@@ -119,22 +125,22 @@ Respond ONLY in valid JSON with this exact structure:
     "Tip 2 regarding vehicle passability"
   ],
   "passabilityVerdict": "100% Passable for All Vehicles"
-}`
+}`;
 
   try {
     const data = await callGeminiGenerateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: 'application/json' },
-    })
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json" },
+    });
 
-    if (!data) return null
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text
-    if (!rawText) return null
+    if (!data) return null;
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawText) return null;
 
-    return JSON.parse(rawText) as GeminiRouteAdvice
+    return JSON.parse(rawText) as GeminiRouteAdvice;
   } catch (err) {
-    console.warn('Gemini route analysis fallback:', err)
-    return null
+    console.warn("Gemini route analysis fallback:", err);
+    return null;
   }
 }
 
@@ -143,21 +149,21 @@ Respond ONLY in valid JSON with this exact structure:
  */
 export async function geminiAnalyzeFloodPhoto(
   base64DataUrl: string,
-  locationDesc: string
+  locationDesc: string,
 ): Promise<{
-  estimatedDepth: string
-  passability: 'all_passable' | 'not_passable_light' | 'not_passable_all'
-  severity: 'low' | 'medium' | 'high'
-  aiAnalysis: string
+  estimatedDepth: string;
+  passability: "all_passable" | "not_passable_light" | "not_passable_all";
+  severity: "low" | "medium" | "high";
+  aiAnalysis: string;
 } | null> {
-  if (GEMINI_API_KEYS.length === 0 || !base64DataUrl) return null
+  if (GEMINI_API_KEYS.length === 0 || !base64DataUrl) return null;
 
   try {
-    const matches = base64DataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/)
-    if (!matches) return null
+    const matches = base64DataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+    if (!matches) return null;
 
-    const mimeType = matches[1]
-    const base64Data = matches[2]
+    const mimeType = matches[1];
+    const base64Data = matches[2];
 
     const prompt = `Analyze this disaster photo reported at "${locationDesc}".
 Determine:
@@ -172,29 +178,26 @@ Respond ONLY with valid JSON:
   "passability": "not_passable_light",
   "severity": "high",
   "aiAnalysis": "Baha sa kalsada hanggang tuhod. Hindi madaanan ng maliliit na sasakyan at motor."
-}`
+}`;
 
     const data = await callGeminiGenerateContent({
       contents: [
         {
-          role: 'user',
-          parts: [
-            { inlineData: { mimeType, data: base64Data } },
-            { text: prompt },
-          ],
+          role: "user",
+          parts: [{ inlineData: { mimeType, data: base64Data } }, { text: prompt }],
         },
       ],
-      generationConfig: { responseMimeType: 'application/json' },
-    })
+      generationConfig: { responseMimeType: "application/json" },
+    });
 
-    if (!data) return null
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text
-    if (!rawText) return null
+    if (!data) return null;
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawText) return null;
 
-    return JSON.parse(rawText)
+    return JSON.parse(rawText);
   } catch (err) {
-    console.warn('Gemini vision analysis fallback:', err)
-    return null
+    console.warn("Gemini vision analysis fallback:", err);
+    return null;
   }
 }
 
@@ -203,31 +206,31 @@ Respond ONLY with valid JSON:
  */
 export async function geminiVoiceQuery(
   userQuery: string,
-  context: { location: string; activeRouteDesc?: string; floodCount: number }
+  context: { location: string; activeRouteDesc?: string; floodCount: number },
 ): Promise<string> {
-  if (GEMINI_API_KEYS.length === 0) return 'Active navigation is running safely.'
+  if (GEMINI_API_KEYS.length === 0) return "Active navigation is running safely.";
 
   const prompt = `You are GABAI, the voice AI disaster navigation co-pilot for the Philippines.
 User is driving near: ${context.location}
-Active Route status: ${context.activeRouteDesc || 'Safe route selected'}
+Active Route status: ${context.activeRouteDesc || "Safe route selected"}
 Active flood hazards in area: ${context.floodCount}
 
 User said: "${userQuery}"
 
-Provide a concise, reassuring 1-2 sentence spoken response in Tagalog/Taglish. Focus on motorist safety, road passability, and flood avoidance.`
+Provide a concise, reassuring 1-2 sentence spoken response in Tagalog/Taglish. Focus on motorist safety, road passability, and flood avoidance.`;
 
   try {
     const data = await callGeminiGenerateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    })
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
 
-    if (!data) return 'Ligtas ang iyong ruta patungo sa destinasyon.'
+    if (!data) return "Ligtas ang iyong ruta patungo sa destinasyon.";
     return (
       data.candidates?.[0]?.content?.parts?.[0]?.text ||
-      'Naka-set ang iyong safe route patungo sa destinasyon.'
-    )
+      "Naka-set ang iyong safe route patungo sa destinasyon."
+    );
   } catch {
-    return 'Ligtas ang iyong ruta. Mag-ingat sa pagmamaneho.'
+    return "Ligtas ang iyong ruta. Mag-ingat sa pagmamaneho.";
   }
 }
 
@@ -238,20 +241,20 @@ Provide a concise, reassuring 1-2 sentence spoken response in Tagalog/Taglish. F
 export async function geminiChatAssistant(
   userQuery: string,
   context: {
-    currentLocation: string
-    activeHazardsList?: string[]
-    activeHazardsCount?: number
-    evacuationCenters?: string[]
+    currentLocation: string;
+    activeHazardsList?: string[];
+    activeHazardsCount?: number;
+    evacuationCenters?: string[];
     routeDetails?: {
-      destinationName: string
-      distanceKm: number
-      durationMin: number
-      isClear: boolean
-    }
-    history?: ChatHistoryTurn[]
-  }
+      destinationName: string;
+      distanceKm: number;
+      durationMin: number;
+      isClear: boolean;
+    };
+    history?: ChatHistoryTurn[];
+  },
 ): Promise<string | null> {
-  if (GEMINI_API_KEYS.length === 0) return null
+  if (GEMINI_API_KEYS.length === 0) return null;
 
   const prompt = buildMultilingualSystemPrompt({
     userQuery,
@@ -259,33 +262,33 @@ export async function geminiChatAssistant(
     activeHazardsList: context.activeHazardsList,
     evacuationCenters: context.evacuationCenters,
     routeDetails: context.routeDetails,
-  })
+  });
 
   try {
-    const contents: any[] = []
+    const contents: any[] = [];
 
     if (context.history && context.history.length > 0) {
       for (const turn of context.history.slice(-4)) {
         contents.push({
-          role: turn.role === 'model' ? 'model' : 'user',
+          role: turn.role === "model" ? "model" : "user",
           parts: [{ text: turn.text }],
-        })
+        });
       }
     }
 
     contents.push({
-      role: 'user',
+      role: "user",
       parts: [{ text: prompt }],
-    })
+    });
 
     const data = await callGeminiGenerateContent({
       contents,
-    })
+    });
 
-    if (!data) return null
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || null
+    if (!data) return null;
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -294,33 +297,37 @@ export async function geminiChatAssistant(
  */
 export async function googleGeocodePlace(
   placeQuery: string,
-  userLocation?: { lat: number; lng: number }
+  userLocation?: { lat: number; lng: number },
 ): Promise<{ name: string; address: string; lat: number; lng: number } | null> {
-  const apiKey = (import.meta as any).env.VITE_GOOGLE_MAPS_KEY || (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY
-  if (!apiKey) return null
+  const apiKey =
+    (import.meta as any).env.VITE_GOOGLE_MAPS_KEY ||
+    (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY;
+  if (!apiKey) return null;
 
   try {
-    const locBias = userLocation ? `&location=${userLocation.lat},${userLocation.lng}&radius=50000` : ''
+    const locBias = userLocation
+      ? `&location=${userLocation.lat},${userLocation.lng}&radius=50000`
+      : "";
     const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-      placeQuery + ', Pampanga, Philippines'
-    )}${locBias}&key=${apiKey}`
+      placeQuery + ", Pampanga, Philippines",
+    )}${locBias}&key=${apiKey}`;
 
-    const res = await fetch(url)
-    if (!res.ok) return null
-    const data = await res.json()
-    if (data.status === 'OK' && Array.isArray(data.results) && data.results.length > 0) {
-      const top = data.results[0]
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.status === "OK" && Array.isArray(data.results) && data.results.length > 0) {
+      const top = data.results[0];
       return {
-        name: top.formatted_address.split(',')[0] || placeQuery,
+        name: top.formatted_address.split(",")[0] || placeQuery,
         address: top.formatted_address,
         lat: top.geometry.location.lat,
         lng: top.geometry.location.lng,
-      }
+      };
     }
   } catch (err) {
-    console.warn('Google Maps geocoding error:', err)
+    console.warn("Google Maps geocoding error:", err);
   }
-  return null
+  return null;
 }
 
 /**
@@ -329,13 +336,13 @@ export async function googleGeocodePlace(
  */
 export async function geminiGeocodePlace(
   placeQuery: string,
-  userLocation?: { lat: number; lng: number }
+  userLocation?: { lat: number; lng: number },
 ): Promise<{ name: string; address: string; lat: number; lng: number } | null> {
-  if (GEMINI_API_KEYS.length === 0) return null
+  if (GEMINI_API_KEYS.length === 0) return null;
 
   const prompt = `You are GABAI AI precision geographic entity and coordinates resolver for the Philippines (focused on Pampanga, Central Luzon, and Metro Manila).
 The user wants to navigate to or find coordinates for: "${placeQuery}"
-Current user GPS location context: ${userLocation ? `Latitude ${userLocation.lat.toFixed(6)}, Longitude ${userLocation.lng.toFixed(6)}` : 'Pampanga, Central Luzon, Philippines'}.
+Current user GPS location context: ${userLocation ? `Latitude ${userLocation.lat.toFixed(6)}, Longitude ${userLocation.lng.toFixed(6)}` : "Pampanga, Central Luzon, Philippines"}.
 
 Instructions:
 1. Identify the exact real-world destination venue, mall, hospital, school, university, church, terminal, public market, park, airport, barangay, or landmark.
@@ -349,19 +356,19 @@ Respond ONLY with valid JSON in this exact structure:
   "lat": 15.134732,
   "lng": 120.590085,
   "confidence": 0.99
-}`
+}`;
 
   try {
     const data = await callGeminiGenerateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: 'application/json' },
-    })
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json" },
+    });
 
-    if (!data) return null
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text
-    if (!rawText) return null
+    if (!data) return null;
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawText) return null;
 
-    const parsed = JSON.parse(rawText)
+    const parsed = JSON.parse(rawText);
     if (
       parsed &&
       parsed.lat &&
@@ -373,14 +380,14 @@ Respond ONLY with valid JSON in this exact structure:
     ) {
       return {
         name: parsed.name || placeQuery,
-        address: parsed.address || 'Pampanga, Philippines',
+        address: parsed.address || "Pampanga, Philippines",
         lat: Number(parsed.lat),
         lng: Number(parsed.lng),
-      }
+      };
     }
-    return null
+    return null;
   } catch (err) {
-    console.warn('Gemini geocoding error:', err)
-    return null
+    console.warn("Gemini geocoding error:", err);
+    return null;
   }
 }

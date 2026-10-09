@@ -1,40 +1,64 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
-  Shield, Sun, Moon,
-  Clock, Layers, Locate,
-  ChevronDown, ChevronUp, CheckCircle, XCircle, Flag, Sparkles, AlertTriangle,
-  Users, Send, LifeBuoy,
-  Copy, Check, Search, Plus, Minus, Eye,
-  Radio, Anchor, HeartPulse, Truck, Printer, Filter, MapPin, X
-} from 'lucide-react'
-import MapCanvas, { Hazard, MapCanvasHandle } from '../components/MapCanvas'
-import { useDisaster } from '../context/DisasterContext'
-import GabaiLogo from '../components/GabaiLogo'
+  Shield,
+  Sun,
+  Moon,
+  Clock,
+  Layers,
+  Locate,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle,
+  XCircle,
+  Flag,
+  Sparkles,
+  AlertTriangle,
+  Users,
+  Send,
+  LifeBuoy,
+  Copy,
+  Check,
+  Search,
+  Plus,
+  Minus,
+  Eye,
+  Radio,
+  Anchor,
+  HeartPulse,
+  Truck,
+  Printer,
+  Filter,
+  MapPin,
+  X,
+} from "lucide-react";
+import MapCanvas, { Hazard, MapCanvasHandle } from "../components/MapCanvas";
+import { useDisaster } from "../context/DisasterContext";
+import GabaiLogo from "../components/GabaiLogo";
 
 interface Props {
-  darkMode?: boolean
-  toggleDark?: () => void
+  darkMode?: boolean;
+  toggleDark?: () => void;
 }
 
 interface DispatchUnit {
-  id: string
-  name: string
-  agency: 'LGU' | 'PCG' | 'RED_CROSS' | 'BFP' | 'DPWH'
-  type: 'rescue_boat' | 'medical_emt' | 'fire_engine' | 'dpwh_clearing'
-  status: 'en_route' | 'on_scene' | 'standby' | 'returning'
-  assignedIncident?: string
-  location: string
-  eta?: string
+  id: string;
+  name: string;
+  agency: "LGU" | "PCG" | "RED_CROSS" | "BFP" | "DPWH";
+  type: "rescue_boat" | "medical_emt" | "fire_engine" | "dpwh_clearing";
+  status: "en_route" | "on_scene" | "standby" | "returning";
+  assignedIncident?: string;
+  location: string;
+  eta?: string;
 }
 
 interface MutualAidRequest {
-  id: string
-  agency: 'PCG' | 'RED_CROSS' | 'BFP' | 'DPWH'
-  resource: string
-  quantity: string
-  status: 'APPROVED & EN ROUTE' | 'PENDING APPROVAL' | 'DEPLOYED'
-  eta: string
+  id: string;
+  agency: "PCG" | "RED_CROSS" | "BFP" | "DPWH";
+  resource: string;
+  quantity: string;
+  status: "APPROVED & EN ROUTE" | "PENDING APPROVAL" | "DEPLOYED";
+  eta: string;
 }
 
 export default function LGUDashboardPage({ darkMode = true, toggleDark = () => {} }: Props) {
@@ -53,219 +77,245 @@ export default function LGUDashboardPage({ darkMode = true, toggleDark = () => {
     aiPatternInsight,
     lastActionMessage,
     isWsConnected,
-  } = useDisaster()
+  } = useDisaster();
 
   // State Management
-  const [selectedHazard, setSelectedHazard] = useState<Hazard | null>(null)
-  const [activeTab, setActiveTab] = useState<'triage' | 'hazards' | 'evacuation' | 'dispatch' | 'sitrep'>('triage')
-  const [reportFilter, setReportFilter] = useState<'all' | 'pending' | 'verified' | 'resolved'>('all')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [layersOpen, setLayersOpen] = useState(false)
-  const [isPanelMinimized, setIsPanelMinimized] = useState(false)
-  const [alertLevel, setAlertLevel] = useState<'red' | 'orange' | 'blue'>('red')
-  const [copiedSitRep, setCopiedSitRep] = useState(false)
-  const [showRadar, setShowRadar] = useState(false)
-  const [isAiInsightDismissed, setIsAiInsightDismissed] = useState(false)
-  const [is3D, setIs3D] = useState(false)
-  const [isSatellite, setIsSatellite] = useState(false)
-  
-  const [showDispatchModal, setShowDispatchModal] = useState(false)
-  const [dispatchTargetReport, setDispatchTargetReport] = useState<any>(null)
-  const [selectedUnitType, setSelectedUnitType] = useState<string>('rescue_boat')
-  const [selectedAgency, setSelectedAgency] = useState<'LGU' | 'PCG' | 'RED_CROSS' | 'BFP' | 'DPWH'>('LGU')
+  const [selectedHazard, setSelectedHazard] = useState<Hazard | null>(null);
+  const [activeTab, setActiveTab] = useState<
+    "triage" | "hazards" | "evacuation" | "dispatch" | "sitrep"
+  >("triage");
+  const [reportFilter, setReportFilter] = useState<"all" | "pending" | "verified" | "resolved">(
+    "all",
+  );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [isPanelMinimized, setIsPanelMinimized] = useState(false);
+  const [alertLevel, setAlertLevel] = useState<"red" | "orange" | "blue">("red");
+  const [copiedSitRep, setCopiedSitRep] = useState(false);
+  const [showRadar, setShowRadar] = useState(false);
+  const [isAiInsightDismissed, setIsAiInsightDismissed] = useState(false);
+  const [is3D, setIs3D] = useState(false);
+  const [isSatellite, setIsSatellite] = useState(false);
+
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [dispatchTargetReport, setDispatchTargetReport] = useState<any>(null);
+  const [selectedUnitType, setSelectedUnitType] = useState<string>("rescue_boat");
+  const [selectedAgency, setSelectedAgency] = useState<
+    "LGU" | "PCG" | "RED_CROSS" | "BFP" | "DPWH"
+  >("LGU");
 
   // New Hazard Declaration Modal
-  const [showAddHazardModal, setShowAddHazardModal] = useState(false)
-  const [newHazardLabel, setNewHazardLabel] = useState('Road Flooding — Emergency Closure')
-  const [newHazardType, setNewHazardType] = useState('flood')
-  const [newHazardSeverity, setNewHazardSeverity] = useState<'high' | 'medium' | 'low'>('high')
-  const [newHazardPassability, setNewHazardPassability] = useState<'all_passable' | 'not_passable_light' | 'not_passable_all'>('not_passable_all')
+  const [showAddHazardModal, setShowAddHazardModal] = useState(false);
+  const [newHazardLabel, setNewHazardLabel] = useState("Road Flooding — Emergency Closure");
+  const [newHazardType, setNewHazardType] = useState("flood");
+  const [newHazardSeverity, setNewHazardSeverity] = useState<"high" | "medium" | "low">("high");
+  const [newHazardPassability, setNewHazardPassability] = useState<
+    "all_passable" | "not_passable_light" | "not_passable_all"
+  >("not_passable_all");
 
   // Live Digital Clock
-  const [currentTime, setCurrentTime] = useState(new Date())
+  const [currentTime, setCurrentTime] = useState(new Date());
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Local Shelter Occupancy State (modifiable by LGU)
-  const [localShelters, setLocalShelters] = useState(evacCenters)
+  const [localShelters, setLocalShelters] = useState(evacCenters);
   useEffect(() => {
-    setLocalShelters(evacCenters)
-  }, [evacCenters])
+    setLocalShelters(evacCenters);
+  }, [evacCenters]);
 
   // Active Dispatch Fleet (Inter-Agency Mutual Aid)
   const [fleet, setFleet] = useState<DispatchUnit[]>([
     {
-      id: 'unit-1',
-      name: 'PCG Water Search & Rescue Unit Alpha',
-      agency: 'PCG',
-      type: 'rescue_boat',
-      status: 'en_route',
-      assignedIncident: 'Flash Flood — Santa Maria Corridor',
-      location: 'En route to Sector 2',
-      eta: '4 mins',
+      id: "unit-1",
+      name: "PCG Water Search & Rescue Unit Alpha",
+      agency: "PCG",
+      type: "rescue_boat",
+      status: "en_route",
+      assignedIncident: "Flash Flood — Santa Maria Corridor",
+      location: "En route to Sector 2",
+      eta: "4 mins",
     },
     {
-      id: 'unit-2',
-      name: 'Philippine Red Cross EMT Ambulance 01',
-      agency: 'RED_CROSS',
-      type: 'medical_emt',
-      status: 'on_scene',
-      assignedIncident: 'Barangay Medical Aid',
-      location: 'Central Evacuation Gym',
-      eta: 'On Scene',
+      id: "unit-2",
+      name: "Philippine Red Cross EMT Ambulance 01",
+      agency: "RED_CROSS",
+      type: "medical_emt",
+      status: "on_scene",
+      assignedIncident: "Barangay Medical Aid",
+      location: "Central Evacuation Gym",
+      eta: "On Scene",
     },
     {
-      id: 'unit-3',
-      name: 'BFP High-Volume Flood Pumper 4',
-      agency: 'BFP',
-      type: 'fire_engine',
-      status: 'standby',
-      location: 'Central Fire Station Headquarters',
+      id: "unit-3",
+      name: "BFP High-Volume Flood Pumper 4",
+      agency: "BFP",
+      type: "fire_engine",
+      status: "standby",
+      location: "Central Fire Station Headquarters",
     },
     {
-      id: 'unit-4',
-      name: 'DPWH Heavy Payloader Clearing Crew',
-      agency: 'DPWH',
-      type: 'dpwh_clearing',
-      status: 'on_scene',
-      assignedIncident: 'Road Blockage — Fallen Tree',
-      location: 'Sta. Cruz Avenue',
-      eta: 'On Scene',
+      id: "unit-4",
+      name: "DPWH Heavy Payloader Clearing Crew",
+      agency: "DPWH",
+      type: "dpwh_clearing",
+      status: "on_scene",
+      assignedIncident: "Road Blockage — Fallen Tree",
+      location: "Sta. Cruz Avenue",
+      eta: "On Scene",
     },
-  ])
+  ]);
 
   // Mutual Aid Requests
   const [mutualAidRequests, setMutualAidRequests] = useState<MutualAidRequest[]>([
     {
-      id: 'ma-1',
-      agency: 'PCG',
-      resource: '4x Inflatable Rubber Boats & 8 Divers',
-      quantity: '4 Boats',
-      status: 'APPROVED & EN ROUTE',
-      eta: '12 mins',
+      id: "ma-1",
+      agency: "PCG",
+      resource: "4x Inflatable Rubber Boats & 8 Divers",
+      quantity: "4 Boats",
+      status: "APPROVED & EN ROUTE",
+      eta: "12 mins",
     },
     {
-      id: 'ma-2',
-      agency: 'RED_CROSS',
-      resource: 'Emergency Food Truck & Mobile Water Purifier',
-      quantity: '500 Meals/hr',
-      status: 'DEPLOYED',
-      eta: 'On Scene',
+      id: "ma-2",
+      agency: "RED_CROSS",
+      resource: "Emergency Food Truck & Mobile Water Purifier",
+      quantity: "500 Meals/hr",
+      status: "DEPLOYED",
+      eta: "On Scene",
     },
-  ])
+  ]);
 
-  const mapCanvasRef = useRef<MapCanvasHandle>(null)
+  const mapCanvasRef = useRef<MapCanvasHandle>(null);
 
   // Strictly flood reports
   const floodReports = useMemo(() => {
     return reports.filter(
-      (r) => r.id !== 'rep-102' && (!r.type || r.type === 'flood' || r.waterDepth || r.desc.toLowerCase().includes('flood'))
-    )
-  }, [reports])
+      (r) =>
+        r.id !== "rep-102" &&
+        (!r.type || r.type === "flood" || r.waterDepth || r.desc.toLowerCase().includes("flood")),
+    );
+  }, [reports]);
 
-  const pendingReports = useMemo(() => floodReports.filter((r) => r.status === 'pending'), [floodReports])
-  const verifiedReports = useMemo(() => floodReports.filter((r) => r.status === 'verified'), [floodReports])
-  const resolvedReports = useMemo(() => floodReports.filter((r) => r.status === 'resolved'), [floodReports])
-  const activeHazardsCount = useMemo(() => hazards.filter((h) => h.status !== 'Resolved').length, [hazards])
+  const pendingReports = useMemo(
+    () => floodReports.filter((r) => r.status === "pending"),
+    [floodReports],
+  );
+  const verifiedReports = useMemo(
+    () => floodReports.filter((r) => r.status === "verified"),
+    [floodReports],
+  );
+  const resolvedReports = useMemo(
+    () => floodReports.filter((r) => r.status === "resolved"),
+    [floodReports],
+  );
+  const activeHazardsCount = useMemo(
+    () => hazards.filter((h) => h.status !== "Resolved").length,
+    [hazards],
+  );
 
   // Filtered reports stream
   const filteredReports = useMemo(() => {
     return floodReports.filter((r) => {
-      if (reportFilter !== 'all' && r.status !== reportFilter) return false
+      if (reportFilter !== "all" && r.status !== reportFilter) return false;
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase()
+        const q = searchQuery.toLowerCase();
         return (
           r.desc.toLowerCase().includes(q) ||
           r.citizen.toLowerCase().includes(q) ||
           (r.locationName && r.locationName.toLowerCase().includes(q))
-        )
+        );
       }
-      return true
-    })
-  }, [floodReports, reportFilter, searchQuery])
+      return true;
+    });
+  }, [floodReports, reportFilter, searchQuery]);
 
   // Capacity modifiers
   const handleModifyShelter = (idx: number, delta: number) => {
     setLocalShelters((prev) =>
       prev.map((s, i) => {
         if (i === idx) {
-          const currentPct = parseInt(s.cap) || 50
-          const nextPct = Math.max(0, Math.min(100, currentPct + delta))
-          return { ...s, cap: `${nextPct}%` }
+          const currentPct = parseInt(s.cap) || 50;
+          const nextPct = Math.max(0, Math.min(100, currentPct + delta));
+          return { ...s, cap: `${nextPct}%` };
         }
-        return s
-      })
-    )
-  }
+        return s;
+      }),
+    );
+  };
 
   const handleLocateMe = () => {
-    requestLocation()
-    mapCanvasRef.current?.flyToUser()
-  }
+    requestLocation();
+    mapCanvasRef.current?.flyToUser();
+  };
 
   const handleAssignDispatch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!dispatchTargetReport) return
+    e.preventDefault();
+    if (!dispatchTargetReport) return;
 
     const newUnit: DispatchUnit = {
       id: `unit-${Date.now()}`,
       name:
-        selectedAgency === 'PCG'
-          ? 'Philippine Coast Guard Rubber Boat Alpha'
-          : selectedAgency === 'RED_CROSS'
-          ? 'Philippine Red Cross Emergency EMT'
-          : selectedAgency === 'BFP'
-          ? 'BFP Rapid Water Pumper Engine'
-          : selectedAgency === 'DPWH'
-          ? 'DPWH Heavy Road Clearing Payloader'
-          : 'CDRRMO Municipal Response Crew',
+        selectedAgency === "PCG"
+          ? "Philippine Coast Guard Rubber Boat Alpha"
+          : selectedAgency === "RED_CROSS"
+            ? "Philippine Red Cross Emergency EMT"
+            : selectedAgency === "BFP"
+              ? "BFP Rapid Water Pumper Engine"
+              : selectedAgency === "DPWH"
+                ? "DPWH Heavy Road Clearing Payloader"
+                : "CDRRMO Municipal Response Crew",
       agency: selectedAgency,
       type: selectedUnitType as any,
-      status: 'en_route',
+      status: "en_route",
       assignedIncident: dispatchTargetReport.desc.slice(0, 30),
-      location: `Dispatched to ${dispatchTargetReport.locationName || 'Incident GPS'}`,
-      eta: '5 mins',
-    }
+      location: `Dispatched to ${dispatchTargetReport.locationName || "Incident GPS"}`,
+      eta: "5 mins",
+    };
 
-    setFleet((prev) => [newUnit, ...prev])
-    setShowDispatchModal(false)
-    setDispatchTargetReport(null)
-    setActiveTab('dispatch')
-  }
+    setFleet((prev) => [newUnit, ...prev]);
+    setShowDispatchModal(false);
+    setDispatchTargetReport(null);
+    setActiveTab("dispatch");
+  };
 
   const handleRequestMutualAid = () => {
     const newMa: MutualAidRequest = {
       id: `ma-${Date.now()}`,
-      agency: 'PCG',
-      resource: '2x Amphibious Rescue Trucks & 6 Swiftwater Technicians',
-      quantity: '2 Trucks',
-      status: 'APPROVED & EN ROUTE',
-      eta: '15 mins',
-    }
-    setMutualAidRequests((prev) => [newMa, ...prev])
-  }
+      agency: "PCG",
+      resource: "2x Amphibious Rescue Trucks & 6 Swiftwater Technicians",
+      quantity: "2 Trucks",
+      status: "APPROVED & EN ROUTE",
+      eta: "15 mins",
+    };
+    setMutualAidRequests((prev) => [newMa, ...prev]);
+  };
 
   const handleCreateOfficialHazard = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     addHazardReport({
       type: newHazardType,
       description: newHazardLabel,
       severity: newHazardSeverity,
-      citizenName: 'LGU Incident Commander (Official Declaration)',
+      citizenName: "LGU Incident Commander (Official Declaration)",
       isRoadSegment: true,
       passability: newHazardPassability,
-    })
-    setShowAddHazardModal(false)
-    setActiveTab('hazards')
-  }
+    });
+    setShowAddHazardModal(false);
+    setActiveTab("hazards");
+  };
 
   // SitRep Generator in Markdown
   const sitRepContent = useMemo(() => {
-    const timeStr = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-    const dateStr = currentTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    const highHazards = hazards.filter((h) => h.severity === 'high')
+    const timeStr = currentTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    const dateStr = currentTime.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    const highHazards = hazards.filter((h) => h.severity === "high");
 
     return `# GABAI DISASTER SITUATION REPORT (SITREP)
 **Jurisdiction:** ${locationName} — Disaster Operations Command Center (OpCen)
@@ -280,65 +330,78 @@ export default function LGUDashboardPage({ darkMode = true, toggleDark = () => {
 - Inter-Agency Response Fleet: **${fleet.length} Units Active** (PCG, Red Cross, BFP, DPWH, LGU)
 
 ## 2. ACTIVE HAZARDS & ROAD PASSABILITY MATRIX
-${hazards.map((h, i) => `${i + 1}. **${h.label}** (${h.severity.toUpperCase()}) — ${h.status} [${h.passability ? h.passability.replace(/_/g, ' ').toUpperCase() : 'PASSABILITY RECORDED'}]`).join('\n')}
+${hazards.map((h, i) => `${i + 1}. **${h.label}** (${h.severity.toUpperCase()}) — ${h.status} [${h.passability ? h.passability.replace(/_/g, " ").toUpperCase() : "PASSABILITY RECORDED"}]`).join("\n")}
 
 ## 3. EVACUATION SHELTER STATUS
-${localShelters.map((s) => `- **${s.name}**: ${s.cap} Occupancy (${s.status})`).join('\n')}
+${localShelters.map((s) => `- **${s.name}**: ${s.cap} Occupancy (${s.status})`).join("\n")}
 
 ## 4. INTER-AGENCY MUTUAL AID
-${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${m.status} (ETA: ${m.eta})`).join('\n')}
+${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${m.status} (ETA: ${m.eta})`).join("\n")}
 
 ## 5. ACTION DIRECTIVES & ORDERS
 - Precautionary evacuation enforced along low-lying river corridors.
 - Traffic rerouted through GABAI AI Safe Navigation Corridors.
-- Response fleet on continuous 24/7 operational standby.`
-  }, [currentTime, locationName, alertLevel, hazards, reports, verifiedReports, pendingReports, localShelters, fleet, mutualAidRequests])
+- Response fleet on continuous 24/7 operational standby.`;
+  }, [
+    currentTime,
+    locationName,
+    alertLevel,
+    hazards,
+    reports,
+    verifiedReports,
+    pendingReports,
+    localShelters,
+    fleet,
+    mutualAidRequests,
+  ]);
 
   const copySitRep = () => {
-    navigator.clipboard.writeText(sitRepContent)
-    setCopiedSitRep(true)
-    setTimeout(() => setCopiedSitRep(false), 3000)
-  }
+    navigator.clipboard.writeText(sitRepContent);
+    setCopiedSitRep(true);
+    setTimeout(() => setCopiedSitRep(false), 3000);
+  };
 
   const printSitRep = () => {
-    window.print()
-  }
+    window.print();
+  };
 
   const handleResolveHazardFromMap = (hazard: Hazard) => {
     const matchedReport = reports.find(
       (r) =>
         r.hazardId === hazard.id ||
         r.id === hazard.id ||
-        (r.isRoadSegment && hazard.isRoadSegment && Math.hypot(r.lat - hazard.lat, r.lng - hazard.lng) < 0.005)
-    )
+        (r.isRoadSegment &&
+          hazard.isRoadSegment &&
+          Math.hypot(r.lat - hazard.lat, r.lng - hazard.lng) < 0.005),
+    );
     if (matchedReport) {
-      resolveReport(matchedReport.id)
+      resolveReport(matchedReport.id);
     } else {
-      resolveReport(hazard.id)
+      resolveReport(hazard.id);
     }
-    setSelectedHazard(null)
-  }
+    setSelectedHazard(null);
+  };
 
   const handleVerifyHazardFromMap = (hazard: Hazard) => {
     const matchedReport = reports.find(
       (r) =>
         r.hazardId === hazard.id ||
         r.id === hazard.id ||
-        Math.hypot(r.lat - hazard.lat, r.lng - hazard.lng) < 0.005
-    )
+        Math.hypot(r.lat - hazard.lat, r.lng - hazard.lng) < 0.005,
+    );
     if (matchedReport) {
-      verifyReport(matchedReport.id)
+      verifyReport(matchedReport.id);
     }
-    setSelectedHazard(null)
-  }
+    setSelectedHazard(null);
+  };
 
   const toggle3DMode = () => {
     setIs3D((prev) => {
-      const next = !prev
-      mapCanvasRef.current?.set3DMode(next)
-      return next
-    })
-  }
+      const next = !prev;
+      mapCanvasRef.current?.set3DMode(next);
+      return next;
+    });
+  };
 
   return (
     <div className="relative h-screen w-full overflow-hidden bg-slate-950 font-sans text-slate-100 select-none">
@@ -352,7 +415,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
           showRoutes={false}
           selectedRoute={null}
           onHazardClick={setSelectedHazard}
-          emergencyMode={alertLevel === 'red'}
+          emergencyMode={alertLevel === "red"}
           navPosition="top-right"
           userLocation={userLocation}
           hazards={hazards}
@@ -381,20 +444,24 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-black text-sm tracking-tight text-white">GABAI COMMAND</span>
+                  <span className="font-black text-sm tracking-tight text-white">
+                    GABAI COMMAND
+                  </span>
                   <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[9px] font-black px-1.5 py-0.5 rounded uppercase">
                     DISASTER OPCEN
                   </span>
                   <span
-                    className={`w-2 h-2 rounded-full ${isWsConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}
-                    title={isWsConnected ? 'Live Cloud Sync Connected' : 'Syncing'}
+                    className={`w-2 h-2 rounded-full ${isWsConnected ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`}
+                    title={isWsConnected ? "Live Cloud Sync Connected" : "Syncing"}
                   />
                 </div>
                 <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5 mt-0.5">
-                  <span className="text-slate-200 font-semibold truncate max-w-[200px]">{locationName}</span>
+                  <span className="text-slate-200 font-semibold truncate max-w-[200px]">
+                    {locationName}
+                  </span>
                   <span>•</span>
                   <span className="text-emerald-400 font-mono font-bold">
-                    {currentTime.toLocaleTimeString('en-US', { hour12: false })} PST
+                    {currentTime.toLocaleTimeString("en-US", { hour12: false })} PST
                   </span>
                 </div>
               </div>
@@ -405,22 +472,22 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
               {/* Alert Level Pill */}
               <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-1 flex items-center gap-1">
                 <span className="text-[9px] uppercase font-bold text-slate-400 px-1">ALERT:</span>
-                {(['blue', 'orange', 'red'] as const).map((lvl) => (
+                {(["blue", "orange", "red"] as const).map((lvl) => (
                   <button
                     key={lvl}
                     type="button"
                     onClick={() => setAlertLevel(lvl)}
                     className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase transition-all cursor-pointer ${
                       alertLevel === lvl
-                        ? lvl === 'red'
-                          ? 'bg-red-600 text-white shadow-[0_0_12px_rgba(239,68,68,0.8)]'
-                          : lvl === 'orange'
-                          ? 'bg-amber-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)]'
-                          : 'bg-blue-600 text-white shadow-[0_0_12px_rgba(37,99,235,0.6)]'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? lvl === "red"
+                          ? "bg-red-600 text-white shadow-[0_0_12px_rgba(239,68,68,0.8)]"
+                          : lvl === "orange"
+                            ? "bg-amber-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)]"
+                            : "bg-blue-600 text-white shadow-[0_0_12px_rgba(37,99,235,0.6)]"
+                        : "text-slate-400 hover:text-slate-200"
                     }`}
                   >
-                    {lvl === 'red' ? '🔴 RED' : lvl === 'orange' ? '🟠 YELLOW' : '🔵 BLUE'}
+                    {lvl === "red" ? "🔴 RED" : lvl === "orange" ? "🟠 YELLOW" : "🔵 BLUE"}
                   </button>
                 ))}
               </div>
@@ -431,13 +498,15 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                 onClick={() => setIsSatellite(!isSatellite)}
                 className={`border rounded-xl px-2.5 py-1.5 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
                   isSatellite
-                    ? 'bg-emerald-600 border-emerald-400 text-white shadow-[0_0_12px_rgba(16,185,129,0.5)]'
-                    : 'bg-slate-950/80 hover:bg-slate-800 border-slate-800 text-slate-300'
+                    ? "bg-emerald-600 border-emerald-400 text-white shadow-[0_0_12px_rgba(16,185,129,0.5)]"
+                    : "bg-slate-950/80 hover:bg-slate-800 border-slate-800 text-slate-300"
                 }`}
                 title="Toggle High-Res Satellite Hybrid View"
               >
                 <span>🛰️</span>
-                <span className="hidden sm:inline">{isSatellite ? 'Satellite ON' : 'Satellite'}</span>
+                <span className="hidden sm:inline">
+                  {isSatellite ? "Satellite ON" : "Satellite"}
+                </span>
               </button>
 
               {/* 2D / 3D Switcher */}
@@ -447,7 +516,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                 className="bg-slate-950/80 hover:bg-slate-800 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
                 title="Switch 2D / 3D View"
               >
-                <span>{is3D ? '🧊 3D' : '🗺️ 2D'}</span>
+                <span>{is3D ? "🧊 3D" : "🗺️ 2D"}</span>
               </button>
 
               {/* Public Citizen Map View */}
@@ -465,7 +534,11 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                 onClick={toggleDark}
                 className="bg-slate-950/80 border border-slate-800 rounded-xl p-2 text-slate-400 hover:text-white transition-colors cursor-pointer"
               >
-                {darkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-blue-400" />}
+                {darkMode ? (
+                  <Sun className="w-3.5 h-3.5 text-amber-400" />
+                ) : (
+                  <Moon className="w-3.5 h-3.5 text-blue-400" />
+                )}
               </button>
             </div>
           </div>
@@ -474,58 +547,60 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
               {
-                id: 'all',
-                label: 'Active Flood Hazards',
+                id: "all",
+                label: "Active Flood Hazards",
                 val: activeHazardsCount,
                 icon: AlertTriangle,
-                color: 'text-red-400',
-                border: 'border-red-500/30',
+                color: "text-red-400",
+                border: "border-red-500/30",
               },
               {
-                id: 'pending',
-                label: 'Pending Triage',
+                id: "pending",
+                label: "Pending Triage",
                 val: pendingReports.length,
                 icon: Clock,
-                color: 'text-amber-400',
-                border: 'border-amber-500/30',
+                color: "text-amber-400",
+                border: "border-amber-500/30",
               },
               {
-                id: 'verified',
-                label: 'Verified Floods',
+                id: "verified",
+                label: "Verified Floods",
                 val: verifiedReports.length,
                 icon: CheckCircle,
-                color: 'text-emerald-400',
-                border: 'border-emerald-500/30',
+                color: "text-emerald-400",
+                border: "border-emerald-500/30",
               },
               {
-                id: 'resolved',
-                label: 'Resolved Floods',
+                id: "resolved",
+                label: "Resolved Floods",
                 val: resolvedReports.length,
                 icon: Flag,
-                color: 'text-blue-400',
-                border: 'border-blue-500/30',
+                color: "text-blue-400",
+                border: "border-blue-500/30",
               },
             ].map((m) => {
-              const Icon = m.icon
+              const Icon = m.icon;
               return (
                 <button
                   key={m.label}
                   type="button"
                   onClick={() => {
-                    setReportFilter(m.id as any)
-                    setIsPanelMinimized(false)
+                    setReportFilter(m.id as any);
+                    setIsPanelMinimized(false);
                   }}
                   className={`bg-slate-950/70 hover:bg-slate-900 rounded-xl p-2 px-3 border ${m.border} flex items-center justify-between shadow-inner transition-colors cursor-pointer text-left`}
                 >
                   <div>
-                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{m.label}</div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                      {m.label}
+                    </div>
                     <div className="text-base font-black text-white">{m.val}</div>
                   </div>
                   <div className={`p-1.5 rounded-lg bg-slate-900 ${m.color}`}>
                     <Icon className="w-3.5 h-3.5" />
                   </div>
                 </button>
-              )
+              );
             })}
           </div>
         </div>
@@ -544,14 +619,14 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
       {/* ── Main Command Sidebar Panel ───────────────────────── */}
       <div
         className={`absolute top-[148px] ${
-          isPanelMinimized ? 'h-auto' : 'bottom-4'
+          isPanelMinimized ? "h-auto" : "bottom-4"
         } left-4 z-20 w-full sm:w-[450px] max-w-[calc(100vw-32px)] pointer-events-none transition-all duration-300 ease-in-out`}
       >
         <div
           className={`${
             isPanelMinimized
-              ? 'h-auto rounded-2xl shadow-xl'
-              : 'h-full rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.9)]'
+              ? "h-auto rounded-2xl shadow-xl"
+              : "h-full rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.9)]"
           } bg-slate-900/95 backdrop-blur-2xl border border-slate-700/60 overflow-hidden flex flex-col pointer-events-auto transition-all duration-300 ease-in-out`}
         >
           {/* AI Pattern Alert Pill */}
@@ -559,18 +634,28 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
             <div className="bg-amber-500/10 border-b border-amber-500/20 p-2.5 px-3 flex items-center justify-between gap-2 text-xs anim-slide-down">
               <div className="flex items-center gap-2 min-w-0">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="font-bold text-amber-300 text-xs truncate">{aiPatternInsight.title}</span>
-                <span className="text-slate-400 text-[11px] truncate hidden sm:inline">— {aiPatternInsight.description}</span>
+                <span className="font-bold text-amber-300 text-xs truncate">
+                  {aiPatternInsight.title}
+                </span>
+                <span className="text-slate-400 text-[11px] truncate hidden sm:inline">
+                  — {aiPatternInsight.description}
+                </span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAiInsightDismissed(true)}
-                className="text-slate-400 hover:text-white p-0.5 rounded cursor-pointer shrink-0"
+                className="text-slate-400 hover:text-white p-0.5 rounded cursor-pointer shrink-0 text-xs"
+                aria-label="Dismiss insight"
               >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Panel Header */}
           <div
             className={`p-2.5 px-3.5 bg-slate-950/80 ${
-              isPanelMinimized ? '' : 'border-b border-slate-800'
+              isPanelMinimized ? "" : "border-b border-slate-800"
             } flex items-center justify-between gap-2`}
           >
             <div className="flex items-center gap-2 min-w-0">
@@ -578,12 +663,12 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                 type="button"
                 onClick={() => setIsPanelMinimized(!isPanelMinimized)}
                 className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800/80 active:scale-95 transition-all cursor-pointer flex items-center justify-center shrink-0 border border-transparent hover:border-slate-700/60"
-                title={isPanelMinimized ? 'Expand Flood Reports Panel' : 'Minimize (Show Map)'}
+                title={isPanelMinimized ? "Expand Flood Reports Panel" : "Minimize (Show Map)"}
                 aria-expanded={!isPanelMinimized}
               >
                 <ChevronDown
                   className={`w-4 h-4 transition-transform duration-300 ${
-                    isPanelMinimized ? 'rotate-0' : 'rotate-180'
+                    isPanelMinimized ? "rotate-0" : "rotate-180"
                   }`}
                 />
               </button>
@@ -635,18 +720,22 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                 </div>
 
                 <div className="flex gap-1 overflow-x-auto pb-1">
-                  {(['all', 'pending', 'verified', 'resolved'] as const).map((st) => (
+                  {(["all", "pending", "verified", "resolved"] as const).map((st) => (
                     <button
                       key={st}
                       type="button"
                       onClick={() => setReportFilter(st)}
                       className={`px-3 py-1 rounded-xl text-[10px] font-bold capitalize transition-colors whitespace-nowrap cursor-pointer ${
                         reportFilter === st
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "bg-slate-800/80 text-slate-400 hover:text-slate-200"
                       }`}
                     >
-                      {st} ({st === 'all' ? floodReports.length : floodReports.filter((r) => r.status === st).length})
+                      {st} (
+                      {st === "all"
+                        ? floodReports.length
+                        : floodReports.filter((r) => r.status === st).length}
+                      )
                     </button>
                   ))}
                 </div>
@@ -658,9 +747,9 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                 </div>
               ) : (
                 filteredReports.map((report) => {
-                  const isPending = report.status === 'pending'
-                  const isVerified = report.status === 'verified'
-                  const isResolved = report.status === 'resolved'
+                  const isPending = report.status === "pending";
+                  const isVerified = report.status === "verified";
+                  const isResolved = report.status === "resolved";
 
                   return (
                     <div
@@ -668,34 +757,39 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                       onClick={() => mapCanvasRef.current?.flyToCoords(report.lat, report.lng, 16)}
                       className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
                         isPending
-                          ? 'border-amber-500/60 bg-amber-500/5 hover:bg-amber-500/10 shadow-sm'
+                          ? "border-amber-500/60 bg-amber-500/5 hover:bg-amber-500/10 shadow-sm"
                           : isVerified
-                          ? 'border-emerald-500/60 bg-emerald-500/5 hover:bg-emerald-500/10'
-                          : 'border-slate-800 bg-slate-950/40 hover:bg-slate-900/60'
+                            ? "border-emerald-500/60 bg-emerald-500/5 hover:bg-emerald-500/10"
+                            : "border-slate-800 bg-slate-950/40 hover:bg-slate-900/60"
                       }`}
                     >
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex items-center gap-2.5">
-                          <span className="text-2xl">{report.emoji || '🌊'}</span>
+                          <span className="text-2xl">{report.emoji || "🌊"}</span>
                           <div>
                             <div className="font-extrabold text-xs text-slate-100 flex items-center gap-1.5">
                               <span>{report.citizen}</span>
-                              {isVerified && <span className="text-[9px] text-emerald-400 font-bold">✓ Verified</span>}
+                              {isVerified && (
+                                <span className="text-[9px] text-emerald-400 font-bold">
+                                  ✓ Verified
+                                </span>
+                              )}
                             </div>
                             <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                              <Clock className="w-3 h-3" /> {report.time} · {report.locationName || 'Live GPS'}
+                              <Clock className="w-3 h-3" /> {report.time} ·{" "}
+                              {report.locationName || "Live GPS"}
                             </div>
                           </div>
                         </div>
                         <span
                           className={`text-[9px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider ${
                             isVerified
-                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                               : isPending
-                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
-                              : isResolved
-                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                              : 'bg-slate-800 text-slate-400'
+                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse"
+                                : isResolved
+                                  ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                                  : "bg-slate-800 text-slate-400"
                           }`}
                         >
                           {report.status}
@@ -711,11 +805,11 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                         <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                           {report.passability && (
                             <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 font-bold border border-amber-500/25">
-                              {report.passability === 'not_passable_all'
-                                ? '⛔ Closed to All Vehicles'
-                                : report.passability === 'all_passable'
-                                ? '🟢 Passable'
-                                : '🚫 Closed to Light Vehicles'}
+                              {report.passability === "not_passable_all"
+                                ? "⛔ Closed to All Vehicles"
+                                : report.passability === "all_passable"
+                                  ? "🟢 Passable"
+                                  : "🚫 Closed to Light Vehicles"}
                             </span>
                           )}
                           {report.waterDepth && (
@@ -733,8 +827,8 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                             <button
                               type="button"
                               onClick={(e) => {
-                                e.stopPropagation()
-                                verifyReport(report.id)
+                                e.stopPropagation();
+                                verifyReport(report.id);
                               }}
                               className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 rounded-xl text-xs flex items-center justify-center gap-1 transition-all shadow-md active:scale-95 cursor-pointer"
                               title="Verify incident and publish to all motorists on the live map"
@@ -745,8 +839,8 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                             <button
                               type="button"
                               onClick={(e) => {
-                                e.stopPropagation()
-                                rejectReport(report.id)
+                                e.stopPropagation();
+                                rejectReport(report.id);
                               }}
                               className="px-2.5 bg-slate-800 hover:bg-red-950/60 hover:text-red-400 text-slate-400 font-bold py-1.5 rounded-xl text-xs cursor-pointer"
                               title="Reject (Spam / False Alarm) - Permanently hides from map"
@@ -760,8 +854,8 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                           <button
                             type="button"
                             onClick={(e) => {
-                              e.stopPropagation()
-                              resolveReport(report.id)
+                              e.stopPropagation();
+                              resolveReport(report.id);
                             }}
                             className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-1.5 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all border border-slate-700/60"
                           >
@@ -777,7 +871,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                         )}
                       </div>
                     </div>
-                  )
+                  );
                 })
               )}
             </div>
@@ -797,7 +891,9 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                     {selectedHazard.label}
                   </div>
                   <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1.5">
-                    <span className="capitalize font-semibold text-slate-300">{selectedHazard.severity} Severity</span>
+                    <span className="capitalize font-semibold text-slate-300">
+                      {selectedHazard.severity} Severity
+                    </span>
                     <span>•</span>
                     <span className="text-emerald-400 font-bold">{selectedHazard.status}</span>
                   </div>
@@ -816,13 +912,15 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
             {selectedHazard.isRoadSegment && selectedHazard.roadSegment && (
               <div className="bg-slate-950/80 rounded-xl p-2 border border-slate-800 my-2 space-y-1 text-xs">
                 <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-slate-400 font-bold">🛣️ Road: {selectedHazard.roadSegment.roadName || 'Corridor'}</span>
+                  <span className="text-slate-400 font-bold">
+                    🛣️ Road: {selectedHazard.roadSegment.roadName || "Corridor"}
+                  </span>
                   <span className="font-bold text-amber-400">
-                    {selectedHazard.passability === 'not_passable_all'
-                      ? '⛔ CLOSED'
-                      : selectedHazard.passability === 'all_passable'
-                      ? '🟢 PASSABLE'
-                      : '🚫 NO LIGHT CARS'}
+                    {selectedHazard.passability === "not_passable_all"
+                      ? "⛔ CLOSED"
+                      : selectedHazard.passability === "all_passable"
+                        ? "🟢 PASSABLE"
+                        : "🚫 NO LIGHT CARS"}
                   </span>
                 </div>
                 {selectedHazard.waterDepth && (
@@ -846,7 +944,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
               </button>
 
               {/* 2. Verify Button (If not verified yet) */}
-              {!selectedHazard.isVerified && selectedHazard.status !== 'Verified' && (
+              {!selectedHazard.isVerified && selectedHazard.status !== "Verified" && (
                 <button
                   type="button"
                   onClick={() => handleVerifyHazardFromMap(selectedHazard)}
@@ -865,14 +963,21 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                     (r) =>
                       r.hazardId === selectedHazard.id ||
                       r.id === selectedHazard.id ||
-                      Math.hypot(r.lat - selectedHazard.lat, r.lng - selectedHazard.lng) < 0.005
-                  )
-                  setDispatchTargetReport(matchedReport || { desc: selectedHazard.label, locationName: selectedHazard.label })
-                  setShowDispatchModal(true)
-                  setSelectedHazard(null)
+                      Math.hypot(r.lat - selectedHazard.lat, r.lng - selectedHazard.lng) < 0.005,
+                  );
+                  setDispatchTargetReport(
+                    matchedReport || {
+                      desc: selectedHazard.label,
+                      locationName: selectedHazard.label,
+                    },
+                  );
+                  setShowDispatchModal(true);
+                  setSelectedHazard(null);
                 }}
                 className={`${
-                  !selectedHazard.isVerified && selectedHazard.status !== 'Verified' ? '' : 'col-span-2'
+                  !selectedHazard.isVerified && selectedHazard.status !== "Verified"
+                    ? ""
+                    : "col-span-2"
                 } bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-1.5 rounded-xl text-xs flex items-center justify-center gap-1 cursor-pointer active:scale-95 shadow-md`}
               >
                 <LifeBuoy className="w-3.5 h-3.5" />
@@ -891,7 +996,9 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
           title="Center OpCen on GPS coordinates"
           className="pointer-events-auto w-11 h-11 bg-slate-900/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/60 flex items-center justify-center text-slate-300 hover:text-blue-400 hover:bg-slate-800 transition-all active:scale-95 group cursor-pointer"
         >
-          <Locate className={`w-4 h-4 transition-transform ${isLocationLoading ? 'animate-spin text-blue-400' : 'group-hover:scale-110'}`} />
+          <Locate
+            className={`w-4 h-4 transition-transform ${isLocationLoading ? "animate-spin text-blue-400" : "group-hover:scale-110"}`}
+          />
         </button>
 
         <button
@@ -899,8 +1006,8 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
           onClick={() => setLayersOpen(!layersOpen)}
           className={`pointer-events-auto w-11 h-11 rounded-2xl shadow-2xl border flex items-center justify-center transition-all active:scale-95 backdrop-blur-xl cursor-pointer ${
             layersOpen
-              ? 'bg-blue-600 border-blue-400 text-white'
-              : 'bg-slate-900/90 border-slate-700/60 text-slate-300 hover:bg-slate-800 hover:text-blue-400'
+              ? "bg-blue-600 border-blue-400 text-white"
+              : "bg-slate-900/90 border-slate-700/60 text-slate-300 hover:bg-slate-800 hover:text-blue-400"
           }`}
         >
           <Layers className="w-4 h-4" />
@@ -912,7 +1019,10 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
         <div className="absolute bottom-20 right-4 z-30 bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/60 p-4 w-60 anim-slide-up pointer-events-auto">
           <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
             <span>Map Layers</span>
-            <button onClick={() => setLayersOpen(false)} className="text-slate-500 hover:text-white">
+            <button
+              onClick={() => setLayersOpen(false)}
+              className="text-slate-500 hover:text-white"
+            >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -926,12 +1036,19 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
             <span className="font-bold">🛰️ Satellite Hybrid Imagery</span>
           </label>
           {[
-            { id: 'hazards', label: 'Flood Lines & Danger Zones' },
-            { id: 'evac', label: 'Evacuation Shelters' },
-            { id: '3d', label: '3D Extruded Buildings' },
+            { id: "hazards", label: "Flood Lines & Danger Zones" },
+            { id: "evac", label: "Evacuation Shelters" },
+            { id: "3d", label: "3D Extruded Buildings" },
           ].map((l) => (
-            <label key={l.id} className="flex items-center gap-2.5 py-1.5 cursor-pointer text-xs text-slate-300 hover:text-white">
-              <input type="checkbox" defaultChecked={l.id !== '3d'} className="w-3.5 h-3.5 accent-blue-500" />
+            <label
+              key={l.id}
+              className="flex items-center gap-2.5 py-1.5 cursor-pointer text-xs text-slate-300 hover:text-white"
+            >
+              <input
+                type="checkbox"
+                defaultChecked={l.id !== "3d"}
+                className="w-3.5 h-3.5 accent-blue-500"
+              />
               <span>{l.label}</span>
             </label>
           ))}
@@ -953,26 +1070,36 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                   <LifeBuoy className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-white text-base">Inter-Agency Mutual Aid Dispatch</h3>
-                  <p className="text-xs text-slate-400 truncate max-w-[280px]">Target: {dispatchTargetReport.desc}</p>
+                  <h3 className="font-extrabold text-white text-base">
+                    Inter-Agency Mutual Aid Dispatch
+                  </h3>
+                  <p className="text-xs text-slate-400 truncate max-w-[280px]">
+                    Target: {dispatchTargetReport.desc}
+                  </p>
                 </div>
               </div>
-              <button type="button" onClick={() => setShowDispatchModal(false)} className="text-slate-400 hover:text-white">
+              <button
+                type="button"
+                onClick={() => setShowDispatchModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-2 mb-4">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Select Responding Agency:</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Select Responding Agency:
+              </label>
               <div className="grid grid-cols-3 gap-1.5">
                 {[
-                  { id: 'PCG', label: 'Coast Guard', icon: Anchor },
-                  { id: 'RED_CROSS', label: 'Red Cross', icon: HeartPulse },
-                  { id: 'BFP', label: 'Fire Bureau', icon: Shield },
-                  { id: 'DPWH', label: 'DPWH Clearing', icon: Truck },
-                  { id: 'LGU', label: 'MDRRMO Crew', icon: LifeBuoy },
+                  { id: "PCG", label: "Coast Guard", icon: Anchor },
+                  { id: "RED_CROSS", label: "Red Cross", icon: HeartPulse },
+                  { id: "BFP", label: "Fire Bureau", icon: Shield },
+                  { id: "DPWH", label: "DPWH Clearing", icon: Truck },
+                  { id: "LGU", label: "MDRRMO Crew", icon: LifeBuoy },
                 ].map((ag) => {
-                  const Icon = ag.icon
+                  const Icon = ag.icon;
                   return (
                     <button
                       key={ag.id}
@@ -980,14 +1107,14 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                       onClick={() => setSelectedAgency(ag.id as any)}
                       className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
                         selectedAgency === ag.id
-                          ? 'border-indigo-500 bg-indigo-500/20 text-white shadow-md'
-                          : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:text-white'
+                          ? "border-indigo-500 bg-indigo-500/20 text-white shadow-md"
+                          : "border-slate-800 bg-slate-950/60 text-slate-400 hover:text-white"
                       }`}
                     >
                       <Icon className="w-4 h-4" />
                       <span>{ag.label}</span>
                     </button>
-                  )
+                  );
                 })}
               </div>
             </div>
@@ -1025,11 +1152,19 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-white text-base">Declare Official Hazard Zone</h3>
-                  <p className="text-xs text-slate-400">Broadcasts immediately to all citizen navigation maps</p>
+                  <h3 className="font-extrabold text-white text-base">
+                    Declare Official Hazard Zone
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Broadcasts immediately to all citizen navigation maps
+                  </p>
                 </div>
               </div>
-              <button type="button" onClick={() => setShowAddHazardModal(false)} className="text-slate-400 hover:text-white">
+              <button
+                type="button"
+                onClick={() => setShowAddHazardModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1100,5 +1235,5 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
         </div>
       )}
     </div>
-  )
+  );
 }

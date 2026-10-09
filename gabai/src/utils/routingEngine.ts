@@ -184,7 +184,7 @@ export function routeIntersectsHazards(
   const numSegments = coords.length - 1;
 
   // Road corridor buffer width: ensures GPS slight deviation or wide multi-lane avenues are reliably protected
-  const bufferMeters = Math.max(30, Math.min(60, safeBufferKm * 1000 + 10));
+  const bufferMeters = Math.max(45, Math.min(80, safeBufferKm * 1000 + 20));
 
   for (const h of activeHazards) {
     let d = 999;
@@ -240,6 +240,21 @@ export function routeIntersectsHazards(
           const segDistMeters = segDistKm * 1000;
           if (segDistMeters <= bufferMeters) {
             hazardTraversalMeters += Math.max(10, segLenMeters);
+          }
+        }
+      }
+
+      // 3. Double-check proximity to hazard center point
+      if (typeof h.lat === "number" && typeof h.lng === "number") {
+        for (let i = 0; i < numSegments; i++) {
+          const p1 = coords[i];
+          const p2 = coords[i + 1];
+          const dDeg = distToSegment([h.lng, h.lat], p1, p2);
+          const dKm = dDeg * 111.32;
+          if (dKm < d) d = dKm;
+          if (dKm <= bufferMeters / 1000) {
+            directlyCrosses = true;
+            hazardTraversalMeters += 20;
           }
         }
       }
@@ -360,12 +375,8 @@ export function generateDynamicRoutes(
   const directDist = Math.max(0.5, calculateDistanceKm(originLat, originLng, destLat, destLng));
   const midLat = (originLat + destLat) / 2;
 
-  const roadWaypoints: [number, number][] = [
-    [originLng, originLat],
-    [originLng, midLat],
-    [destLng, midLat],
-    [destLng, destLat],
-  ];
+  // Real road polylines come from OSRM graph engine; never draw synthetic straight lines across buildings
+  const roadWaypoints: [number, number][] = [];
 
   const directCheck = routeIntersectsHazards(roadWaypoints, activeHazards, 0.02);
   const estMin = Math.max(1, Math.round((directDist / 30) * 60));
@@ -671,53 +682,22 @@ async function fetchOsrmCandidateRoutes(
             name: "Compound Wide Exit + Wide Approach",
             url: `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${(originLng + awayLng * 0.0065).toFixed(6)},${(originLat + awayLat * 0.0065).toFixed(6)};${(destLng + pastDestLng * 0.007).toFixed(6)},${(destLat + pastDestLat * 0.007).toFixed(6)};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`,
           },
-          {
-            name: "Compound Exit Perp1 + Approach Past",
-            url: `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${(originLng + pLng1 * 0.0045).toFixed(6)},${(originLat + pLat1 * 0.0045).toFixed(6)};${(destLng + pastDestLng * 0.004).toFixed(6)},${(destLat + pastDestLat * 0.004).toFixed(6)};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`,
-          },
-          {
-            name: "Compound Exit Perp2 + Approach Past",
-            url: `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${(originLng + pLng2 * 0.0045).toFixed(6)},${(originLat + pLat2 * 0.0045).toFixed(6)};${(destLng + pastDestLng * 0.004).toFixed(6)},${(destLat + pastDestLat * 0.004).toFixed(6)};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`,
-          },
         );
 
-        // B. Wide Cardinal & Diagonal Shifts around hazard center
-        const cardinalOffsets = [
-          { name: "Cardinal North 900m", lat: hazardCenter.lat + 0.008, lng: hazardCenter.lng },
-          { name: "Cardinal South 900m", lat: hazardCenter.lat - 0.008, lng: hazardCenter.lng },
-          { name: "Cardinal East 900m", lat: hazardCenter.lat, lng: hazardCenter.lng + 0.008 },
-          { name: "Cardinal West 900m", lat: hazardCenter.lat, lng: hazardCenter.lng - 0.008 },
+        // B. Wide Cardinal North / South Bypass
+        detourQueries.push(
           {
-            name: "Cardinal NE 1.2km",
-            lat: hazardCenter.lat + 0.008,
-            lng: hazardCenter.lng + 0.008,
+            name: "Cardinal North 900m",
+            url: `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${hazardCenter.lng.toFixed(6)},${(hazardCenter.lat + 0.008).toFixed(6)};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`,
           },
           {
-            name: "Cardinal NW 1.2km",
-            lat: hazardCenter.lat + 0.008,
-            lng: hazardCenter.lng - 0.008,
+            name: "Cardinal South 900m",
+            url: `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${hazardCenter.lng.toFixed(6)},${(hazardCenter.lat - 0.008).toFixed(6)};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`,
           },
-          {
-            name: "Cardinal SE 1.2km",
-            lat: hazardCenter.lat - 0.008,
-            lng: hazardCenter.lng + 0.008,
-          },
-          {
-            name: "Cardinal SW 1.2km",
-            lat: hazardCenter.lat - 0.008,
-            lng: hazardCenter.lng - 0.008,
-          },
-        ];
-
-        for (const co of cardinalOffsets) {
-          detourQueries.push({
-            name: co.name,
-            url: `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${co.lng.toFixed(6)},${co.lat.toFixed(6)};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`,
-          });
-        }
+        );
       }
 
-      // Mid-trip corridor lateral bypasses (Wide 800m & 1.4km)
+      // Mid-trip corridor lateral bypasses (Wide 800m)
       const midLat = (originLat + destLat) / 2;
       const midLng = (originLng + destLng) / 2;
       const tripLatDiff = destLat - originLat;
@@ -737,8 +717,8 @@ async function fetchOsrmCandidateRoutes(
         },
       );
 
-      // Cap to 16 high-yield requests to prevent OSRM rate-limiting
-      const selectedQueries = detourQueries.slice(0, 16);
+      // Cap to 6 high-yield requests to prevent OSRM rate-limiting and ensure fast sub-second resolution
+      const selectedQueries = detourQueries.slice(0, 6);
 
       // Query bypass waypoints in parallel via OSRM
       const detourPromises = selectedQueries.map(async (queryItem) => {

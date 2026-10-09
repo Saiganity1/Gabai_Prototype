@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { Play, Pause, AlertOctagon, RotateCcw, Volume2, Shield, Radio, X } from 'lucide-react'
-import { RouteInfo } from '../utils/routingEngine'
-import { hazardFeedback } from '../utils/hazardAlertFeedback'
+import React, { useState, useEffect, useRef } from "react";
+import { Play, Pause, AlertOctagon, RotateCcw, Volume2, Shield, Radio, X } from "lucide-react";
+import { RouteInfo } from "../utils/routingEngine";
+import { hazardFeedback } from "../utils/hazardAlertFeedback";
 
 interface Props {
-  activeRoute: RouteInfo | null
-  isNavigating: boolean
-  onUpdatePosition: (lat: number, lng: number) => void
-  onInjectFakeReport: (distanceAheadKm?: number, roadName?: string) => void
-  darkMode?: boolean
+  activeRoute: RouteInfo | null;
+  isNavigating: boolean;
+  onUpdatePosition: (lat: number, lng: number) => void;
+  onInjectFakeReport: (distanceAheadKm?: number, roadName?: string) => void;
+  darkMode?: boolean;
 }
 
 export default function HazardSimulationPanel({
@@ -18,39 +18,39 @@ export default function HazardSimulationPanel({
   onInjectFakeReport,
   darkMode = true,
 }: Props) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [isSimulatingMove, setIsSimulatingMove] = useState(false)
-  const [simStepIndex, setSimStepIndex] = useState(0)
+  const [isOpen, setIsOpen] = useState(false);
+  const [isSimulatingMove, setIsSimulatingMove] = useState(false);
+  const [simStepIndex, setSimStepIndex] = useState(0);
 
-  const coords: [number, number][] = activeRoute?.geoJSON?.geometry?.coordinates || []
-  const simTimerRef = useRef<number | null>(null)
+  const coords: [number, number][] = activeRoute?.geoJSON?.geometry?.coordinates || [];
+  const simTimerRef = useRef<number | null>(null);
 
   // Step movement along route line
   useEffect(() => {
     if (!isSimulatingMove || coords.length === 0) {
-      if (simTimerRef.current) clearInterval(simTimerRef.current)
-      return
+      if (simTimerRef.current) clearInterval(simTimerRef.current);
+      return;
     }
 
     simTimerRef.current = window.setInterval(() => {
       setSimStepIndex((prev) => {
-        const next = prev + 1
+        const next = prev + 1;
         if (next >= coords.length) {
-          setIsSimulatingMove(false)
-          return prev
+          setIsSimulatingMove(false);
+          return prev;
         }
-        const [lng, lat] = coords[next]
-        onUpdatePosition(lat, lng)
-        return next
-      })
-    }, 1800)
+        const [lng, lat] = coords[next];
+        onUpdatePosition(lat, lng);
+        return next;
+      });
+    }, 1800);
 
     return () => {
-      if (simTimerRef.current) clearInterval(simTimerRef.current)
-    }
-  }, [isSimulatingMove, coords, onUpdatePosition])
+      if (simTimerRef.current) clearInterval(simTimerRef.current);
+    };
+  }, [isSimulatingMove, coords, onUpdatePosition]);
 
-  if (!isNavigating || coords.length === 0) return null
+  if (!isNavigating || coords.length === 0) return null;
 
   return (
     <div className="fixed top-20 right-4 z-40 select-none">
@@ -68,8 +68,8 @@ export default function HazardSimulationPanel({
         <div
           className={`w-72 p-3.5 rounded-2xl border shadow-2xl backdrop-blur-xl anim-scale-up ${
             darkMode
-              ? 'bg-slate-900/95 border-cyan-500/50 text-white'
-              : 'bg-white/95 border-cyan-500 text-slate-900'
+              ? "bg-slate-900/95 border-cyan-500/50 text-white"
+              : "bg-white/95 border-cyan-500 text-slate-900"
           }`}
         >
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-700/60">
@@ -96,19 +96,23 @@ export default function HazardSimulationPanel({
               onClick={() => setIsSimulatingMove(!isSimulatingMove)}
               className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 isSimulatingMove
-                  ? 'bg-amber-600 hover:bg-amber-500 text-white'
-                  : 'bg-cyan-600 hover:bg-cyan-500 text-white'
+                  ? "bg-amber-600 hover:bg-amber-500 text-white"
+                  : "bg-cyan-600 hover:bg-cyan-500 text-white"
               }`}
             >
-              {isSimulatingMove ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-              <span>{isSimulatingMove ? 'Pause Driver Motion' : 'Start Moving Along Route'}</span>
+              {isSimulatingMove ? (
+                <Pause className="w-3.5 h-3.5" />
+              ) : (
+                <Play className="w-3.5 h-3.5" />
+              )}
+              <span>{isSimulatingMove ? "Pause Driver Motion" : "Start Moving Along Route"}</span>
             </button>
 
             {/* 2. Inject Fake Flood Ahead */}
             <button
               type="button"
               onClick={() => {
-                onInjectFakeReport(0.4, 'MacArthur Highway')
+                onInjectFakeReport(0.4, "MacArthur Highway");
               }}
               className="w-full py-2 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-red-600/30 transition-all active:scale-95 cursor-pointer"
             >
@@ -120,7 +124,7 @@ export default function HazardSimulationPanel({
             <div className="flex items-center gap-1.5 pt-1">
               <button
                 type="button"
-                onClick={() => hazardFeedback.triggerAll('MacArthur Highway', '400 m')}
+                onClick={() => hazardFeedback.triggerAll("MacArthur Highway", "400 m")}
                 className="flex-1 py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
               >
                 <Volume2 className="w-3 h-3 text-cyan-400" />
@@ -130,8 +134,8 @@ export default function HazardSimulationPanel({
               <button
                 type="button"
                 onClick={() => {
-                  setSimStepIndex(0)
-                  if (coords.length > 0) onUpdatePosition(coords[0][1], coords[0][0])
+                  setSimStepIndex(0);
+                  if (coords.length > 0) onUpdatePosition(coords[0][1], coords[0][0]);
                 }}
                 className="py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
                 title="Reset to Start"
@@ -144,5 +148,5 @@ export default function HazardSimulationPanel({
         </div>
       )}
     </div>
-  )
+  );
 }

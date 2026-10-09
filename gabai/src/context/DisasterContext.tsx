@@ -1,44 +1,57 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { io, Socket } from 'socket.io-client'
-import { Hazard, RoadSegment, PassabilityType } from '../components/MapCanvas'
-import { useUserLocation, UserCoordinates, calculateDistanceKm } from '../hooks/useUserLocation'
-import { getContextualHazards, getContextualEvacCenters } from '../utils/geoHazards'
-import { generateDynamicRoutes, fetchAccurateRealWorldRoutes, RouteInfo } from '../utils/routingEngine'
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
+import { io, Socket } from "socket.io-client";
+import { Hazard, RoadSegment, PassabilityType } from "../components/MapCanvas";
+import { useUserLocation, UserCoordinates, calculateDistanceKm } from "../hooks/useUserLocation";
+import { getContextualHazards, getContextualEvacCenters } from "../utils/geoHazards";
+import {
+  generateDynamicRoutes,
+  fetchAccurateRealWorldRoutes,
+  RouteInfo,
+} from "../utils/routingEngine";
 
 const isLocalhost =
-  typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (isLocalhost ? 'http://localhost:3000/api' : '')
-const WS_URL = import.meta.env.VITE_WS_URL || (isLocalhost ? 'http://localhost:3000/realtime' : '')
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || (isLocalhost ? "http://localhost:3000/api" : "");
+const WS_URL = import.meta.env.VITE_WS_URL || (isLocalhost ? "http://localhost:3000/realtime" : "");
 
 export interface CitizenReport {
-  id: number | string
-  hazardId?: number | string
-  citizen: string
-  type: string
-  emoji: string
-  desc: string
-  lat: number
-  lng: number
-  severity: 'low' | 'medium' | 'high'
-  time: string
-  status: 'pending' | 'verified' | 'rejected' | 'resolved'
-  locationName?: string
-  isRoadSegment?: boolean
-  roadSegment?: RoadSegment
-  passability?: PassabilityType
-  waterDepth?: string
-  isMine?: boolean
+  id: number | string;
+  hazardId?: number | string;
+  citizen: string;
+  type: string;
+  emoji: string;
+  desc: string;
+  lat: number;
+  lng: number;
+  severity: "low" | "medium" | "high";
+  time: string;
+  status: "pending" | "verified" | "rejected" | "resolved";
+  locationName?: string;
+  isRoadSegment?: boolean;
+  roadSegment?: RoadSegment;
+  passability?: PassabilityType;
+  waterDepth?: string;
+  isMine?: boolean;
 }
 
 export interface AIPatternInsight {
-  title: string
-  description: string
-  severity: 'high' | 'medium' | 'low'
-  clusterCount: number
-  recommendedAction: string
-  timestamp: string
+  title: string;
+  description: string;
+  severity: "high" | "medium" | "low";
+  clusterCount: number;
+  recommendedAction: string;
+  timestamp: string;
 }
 
 /**
@@ -47,367 +60,371 @@ export interface AIPatternInsight {
  * Only resolved or rejected reports are hidden.
  */
 export function isHazardPubliclyVisible(h: Hazard, myReportIds: string[] = []): boolean {
-  if (!h || h.status === 'Resolved' || h.status === 'rejected' || h.status?.includes('Rejected')) {
-    return false
+  if (!h || h.status === "Resolved" || h.status === "rejected" || h.status?.includes("Rejected")) {
+    return false;
   }
 
   // Active citizen flood reports and official hazards must remain visible and actively avoided
-  return true
+  return true;
 }
 
 interface DisasterContextType {
-  hazards: Hazard[]
-  reports: CitizenReport[]
-  myReportIds: string[]
-  evacCenters: ReturnType<typeof getContextualEvacCenters>
-  userLocation: UserCoordinates
-  locationName: string
-  isLocationLive: boolean
-  isLocationLoading: boolean
-  isWsConnected: boolean
-  requestLocation: () => void
+  hazards: Hazard[];
+  reports: CitizenReport[];
+  myReportIds: string[];
+  evacCenters: ReturnType<typeof getContextualEvacCenters>;
+  userLocation: UserCoordinates;
+  locationName: string;
+  isLocationLive: boolean;
+  isLocationLoading: boolean;
+  isWsConnected: boolean;
+  requestLocation: () => void;
   addHazardReport: (params: {
-    type: string
-    description?: string
-    lat?: number
-    lng?: number
-    severity?: 'low' | 'medium' | 'high'
-    citizenName?: string
-    isRoadSegment?: boolean
-    roadSegment?: RoadSegment
-    passability?: PassabilityType
-    waterDepth?: string
-  }) => { report: CitizenReport; hazard: Hazard }
-  verifyReport: (reportId: number | string) => Promise<void>
-  rejectReport: (reportId: number | string) => Promise<void>
-  resolveReport: (reportId: number | string) => Promise<void>
-  destination: { name: string; lat: number; lng: number } | null
-  setDestination: (dest: { name: string; lat: number; lng: number } | null) => void
-  routes: Record<'safe' | 'balanced' | 'fast', RouteInfo>
-  aiPatternInsight: AIPatternInsight | null
-  lastActionMessage: string | null
-  clearLastActionMessage: () => void
+    type: string;
+    description?: string;
+    lat?: number;
+    lng?: number;
+    severity?: "low" | "medium" | "high";
+    citizenName?: string;
+    isRoadSegment?: boolean;
+    roadSegment?: RoadSegment;
+    passability?: PassabilityType;
+    waterDepth?: string;
+  }) => { report: CitizenReport; hazard: Hazard };
+  verifyReport: (reportId: number | string) => Promise<void>;
+  rejectReport: (reportId: number | string) => Promise<void>;
+  resolveReport: (reportId: number | string) => Promise<void>;
+  destination: { name: string; lat: number; lng: number } | null;
+  setDestination: (dest: { name: string; lat: number; lng: number } | null) => void;
+  routes: Record<"safe" | "balanced" | "fast", RouteInfo>;
+  aiPatternInsight: AIPatternInsight | null;
+  lastActionMessage: string | null;
+  clearLastActionMessage: () => void;
 }
 
-const DisasterContext = createContext<DisasterContextType | null>(null)
+const DisasterContext = createContext<DisasterContextType | null>(null);
 
 const EMOJI_MAP: Record<string, string> = {
-  flood: '🌊',
-  closure: '🚧',
-  road_block: '🚧',
-  road: '🚧',
-  fire: '🔥',
-  rain: '🌧️',
-  power: '⚡',
-  person: '🧍',
-  other: '⚠️',
-}
+  flood: "🌊",
+  closure: "🚧",
+  road_block: "🚧",
+  road: "🚧",
+  fire: "🔥",
+  rain: "🌧️",
+  power: "⚡",
+  person: "🧍",
+  other: "⚠️",
+};
 
 const LABEL_MAP: Record<string, string> = {
-  flood: 'Flash Flood',
-  closure: 'Road Blocked',
-  road_block: 'Road Blocked',
-  road: 'Road Blocked',
-  fire: 'Structural Fire',
-  rain: 'Heavy Rain Advisory',
-  power: 'Power Outage',
-  person: 'Person in Danger',
-  other: 'Hazard Advisory',
-}
+  flood: "Flash Flood",
+  closure: "Road Blocked",
+  road_block: "Road Blocked",
+  road: "Road Blocked",
+  fire: "Structural Fire",
+  rain: "Heavy Rain Advisory",
+  power: "Power Outage",
+  person: "Person in Danger",
+  other: "Hazard Advisory",
+};
 
 const DEFAULT_SEED_REPORTS: CitizenReport[] = [
   {
-    id: 'rep-santamaria',
-    hazardId: 'haz-pamp-santamaria',
-    citizen: 'Barangay Santa Maria Watch',
-    type: 'flood',
-    emoji: '🌊',
-    desc: 'Flooding along Mexico-San Luis Road from Santa Maria Chapel to Purok 2. Not passable to light vehicles (tricycles and motorcycles submerged).',
+    id: "rep-santamaria",
+    hazardId: "haz-pamp-santamaria",
+    citizen: "Barangay Santa Maria Watch",
+    type: "flood",
+    emoji: "🌊",
+    desc: "Flooding along Mexico-San Luis Road from Santa Maria Chapel to Purok 2. Not passable to light vehicles (tricycles and motorcycles submerged).",
     lat: 15.074,
     lng: 120.781,
-    severity: 'high',
-    time: '2 mins ago',
-    status: 'pending',
-    locationName: 'Mexico - San Luis Provincial Road',
+    severity: "high",
+    time: "2 mins ago",
+    status: "pending",
+    locationName: "Mexico - San Luis Provincial Road",
     isRoadSegment: true,
     roadSegment: {
-      from: { lat: 15.071, lng: 120.776, name: 'Santa Maria Chapel (Tramo)' },
-      to: { lat: 15.078, lng: 120.789, name: 'Purok 2 Highway Crossing' },
-      roadName: 'Mexico - San Luis Provincial Road',
+      from: { lat: 15.071, lng: 120.776, name: "Santa Maria Chapel (Tramo)" },
+      to: { lat: 15.078, lng: 120.789, name: "Purok 2 Highway Crossing" },
+      roadName: "Mexico - San Luis Provincial Road",
       path: [
-        [120.7760, 15.0710],
+        [120.776, 15.071],
         [120.7774, 15.0719],
         [120.7792, 15.0731],
         [120.7811, 15.0744],
-        [120.7830, 15.0756],
+        [120.783, 15.0756],
         [120.7852, 15.0768],
         [120.7872, 15.0775],
-        [120.7890, 15.0780],
+        [120.789, 15.078],
       ],
     },
-    passability: 'not_passable_light',
-    waterDepth: 'Knee Deep (0.45m)',
+    passability: "not_passable_light",
+    waterDepth: "Knee Deep (0.45m)",
   },
   {
-    id: 'rep-101',
-    hazardId: 'haz-pamp-1',
-    citizen: 'Maria S. (Citizen)',
-    type: 'flood',
-    emoji: '🌊',
-    desc: 'MacArthur Highway knee-deep flash flood near Dolores flyover.',
+    id: "rep-101",
+    hazardId: "haz-pamp-1",
+    citizen: "Maria S. (Citizen)",
+    type: "flood",
+    emoji: "🌊",
+    desc: "MacArthur Highway knee-deep flash flood near Dolores flyover.",
     lat: 15.039,
     lng: 120.684,
-    severity: 'high',
-    time: '3 mins ago',
-    status: 'verified',
-    locationName: 'MacArthur Highway Commercial Strip',
+    severity: "high",
+    time: "3 mins ago",
+    status: "verified",
+    locationName: "MacArthur Highway Commercial Strip",
     isRoadSegment: true,
     roadSegment: {
-      from: { lat: 15.035, lng: 120.681, name: 'San Fernando Junction' },
-      to: { lat: 15.044, lng: 120.688, name: 'Dolores Flyover Intersection' },
-      roadName: 'MacArthur Highway',
+      from: { lat: 15.035, lng: 120.681, name: "San Fernando Junction" },
+      to: { lat: 15.044, lng: 120.688, name: "Dolores Flyover Intersection" },
+      roadName: "MacArthur Highway",
       path: [
-        [120.6810, 15.0350],
+        [120.681, 15.035],
         [120.6828, 15.0375],
-        [120.6840, 15.0390],
-        [120.6860, 15.0415],
-        [120.6880, 15.0440],
+        [120.684, 15.039],
+        [120.686, 15.0415],
+        [120.688, 15.044],
       ],
     },
-    passability: 'not_passable_light',
-    waterDepth: 'Knee Deep (0.50m)',
+    passability: "not_passable_light",
+    waterDepth: "Knee Deep (0.50m)",
   },
-]
+];
 
 export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const userLoc = useUserLocation()
-  const socketRef = useRef<Socket | null>(null)
-  const [isWsConnected, setIsWsConnected] = useState(false)
+  const userLoc = useUserLocation();
+  const socketRef = useRef<Socket | null>(null);
+  const [isWsConnected, setIsWsConnected] = useState(false);
 
   // Contextual base data
   const baseHazards = useMemo(
     () => getContextualHazards(userLoc.coords.lat, userLoc.coords.lng),
-    [userLoc.coords.lat, userLoc.coords.lng]
-  )
+    [userLoc.coords.lat, userLoc.coords.lng],
+  );
 
   const evacCenters = useMemo(
     () => getContextualEvacCenters(userLoc.coords.lat, userLoc.coords.lng, userLoc.locationName),
-    [userLoc.coords.lat, userLoc.coords.lng, userLoc.locationName]
-  )
+    [userLoc.coords.lat, userLoc.coords.lng, userLoc.locationName],
+  );
 
   const [verifiedIds, setVerifiedIds] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('gabai-verified-ids')
+      const saved = localStorage.getItem("gabai-verified-ids");
       if (saved) {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed)) return parsed
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    return []
-  })
+    return [];
+  });
 
   const [resolvedIds, setResolvedIds] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('gabai-resolved-ids')
+      const saved = localStorage.getItem("gabai-resolved-ids");
       if (saved) {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed)) return parsed
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    return []
-  })
+    return [];
+  });
 
   const [rejectedIds, setRejectedIds] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('gabai-rejected-ids')
+      const saved = localStorage.getItem("gabai-rejected-ids");
       if (saved) {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed)) return parsed
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    return []
-  })
+    return [];
+  });
 
   const [hazards, setHazards] = useState<Hazard[]>(() => {
-    const defaults = getContextualHazards(15.074, 120.781)
-    let initialList = defaults
+    const defaults = getContextualHazards(15.074, 120.781);
+    let initialList = defaults;
     try {
-      const saved = localStorage.getItem('gabai-live-hazards')
+      const saved = localStorage.getItem("gabai-live-hazards");
       if (saved) {
-        const parsed = JSON.parse(saved)
+        const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           initialList = parsed.map((item: any) => {
-            const match = defaults.find((d) => d.id === item.id)
+            const match = defaults.find((d) => d.id === item.id);
             if (match && match.isRoadSegment && match.roadSegment) {
-              return { ...item, roadSegment: match.roadSegment }
+              return { ...item, roadSegment: match.roadSegment };
             }
-            return item
-          })
+            return item;
+          });
         }
       }
     } catch {}
 
-    const verIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-verified-ids') || '[]'))
-    const resIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-resolved-ids') || '[]'))
-    const rejIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-rejected-ids') || '[]'))
+    const verIds = new Set<string>(JSON.parse(localStorage.getItem("gabai-verified-ids") || "[]"));
+    const resIds = new Set<string>(JSON.parse(localStorage.getItem("gabai-resolved-ids") || "[]"));
+    const rejIds = new Set<string>(JSON.parse(localStorage.getItem("gabai-rejected-ids") || "[]"));
 
     return initialList
       .filter((h) => {
-        if (h.status === 'Resolved' || h.status === 'Rejected by LGU') return false
-        if (resIds.has(String(h.id)) || rejIds.has(String(h.id))) return false
-        return true
+        if (h.status === "Resolved" || h.status === "Rejected by LGU") return false;
+        if (resIds.has(String(h.id)) || rejIds.has(String(h.id))) return false;
+        return true;
       })
       .map((h) => {
         if (verIds.has(String(h.id))) {
           return {
             ...h,
             isVerified: true,
-            status: 'Verified by LGU',
+            status: "Verified by LGU",
             verified: Math.max(1, h.verified || 1),
-          }
+          };
         }
-        return h
-      })
-  })
+        return h;
+      });
+  });
 
   const [reports, setReports] = useState<CitizenReport[]>(() => {
-    let initialReports = DEFAULT_SEED_REPORTS
+    let initialReports = DEFAULT_SEED_REPORTS;
     try {
-      const saved = localStorage.getItem('gabai-live-reports')
+      const saved = localStorage.getItem("gabai-live-reports");
       if (saved) {
-        const parsed = JSON.parse(saved)
+        const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          initialReports = parsed.filter((r: any) => r.id !== 'rep-102' && (!r.type || r.type === 'flood'))
+          initialReports = parsed.filter(
+            (r: any) => r.id !== "rep-102" && (!r.type || r.type === "flood"),
+          );
         }
       }
     } catch {}
 
-    const verIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-verified-ids') || '[]'))
-    const resIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-resolved-ids') || '[]'))
-    const rejIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-rejected-ids') || '[]'))
+    const verIds = new Set<string>(JSON.parse(localStorage.getItem("gabai-verified-ids") || "[]"));
+    const resIds = new Set<string>(JSON.parse(localStorage.getItem("gabai-resolved-ids") || "[]"));
+    const rejIds = new Set<string>(JSON.parse(localStorage.getItem("gabai-rejected-ids") || "[]"));
 
     return initialReports.map((r) => {
       if (resIds.has(String(r.id)) || (r.hazardId && resIds.has(String(r.hazardId)))) {
-        return { ...r, status: 'resolved' as const }
+        return { ...r, status: "resolved" as const };
       }
       if (rejIds.has(String(r.id)) || (r.hazardId && rejIds.has(String(r.hazardId)))) {
-        return { ...r, status: 'rejected' as const }
+        return { ...r, status: "rejected" as const };
       }
       if (verIds.has(String(r.id)) || (r.hazardId && verIds.has(String(r.hazardId)))) {
-        return { ...r, status: 'verified' as const }
+        return { ...r, status: "verified" as const };
       }
-      return r
-    })
-  })
+      return r;
+    });
+  });
 
   const [myReportIds, setMyReportIds] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('gabai-my-reported-ids')
+      const saved = localStorage.getItem("gabai-my-reported-ids");
       if (saved) {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed)) return parsed
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    return []
-  })
+    return [];
+  });
 
   // Auto-sync state to localStorage and broadcast to other tabs
   useEffect(() => {
     try {
-      localStorage.setItem('gabai-live-reports', JSON.stringify(reports))
-      localStorage.setItem('gabai-live-hazards', JSON.stringify(hazards))
-      localStorage.setItem('gabai-my-reported-ids', JSON.stringify(myReportIds))
-      localStorage.setItem('gabai-verified-ids', JSON.stringify(verifiedIds))
-      localStorage.setItem('gabai-resolved-ids', JSON.stringify(resolvedIds))
-      localStorage.setItem('gabai-rejected-ids', JSON.stringify(rejectedIds))
+      localStorage.setItem("gabai-live-reports", JSON.stringify(reports));
+      localStorage.setItem("gabai-live-hazards", JSON.stringify(hazards));
+      localStorage.setItem("gabai-my-reported-ids", JSON.stringify(myReportIds));
+      localStorage.setItem("gabai-verified-ids", JSON.stringify(verifiedIds));
+      localStorage.setItem("gabai-resolved-ids", JSON.stringify(resolvedIds));
+      localStorage.setItem("gabai-rejected-ids", JSON.stringify(rejectedIds));
     } catch {}
-  }, [reports, hazards, myReportIds, verifiedIds, resolvedIds, rejectedIds])
+  }, [reports, hazards, myReportIds, verifiedIds, resolvedIds, rejectedIds]);
 
   // Multi-tab real-time listener (Cross-tab broadcast channel)
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === "undefined") return;
 
-    let bc: BroadcastChannel | null = null
+    let bc: BroadcastChannel | null = null;
     try {
-      if ('BroadcastChannel' in window) {
-        bc = new BroadcastChannel('gabai-sync-channel')
+      if ("BroadcastChannel" in window) {
+        bc = new BroadcastChannel("gabai-sync-channel");
         bc.onmessage = (event) => {
-          if (event.data?.type === 'SYNC_REPORTS' && Array.isArray(event.data.reports)) {
-            setReports(event.data.reports)
+          if (event.data?.type === "SYNC_REPORTS" && Array.isArray(event.data.reports)) {
+            setReports(event.data.reports);
           }
-          if (event.data?.type === 'SYNC_HAZARDS' && Array.isArray(event.data.hazards)) {
-            setHazards(event.data.hazards)
+          if (event.data?.type === "SYNC_HAZARDS" && Array.isArray(event.data.hazards)) {
+            setHazards(event.data.hazards);
           }
-        }
+        };
       }
     } catch {}
 
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'gabai-live-reports' && e.newValue) {
+      if (e.key === "gabai-live-reports" && e.newValue) {
         try {
-          const parsed = JSON.parse(e.newValue)
-          if (Array.isArray(parsed)) setReports(parsed)
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) setReports(parsed);
         } catch {}
       }
-      if (e.key === 'gabai-live-hazards' && e.newValue) {
+      if (e.key === "gabai-live-hazards" && e.newValue) {
         try {
-          const parsed = JSON.parse(e.newValue)
-          if (Array.isArray(parsed)) setHazards(parsed)
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) setHazards(parsed);
         } catch {}
       }
-    }
+    };
 
-    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener("storage", handleStorageChange);
     return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      if (bc) bc.close()
-    }
-  }, [])
+      window.removeEventListener("storage", handleStorageChange);
+      if (bc) bc.close();
+    };
+  }, []);
 
-  const [destination, setDestination] = useState<{ name: string; lat: number; lng: number } | null>(null)
-  const [lastActionMessage, setLastActionMessage] = useState<string | null>(null)
+  const [destination, setDestination] = useState<{ name: string; lat: number; lng: number } | null>(
+    null,
+  );
+  const [lastActionMessage, setLastActionMessage] = useState<string | null>(null);
 
   // ── 0. Global Cloud Pub/Sub & SSE Cross-Device Relay ───────────────
-  const CLOUD_SYNC_TOPIC = 'gabai_pampanga_cloud_sync_2026'
-  const CLOUD_SYNC_URL = `https://ntfy.sh/${CLOUD_SYNC_TOPIC}`
+  const CLOUD_SYNC_TOPIC = "gabai_pampanga_cloud_sync_2026";
+  const CLOUD_SYNC_URL = `https://ntfy.sh/${CLOUD_SYNC_TOPIC}`;
 
   const broadcastCloudEvent = useCallback(
     async (event: {
-      type: 'REPORT_SUBMITTED' | 'REPORT_VERIFIED' | 'REPORT_REJECTED' | 'REPORT_RESOLVED'
-      reportId?: number | string
-      hazardId?: number | string
-      roadName?: string
-      coords?: { lat: number; lng: number }
-      report?: CitizenReport
-      hazard?: Hazard
-      timestamp?: number
+      type: "REPORT_SUBMITTED" | "REPORT_VERIFIED" | "REPORT_REJECTED" | "REPORT_RESOLVED";
+      reportId?: number | string;
+      hazardId?: number | string;
+      roadName?: string;
+      coords?: { lat: number; lng: number };
+      report?: CitizenReport;
+      hazard?: Hazard;
+      timestamp?: number;
     }) => {
       try {
         await fetch(CLOUD_SYNC_URL, {
-          method: 'POST',
+          method: "POST",
           headers: {
             Title: `GABAI: ${event.type}`,
-            Priority: 'high',
+            Priority: "high",
           },
           body: JSON.stringify({ ...event, timestamp: Date.now() }),
-        })
+        });
       } catch (err) {
-        console.log('Cloud broadcast skipped:', err)
+        console.log("Cloud broadcast skipped:", err);
       }
     },
-    []
-  )
+    [],
+  );
 
   const applyCloudEvent = useCallback((payload: any) => {
-    if (!payload || !payload.type) return
+    if (!payload || !payload.type) return;
 
-    const verIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-verified-ids') || '[]'))
-    const resIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-resolved-ids') || '[]'))
-    const rejIds = new Set<string>(JSON.parse(localStorage.getItem('gabai-rejected-ids') || '[]'))
+    const verIds = new Set<string>(JSON.parse(localStorage.getItem("gabai-verified-ids") || "[]"));
+    const resIds = new Set<string>(JSON.parse(localStorage.getItem("gabai-resolved-ids") || "[]"));
+    const rejIds = new Set<string>(JSON.parse(localStorage.getItem("gabai-rejected-ids") || "[]"));
 
-    if (payload.type === 'REPORT_SUBMITTED' && payload.report) {
-      const rep: CitizenReport = payload.report
-      const haz: Hazard = payload.hazard
+    if (payload.type === "REPORT_SUBMITTED" && payload.report) {
+      const rep: CitizenReport = payload.report;
+      const haz: Hazard = payload.hazard;
 
       // Do not add if already resolved or rejected
       if (
@@ -416,86 +433,90 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         rejIds.has(String(rep.id)) ||
         (rep.hazardId && rejIds.has(String(rep.hazardId)))
       ) {
-        return
+        return;
       }
 
       setReports((prev) => {
-        if (prev.some((r) => String(r.id) === String(rep.id))) return prev
-        return [rep, ...prev]
-      })
+        if (prev.some((r) => String(r.id) === String(rep.id))) return prev;
+        return [rep, ...prev];
+      });
 
       if (haz && !resIds.has(String(haz.id)) && !rejIds.has(String(haz.id))) {
         setHazards((prev) => {
-          if (prev.some((h) => String(h.id) === String(haz.id))) return prev
-          return [haz, ...prev]
-        })
+          if (prev.some((h) => String(h.id) === String(haz.id))) return prev;
+          return [haz, ...prev];
+        });
       }
     }
 
-    if (payload.type === 'REPORT_VERIFIED') {
-      const repId = String(payload.reportId || payload.report?.id || '')
-      const hazId = String(payload.hazardId || payload.hazard?.id || payload.report?.hazardId || repId)
-      const rep: CitizenReport | undefined = payload.report
-      let haz: Hazard | undefined = payload.hazard
+    if (payload.type === "REPORT_VERIFIED") {
+      const repId = String(payload.reportId || payload.report?.id || "");
+      const hazId = String(
+        payload.hazardId || payload.hazard?.id || payload.report?.hazardId || repId,
+      );
+      const rep: CitizenReport | undefined = payload.report;
+      let haz: Hazard | undefined = payload.hazard;
 
       if (
         (repId && (resIds.has(repId) || rejIds.has(repId))) ||
         (hazId && (resIds.has(hazId) || rejIds.has(hazId)))
       ) {
-        return
+        return;
       }
 
       // Persist verified status
       setVerifiedIds((prev) => {
-        const next = Array.from(new Set([...prev, repId, hazId].filter(Boolean)))
-        localStorage.setItem('gabai-verified-ids', JSON.stringify(next))
-        return next
-      })
+        const next = Array.from(new Set([...prev, repId, hazId].filter(Boolean)));
+        localStorage.setItem("gabai-verified-ids", JSON.stringify(next));
+        return next;
+      });
 
       // If hazard was not in payload, synthesize it directly from report
       if (!haz && rep) {
         haz = {
           id: hazId,
-          type: rep.type || 'flood',
-          emoji: rep.emoji || '🌊',
+          type: rep.type || "flood",
+          emoji: rep.emoji || "🌊",
           label: rep.roadSegment?.roadName
             ? `${rep.roadSegment.roadName} Flooding`
-            : `${rep.locationName || 'Road'} Flooding`,
+            : `${rep.locationName || "Road"} Flooding`,
           lat: rep.lat,
           lng: rep.lng,
-          severity: rep.severity || 'high',
+          severity: rep.severity || "high",
           confidence: 95,
-          distance: 'Nearby (< 100m)',
+          distance: "Nearby (< 100m)",
           reports: 1,
           verified: 1,
-          ago: 'Just now',
-          status: 'Verified by LGU',
+          ago: "Just now",
+          status: "Verified by LGU",
           isRoadSegment: rep.isRoadSegment,
           roadSegment: rep.roadSegment,
-          passability: rep.passability || 'not_passable_light',
-          waterDepth: rep.waterDepth || 'Flood on Road',
+          passability: rep.passability || "not_passable_light",
+          waterDepth: rep.waterDepth || "Flood on Road",
           isVerified: true,
-        }
+        };
       }
 
       setReports((prev) => {
-        const exists = prev.some((r) => String(r.id) === repId)
+        const exists = prev.some((r) => String(r.id) === repId);
         if (exists) {
-          return prev.map((r) => (String(r.id) === repId ? { ...r, status: 'verified' as const } : r))
+          return prev.map((r) =>
+            String(r.id) === repId ? { ...r, status: "verified" as const } : r,
+          );
         }
         if (rep) {
-          return [{ ...rep, status: 'verified' as const }, ...prev]
+          return [{ ...rep, status: "verified" as const }, ...prev];
         }
-        return prev
-      })
+        return prev;
+      });
 
       if (haz) {
         const finalHaz: Hazard = {
           ...haz,
           isVerified: true,
-          status: 'Verified by LGU',
+          status: "Verified by LGU",
           verified: Math.max(1, haz.verified || 1),
-        }
+        };
 
         setHazards((prev) => {
           const exists = prev.some(
@@ -503,266 +524,281 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               String(h.id) === hazId ||
               String(h.id) === repId ||
               (rep && rep.hazardId === h.id) ||
-              (rep && rep.isRoadSegment && h.isRoadSegment && rep.roadSegment?.roadName === h.roadSegment?.roadName)
-          )
+              (rep &&
+                rep.isRoadSegment &&
+                h.isRoadSegment &&
+                rep.roadSegment?.roadName === h.roadSegment?.roadName),
+          );
           if (exists) {
             return prev.map((h) => {
               if (
                 String(h.id) === hazId ||
                 String(h.id) === repId ||
                 (rep && rep.hazardId === h.id) ||
-                (rep && rep.isRoadSegment && h.isRoadSegment && rep.roadSegment?.roadName === h.roadSegment?.roadName)
+                (rep &&
+                  rep.isRoadSegment &&
+                  h.isRoadSegment &&
+                  rep.roadSegment?.roadName === h.roadSegment?.roadName)
               ) {
-                return finalHaz
+                return finalHaz;
               }
-              return h
-            })
+              return h;
+            });
           }
-          return [finalHaz, ...prev]
-        })
+          return [finalHaz, ...prev];
+        });
       }
     }
 
-    if (payload.type === 'REPORT_REJECTED') {
-      const repId = String(payload.reportId || '')
-      const hazId = String(payload.hazardId || '')
-      const roadName = String(payload.roadName || '').toLowerCase().trim()
+    if (payload.type === "REPORT_REJECTED") {
+      const repId = String(payload.reportId || "");
+      const hazId = String(payload.hazardId || "");
+      const roadName = String(payload.roadName || "")
+        .toLowerCase()
+        .trim();
 
       setRejectedIds((prev) => {
-        const updated = Array.from(new Set([...prev, repId, hazId].filter(Boolean)))
-        localStorage.setItem('gabai-rejected-ids', JSON.stringify(updated))
-        return updated
-      })
+        const updated = Array.from(new Set([...prev, repId, hazId].filter(Boolean)));
+        localStorage.setItem("gabai-rejected-ids", JSON.stringify(updated));
+        return updated;
+      });
 
       setReports((prev) =>
         prev.map((r) =>
           r.id === repId || (hazId && r.hazardId === hazId)
-            ? { ...r, status: 'rejected' as const }
-            : r
-        )
-      )
+            ? { ...r, status: "rejected" as const }
+            : r,
+        ),
+      );
 
       setHazards((prev) =>
         prev.filter((h) => {
-          if (String(h.id) === repId || String(h.id) === hazId) return false
+          if (String(h.id) === repId || String(h.id) === hazId) return false;
           if (roadName && h.isRoadSegment) {
-            const hRoad = (h.roadSegment?.roadName || h.label || '').toLowerCase().trim()
-            if (hRoad && (hRoad.includes(roadName) || roadName.includes(hRoad))) return false
+            const hRoad = (h.roadSegment?.roadName || h.label || "").toLowerCase().trim();
+            if (hRoad && (hRoad.includes(roadName) || roadName.includes(hRoad))) return false;
           }
-          return true
-        })
-      )
+          return true;
+        }),
+      );
     }
 
-    if (payload.type === 'REPORT_RESOLVED') {
-      const repId = String(payload.reportId || '')
-      const hazId = String(payload.hazardId || '')
-      const roadName = String(payload.roadName || '').toLowerCase().trim()
+    if (payload.type === "REPORT_RESOLVED") {
+      const repId = String(payload.reportId || "");
+      const hazId = String(payload.hazardId || "");
+      const roadName = String(payload.roadName || "")
+        .toLowerCase()
+        .trim();
 
       setResolvedIds((prev) => {
-        const updated = Array.from(new Set([...prev, repId, hazId].filter(Boolean)))
-        localStorage.setItem('gabai-resolved-ids', JSON.stringify(updated))
-        return updated
-      })
+        const updated = Array.from(new Set([...prev, repId, hazId].filter(Boolean)));
+        localStorage.setItem("gabai-resolved-ids", JSON.stringify(updated));
+        return updated;
+      });
 
       setReports((prev) =>
         prev.map((r) =>
           r.id === repId || (hazId && r.hazardId === hazId)
-            ? { ...r, status: 'resolved' as const }
-            : r
-        )
-      )
+            ? { ...r, status: "resolved" as const }
+            : r,
+        ),
+      );
 
       setHazards((prev) =>
         prev.filter((h) => {
-          if (String(h.id) === repId || String(h.id) === hazId) return false
+          if (String(h.id) === repId || String(h.id) === hazId) return false;
           if (roadName && h.isRoadSegment) {
-            const hRoad = (h.roadSegment?.roadName || h.label || '').toLowerCase().trim()
-            if (hRoad && (hRoad.includes(roadName) || roadName.includes(hRoad))) return false
+            const hRoad = (h.roadSegment?.roadName || h.label || "").toLowerCase().trim();
+            if (hRoad && (hRoad.includes(roadName) || roadName.includes(hRoad))) return false;
           }
-          return true
-        })
-      )
+          return true;
+        }),
+      );
     }
-  }, [])
+  }, []);
 
   // ── 1. Cloud Cross-Device Real-Time Synchronization Listener ───────
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === "undefined") return;
 
-    let isCloudReachable = true
+    let isCloudReachable = true;
 
     // Catch up recent cloud history on app startup
     const catchupCloudHistory = async () => {
-      if (!isCloudReachable) return
+      if (!isCloudReachable) return;
       try {
         const res = await fetch(`${CLOUD_SYNC_URL}/json?poll=1&since=24h`, {
           signal: AbortSignal.timeout(4000),
-        })
+        });
         if (res.ok) {
-          const text = await res.text()
-          const lines = text.trim().split('\n')
+          const text = await res.text();
+          const lines = text.trim().split("\n");
           for (const line of lines) {
             try {
-              const parsed = JSON.parse(line)
-              if (parsed.event === 'message' && parsed.message) {
-                const payload = JSON.parse(parsed.message)
-                applyCloudEvent(payload)
+              const parsed = JSON.parse(line);
+              if (parsed.event === "message" && parsed.message) {
+                const payload = JSON.parse(parsed.message);
+                applyCloudEvent(payload);
               }
             } catch {}
           }
         }
       } catch {
         // Mark unreachable to prevent recurring network timeout errors in console
-        isCloudReachable = false
+        isCloudReachable = false;
       }
-    }
+    };
 
-    catchupCloudHistory()
+    catchupCloudHistory();
 
     // Real-time Server-Sent Events (SSE) stream across all devices & browsers
-    let eventSource: EventSource | null = null
+    let eventSource: EventSource | null = null;
     try {
-      eventSource = new EventSource(`${CLOUD_SYNC_URL}/sse`)
+      eventSource = new EventSource(`${CLOUD_SYNC_URL}/sse`);
       eventSource.onmessage = (e) => {
         try {
-          const data = JSON.parse(e.data)
-          if (data.event === 'message' && data.message) {
-            const payload = JSON.parse(data.message)
-            applyCloudEvent(payload)
+          const data = JSON.parse(e.data);
+          if (data.event === "message" && data.message) {
+            const payload = JSON.parse(data.message);
+            applyCloudEvent(payload);
           }
         } catch {}
-      }
+      };
       eventSource.onerror = () => {
         if (eventSource) {
-          eventSource.close()
-          eventSource = null
+          eventSource.close();
+          eventSource = null;
         }
-      }
+      };
     } catch {
       if (eventSource) {
-        eventSource.close()
-        eventSource = null
+        eventSource.close();
+        eventSource = null;
       }
     }
 
     return () => {
-      if (eventSource) eventSource.close()
-    }
-  }, [applyCloudEvent])
+      if (eventSource) eventSource.close();
+    };
+  }, [applyCloudEvent]);
 
   // ── 2. Fetch initial data from REST API (if self-hosted) ──────────
   useEffect(() => {
-    if (!API_BASE_URL) return
+    if (!API_BASE_URL) return;
 
     const fetchInitialData = async () => {
       try {
         const [hazRes, repRes] = await Promise.all([
           fetch(`${API_BASE_URL}/hazards`),
           fetch(`${API_BASE_URL}/reports`),
-        ])
+        ]);
 
         if (hazRes.ok) {
-          const apiHazards = await hazRes.json()
+          const apiHazards = await hazRes.json();
           if (Array.isArray(apiHazards) && apiHazards.length > 0) {
-            setHazards(apiHazards)
+            setHazards(apiHazards);
           }
         }
 
         if (repRes.ok) {
-          const apiReports = await repRes.json()
+          const apiReports = await repRes.json();
           if (Array.isArray(apiReports) && apiReports.length > 0) {
             setReports(
               apiReports.map((r: any) => ({
                 id: r.id,
-                citizen: r.citizen || 'Resident',
-                type: r.type || 'flood',
-                emoji: r.type === 'flood' ? '🌊' : '⚠️',
+                citizen: r.citizen || "Resident",
+                type: r.type || "flood",
+                emoji: r.type === "flood" ? "🌊" : "⚠️",
                 desc: r.desc || r.description,
                 lat: r.lat,
                 lng: r.lng,
-                severity: r.severity || 'medium',
-                time: r.createdAt ? new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently',
-                status: r.status || 'pending',
+                severity: r.severity || "medium",
+                time: r.createdAt
+                  ? new Date(r.createdAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "Recently",
+                status: r.status || "pending",
                 locationName: r.locationName,
-              }))
-            )
+              })),
+            );
           }
         }
       } catch (err) {
-        console.log('REST initial fetch skipped:', err)
+        console.log("REST initial fetch skipped:", err);
       }
-    }
+    };
 
-    fetchInitialData()
-  }, [])
+    fetchInitialData();
+  }, []);
 
   // ── 3. WebSocket Real-Time Integration ────────────────────────────
   useEffect(() => {
-    if (!WS_URL) return
+    if (!WS_URL) return;
 
     try {
       const socket = io(WS_URL, {
-        transports: ['websocket', 'polling'],
+        transports: ["websocket", "polling"],
         reconnectionAttempts: 5,
         reconnectionDelay: 2000,
-      })
+      });
 
-      socketRef.current = socket
+      socketRef.current = socket;
 
-      socket.on('connect', () => {
-        setIsWsConnected(true)
-        console.log('⚡ Connected to GABAI Live Disaster Engine WebSocket')
-      })
+      socket.on("connect", () => {
+        setIsWsConnected(true);
+        console.log("⚡ Connected to GABAI Live Disaster Engine WebSocket");
+      });
 
-      socket.on('disconnect', () => {
-        setIsWsConnected(false)
-      })
+      socket.on("disconnect", () => {
+        setIsWsConnected(false);
+      });
 
-      socket.on('report:new', (newReport: CitizenReport) => {
+      socket.on("report:new", (newReport: CitizenReport) => {
         setReports((prev) => {
-          if (prev.some((r) => r.id === newReport.id)) return prev
-          return [newReport, ...prev]
-        })
-      })
+          if (prev.some((r) => r.id === newReport.id)) return prev;
+          return [newReport, ...prev];
+        });
+      });
 
-      socket.on('report:verified', ({ reportId }: { reportId: number | string }) => {
+      socket.on("report:verified", ({ reportId }: { reportId: number | string }) => {
         setReports((prev) =>
-          prev.map((r) => (r.id === reportId ? { ...r, status: 'verified' as const } : r))
-        )
-      })
+          prev.map((r) => (r.id === reportId ? { ...r, status: "verified" as const } : r)),
+        );
+      });
 
-      socket.on('hazard:update', (updatedHazards: Hazard[]) => {
+      socket.on("hazard:update", (updatedHazards: Hazard[]) => {
         if (Array.isArray(updatedHazards)) {
-          setHazards(updatedHazards)
+          setHazards(updatedHazards);
         }
-      })
+      });
 
       return () => {
-        socket.disconnect()
-      }
+        socket.disconnect();
+      };
     } catch (err) {
-      console.log('WebSocket connection error (using mock state):', err)
+      console.log("WebSocket connection error (using mock state):", err);
     }
-  }, [])
+  }, []);
 
   // ── AI Pattern Detection ──────────────────────────────────────────
   const aiPatternInsight: AIPatternInsight | null = useMemo(() => {
     const highSeverityReports = reports.filter(
-      (r) => r.severity === 'high' && r.status !== 'rejected'
-    )
+      (r) => r.severity === "high" && r.status !== "rejected",
+    );
     if (highSeverityReports.length >= 2) {
       return {
         title: `Flooding Cluster Detected (${highSeverityReports.length} Reports)`,
         description: `Multiple flood reports registered near ${userLoc.locationName}. Rising water level detected. Roads are impassable for light vehicles.`,
-        severity: 'high',
+        severity: "high",
         clusterCount: highSeverityReports.length,
-        recommendedAction: 'Reroute traffic to higher ground corridors immediately.',
-        timestamp: 'Active Now',
-      }
+        recommendedAction: "Reroute traffic to higher ground corridors immediately.",
+        timestamp: "Active Now",
+      };
     }
-    return null
-  }, [reports, userLoc.locationName])
+    return null;
+  }, [reports, userLoc.locationName]);
 
   // ── 4. Citizen Actions (Add Report with Anti-Spam LGU Verification) ─
   const addHazardReport = useCallback(
@@ -771,61 +807,61 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       description,
       lat,
       lng,
-      severity = 'medium',
-      citizenName = 'Resident (GABAI User)',
+      severity = "medium",
+      citizenName = "Resident (GABAI User)",
       isRoadSegment,
       roadSegment,
       passability,
       waterDepth,
     }: {
-      type: string
-      description?: string
-      lat?: number
-      lng?: number
-      severity?: 'low' | 'medium' | 'high'
-      citizenName?: string
-      isRoadSegment?: boolean
-      roadSegment?: any
-      passability?: string
-      waterDepth?: string
+      type: string;
+      description?: string;
+      lat?: number;
+      lng?: number;
+      severity?: "low" | "medium" | "high";
+      citizenName?: string;
+      isRoadSegment?: boolean;
+      roadSegment?: any;
+      passability?: string;
+      waterDepth?: string;
     }) => {
-      let effectiveLat = lat
-      let effectiveLng = lng
-      if (typeof effectiveLat !== 'number' || typeof effectiveLng !== 'number') {
+      let effectiveLat = lat;
+      let effectiveLng = lng;
+      if (typeof effectiveLat !== "number" || typeof effectiveLng !== "number") {
         if (roadSegment?.path && Array.isArray(roadSegment.path) && roadSegment.path.length > 0) {
-          const midIdx = Math.floor(roadSegment.path.length / 2)
-          effectiveLng = roadSegment.path[midIdx][0]
-          effectiveLat = roadSegment.path[midIdx][1]
+          const midIdx = Math.floor(roadSegment.path.length / 2);
+          effectiveLng = roadSegment.path[midIdx][0];
+          effectiveLat = roadSegment.path[midIdx][1];
         } else if (roadSegment?.from && roadSegment?.to) {
-          effectiveLat = (roadSegment.from.lat + roadSegment.to.lat) / 2
-          effectiveLng = (roadSegment.from.lng + roadSegment.to.lng) / 2
+          effectiveLat = (roadSegment.from.lat + roadSegment.to.lat) / 2;
+          effectiveLng = (roadSegment.from.lng + roadSegment.to.lng) / 2;
         } else {
-          effectiveLat = userLoc.coords.lat
-          effectiveLng = userLoc.coords.lng
+          effectiveLat = userLoc.coords.lat;
+          effectiveLng = userLoc.coords.lng;
         }
       }
 
-      const reportLat = effectiveLat
-      const reportLng = effectiveLng
+      const reportLat = effectiveLat;
+      const reportLng = effectiveLng;
 
-      const isLguOfficial =
-        Boolean(citizenName && (
-          citizenName.toLowerCase().includes('lgu') ||
-          citizenName.toLowerCase().includes('commander') ||
-          citizenName.toLowerCase().includes('admin') ||
-          citizenName.toLowerCase().includes('official')
-        ))
+      const isLguOfficial = Boolean(
+        citizenName &&
+        (citizenName.toLowerCase().includes("lgu") ||
+          citizenName.toLowerCase().includes("commander") ||
+          citizenName.toLowerCase().includes("admin") ||
+          citizenName.toLowerCase().includes("official")),
+      );
 
       if (!isLguOfficial) {
         // 🛡️ ANTI-SPAM DEFENSE 1: Device Rate Limiting / Cooldown (2 minutes cooldown)
-        const lastReportTime = Number(localStorage.getItem('gabai_last_report_timestamp') || 0)
-        const timeSinceLastReport = Date.now() - lastReportTime
-        const COOLDOWN_MS = 120_000 // 2 minutes cooldown
+        const lastReportTime = Number(localStorage.getItem("gabai_last_report_timestamp") || 0);
+        const timeSinceLastReport = Date.now() - lastReportTime;
+        const COOLDOWN_MS = 120_000; // 2 minutes cooldown
         if (timeSinceLastReport < COOLDOWN_MS) {
-          const remainingSec = Math.ceil((COOLDOWN_MS - timeSinceLastReport) / 1000)
-          const msg = `⏳ Anti-Spam Cooldown Active: Please wait ${remainingSec}s before submitting another report.`
-          setLastActionMessage(msg)
-          throw new Error(msg)
+          const remainingSec = Math.ceil((COOLDOWN_MS - timeSinceLastReport) / 1000);
+          const msg = `⏳ Anti-Spam Cooldown Active: Please wait ${remainingSec}s before submitting another report.`;
+          setLastActionMessage(msg);
+          throw new Error(msg);
         }
 
         // 🛡️ ANTI-SPAM DEFENSE 2: GPS Proximity Geofencing (Proof-of-Location)
@@ -834,88 +870,90 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           userLoc.coords.lat,
           userLoc.coords.lng,
           reportLat,
-          reportLng
-        )
-        const MAX_GEOFENCE_KM = 1.5
+          reportLng,
+        );
+        const MAX_GEOFENCE_KM = 1.5;
         if (distFromUserKm > MAX_GEOFENCE_KM) {
-          const errorMsg = `🛡️ Anti-Spam Geofence: Proof-of-Location required. You can only report hazards within 1.5 km of your verified GPS position (currently ${distFromUserKm.toFixed(1)} km away).`
-          setLastActionMessage(errorMsg)
-          throw new Error(errorMsg)
+          const errorMsg = `🛡️ Anti-Spam Geofence: Proof-of-Location required. You can only report hazards within 1.5 km of your verified GPS position (currently ${distFromUserKm.toFixed(1)} km away).`;
+          setLastActionMessage(errorMsg);
+          throw new Error(errorMsg);
         }
       }
 
-      const newHazardId = `haz-${Date.now()}`
-      const newReportId = `rep-${Date.now()}`
+      const newHazardId = `haz-${Date.now()}`;
+      const newReportId = `rep-${Date.now()}`;
 
-      let statusText = severity === 'high' ? 'Impassable' : 'Passable with caution'
-      if (passability === 'not_passable_all') statusText = 'Closed to All Vehicles'
-      if (passability === 'not_passable_light') statusText = 'Not Passable to Light Vehicles'
-      if (passability === 'all_passable') statusText = 'Passable to All Vehicles'
+      let statusText = severity === "high" ? "Impassable" : "Passable with caution";
+      if (passability === "not_passable_all") statusText = "Closed to All Vehicles";
+      if (passability === "not_passable_light") statusText = "Not Passable to Light Vehicles";
+      if (passability === "all_passable") statusText = "Passable to All Vehicles";
 
       const newHazard: Hazard = {
         id: newHazardId,
         type,
-        emoji: EMOJI_MAP[type] || '⚠️',
+        emoji: EMOJI_MAP[type] || "⚠️",
         label: roadSegment?.roadName
           ? `${roadSegment.roadName} Flooding`
-          : LABEL_MAP[type] || 'Disaster Incident',
+          : LABEL_MAP[type] || "Disaster Incident",
         lat: reportLat,
         lng: reportLng,
         severity,
         confidence: 85,
-        distance: 'Nearby (< 100m)',
+        distance: "Nearby (< 100m)",
         reports: 1,
         verified: 0,
-        ago: 'Just now',
+        ago: "Just now",
         status: statusText,
         isRoadSegment,
         roadSegment,
-        passability: passability || 'not_passable_light',
-        waterDepth: waterDepth || 'Flood on Road',
+        passability: passability || "not_passable_light",
+        waterDepth: waterDepth || "Flood on Road",
         isVerified: false,
         isMine: true,
-      }
+      };
 
       const newReport: CitizenReport = {
         id: newReportId,
         hazardId: newHazardId,
         citizen: citizenName,
         type,
-        emoji: EMOJI_MAP[type] || '⚠️',
-        desc: description || `Community reported ${LABEL_MAP[type] || 'incident'} in this area.`,
+        emoji: EMOJI_MAP[type] || "⚠️",
+        desc: description || `Community reported ${LABEL_MAP[type] || "incident"} in this area.`,
         lat: reportLat,
         lng: reportLng,
         severity,
-        time: 'Just now',
-        status: 'pending',
+        time: "Just now",
+        status: "pending",
         locationName: roadSegment?.roadName || userLoc.locationName,
         isRoadSegment,
         roadSegment,
-        passability: passability || 'not_passable_light',
-        waterDepth: waterDepth || 'Flood on Road',
+        passability: passability || "not_passable_light",
+        waterDepth: waterDepth || "Flood on Road",
         isMine: true,
-      }
+      };
 
       // Record in local reporting ID list and update anti-spam rate-limit timestamp
-      setMyReportIds((prev) => [...prev, String(newReportId), String(newHazardId)])
-      localStorage.setItem('gabai_last_report_timestamp', String(Date.now()))
+      setMyReportIds((prev) => [...prev, String(newReportId), String(newHazardId)]);
+      localStorage.setItem("gabai_last_report_timestamp", String(Date.now()));
 
-      setHazards((prev) => [newHazard, ...prev])
-      setReports((prev) => [newReport, ...prev])
-      setLastActionMessage(`📢 Report submitted! Awaiting LGU verification before broadcasting to all motorists.`)
+      setHazards((prev) => [newHazard, ...prev]);
+      setReports((prev) => [newReport, ...prev]);
+      setLastActionMessage(
+        `📢 Report submitted! Awaiting LGU verification before broadcasting to all motorists.`,
+      );
 
       // Global Cross-Device Cloud Broadcast
       broadcastCloudEvent({
-        type: 'REPORT_SUBMITTED',
+        type: "REPORT_SUBMITTED",
         report: newReport,
         hazard: newHazard,
-      })
+      });
 
       // Sync via REST (if configured)
       if (API_BASE_URL) {
         fetch(`${API_BASE_URL}/reports`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             type,
             description: newReport.desc,
@@ -931,104 +969,104 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             passability,
             waterDepth,
           }),
-        }).catch((err) => console.log('REST sync skipped:', err))
+        }).catch((err) => console.log("REST sync skipped:", err));
       }
 
       // Emit over WebSockets
       if (socketRef.current?.connected) {
-        socketRef.current.emit('report:submit', newReport)
+        socketRef.current.emit("report:submit", newReport);
       }
 
-      return { report: newReport, hazard: newHazard }
+      return { report: newReport, hazard: newHazard };
     },
-    [userLoc.coords.lat, userLoc.coords.lng, userLoc.locationName, broadcastCloudEvent]
-  )
+    [userLoc.coords.lat, userLoc.coords.lng, userLoc.locationName, broadcastCloudEvent],
+  );
 
   // ── LGU Verification Mutations ────────────────────────────────────
   const verifyReport = useCallback(
     async (reportId: number | string) => {
-      const repId = String(reportId)
-      const matched = reports.find((r) => String(r.id) === repId)
-      const hazId = matched?.hazardId ? String(matched.hazardId) : repId
+      const repId = String(reportId);
+      const matched = reports.find((r) => String(r.id) === repId);
+      const hazId = matched?.hazardId ? String(matched.hazardId) : repId;
 
       // 1. Persist to verified IDs
       setVerifiedIds((prev) => {
-        const next = Array.from(new Set([...prev, repId, hazId]))
-        localStorage.setItem('gabai-verified-ids', JSON.stringify(next))
-        return next
-      })
+        const next = Array.from(new Set([...prev, repId, hazId]));
+        localStorage.setItem("gabai-verified-ids", JSON.stringify(next));
+        return next;
+      });
 
       // 2. Build the verified report
       const updatedReport: CitizenReport = matched
-        ? { ...matched, status: 'verified' as const }
+        ? { ...matched, status: "verified" as const }
         : {
             id: repId,
             hazardId: hazId,
-            citizen: 'Resident (GABAI User)',
-            type: 'flood',
-            emoji: '🌊',
-            desc: 'Verified road flooding',
+            citizen: "Resident (GABAI User)",
+            type: "flood",
+            emoji: "🌊",
+            desc: "Verified road flooding",
             lat: userLoc.coords.lat,
             lng: userLoc.coords.lng,
-            severity: 'high',
-            time: 'Just now',
-            status: 'verified' as const,
-          }
+            severity: "high",
+            time: "Just now",
+            status: "verified" as const,
+          };
 
       // 3. Build the verified hazard synchronously
       const existingHaz = hazards.find(
         (h) =>
           String(h.id) === hazId ||
           String(h.id) === repId ||
-          (matched && (matched.hazardId === h.id || matched.id === h.id))
-      )
+          (matched && (matched.hazardId === h.id || matched.id === h.id)),
+      );
 
-      let updatedHazard: Hazard
+      let updatedHazard: Hazard;
       if (existingHaz) {
         updatedHazard = {
           ...existingHaz,
           verified: Math.max(1, (existingHaz.verified || 0) + 1),
           isVerified: true,
-          status: 'Verified by LGU',
+          status: "Verified by LGU",
           confidence: Math.min(99, (existingHaz.confidence || 80) + 15),
-        }
+        };
       } else {
         updatedHazard = {
           id: hazId,
-          type: updatedReport.type || 'flood',
-          emoji: updatedReport.emoji || '🌊',
+          type: updatedReport.type || "flood",
+          emoji: updatedReport.emoji || "🌊",
           label: updatedReport.roadSegment?.roadName
             ? `${updatedReport.roadSegment.roadName} Flooding`
-            : `${updatedReport.locationName || 'Road'} Flooding`,
+            : `${updatedReport.locationName || "Road"} Flooding`,
           lat: updatedReport.lat,
           lng: updatedReport.lng,
-          severity: updatedReport.severity || 'high',
+          severity: updatedReport.severity || "high",
           confidence: 95,
-          distance: 'Nearby (< 100m)',
+          distance: "Nearby (< 100m)",
           reports: 1,
           verified: 1,
-          ago: 'Just now',
-          status: 'Verified by LGU',
+          ago: "Just now",
+          status: "Verified by LGU",
           isRoadSegment: updatedReport.isRoadSegment,
           roadSegment: updatedReport.roadSegment,
-          passability: updatedReport.passability || 'not_passable_light',
-          waterDepth: updatedReport.waterDepth || 'Flood on Road',
+          passability: updatedReport.passability || "not_passable_light",
+          waterDepth: updatedReport.waterDepth || "Flood on Road",
           isVerified: true,
-        }
+        };
       }
 
       // 4. Update state
       setReports((prev) =>
-        prev.map((r) => (String(r.id) === repId ? { ...r, status: 'verified' as const } : r))
-      )
+        prev.map((r) => (String(r.id) === repId ? { ...r, status: "verified" as const } : r)),
+      );
 
       setHazards((prev) => {
         const exists = prev.some(
           (h) =>
             String(h.id) === hazId ||
             String(h.id) === repId ||
-            (matched && (matched.hazardId === h.id || matched.id === h.id))
-        )
+            (matched && (matched.hazardId === h.id || matched.id === h.id)),
+        );
         if (exists) {
           return prev.map((h) => {
             if (
@@ -1036,151 +1074,159 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               String(h.id) === repId ||
               (matched && (matched.hazardId === h.id || matched.id === h.id))
             ) {
-              return updatedHazard
+              return updatedHazard;
             }
-            return h
-          })
+            return h;
+          });
         }
-        return [updatedHazard, ...prev]
-      })
+        return [updatedHazard, ...prev];
+      });
 
-      setLastActionMessage('✅ Report verified by LGU! Now published to all motorists on the live map.')
+      setLastActionMessage(
+        "✅ Report verified by LGU! Now published to all motorists on the live map.",
+      );
 
       // 5. Global Cross-Device Cloud Broadcast
       broadcastCloudEvent({
-        type: 'REPORT_VERIFIED',
+        type: "REPORT_VERIFIED",
         reportId: repId,
         hazardId: hazId,
         report: updatedReport,
         hazard: updatedHazard,
-      })
+      });
 
       if (API_BASE_URL) {
-        fetch(`${API_BASE_URL}/reports/${reportId}/verify`, { method: 'PATCH' }).catch(() => {})
+        fetch(`${API_BASE_URL}/reports/${reportId}/verify`, { method: "PATCH" }).catch(() => {});
       }
       if (socketRef.current?.connected) {
-        socketRef.current.emit('report:verify', { reportId })
+        socketRef.current.emit("report:verify", { reportId });
       }
     },
-    [reports, hazards, userLoc.coords.lat, userLoc.coords.lng, broadcastCloudEvent]
-  )
+    [reports, hazards, userLoc.coords.lat, userLoc.coords.lng, broadcastCloudEvent],
+  );
 
   const rejectReport = useCallback(
     async (reportId: number | string) => {
-      const matched = reports.find((r) => r.id === reportId)
-      const hazId = matched?.hazardId ? String(matched.hazardId) : String(reportId)
-      const repId = String(reportId)
-      const roadName = matched?.roadSegment?.roadName || matched?.locationName || ''
+      const matched = reports.find((r) => r.id === reportId);
+      const hazId = matched?.hazardId ? String(matched.hazardId) : String(reportId);
+      const repId = String(reportId);
+      const roadName = matched?.roadSegment?.roadName || matched?.locationName || "";
 
       setRejectedIds((prev) => {
-        const updated = Array.from(new Set([...prev, repId, hazId].filter(Boolean)))
-        localStorage.setItem('gabai-rejected-ids', JSON.stringify(updated))
-        return updated
-      })
+        const updated = Array.from(new Set([...prev, repId, hazId].filter(Boolean)));
+        localStorage.setItem("gabai-rejected-ids", JSON.stringify(updated));
+        return updated;
+      });
 
       setReports((prev) =>
-        prev.map((r) => (r.id === reportId ? { ...r, status: 'rejected' as const } : r))
-      )
+        prev.map((r) => (r.id === reportId ? { ...r, status: "rejected" as const } : r)),
+      );
 
       setHazards((prev) =>
         prev.filter((h) => {
-          if (String(h.id) === repId || String(h.id) === hazId) return false
+          if (String(h.id) === repId || String(h.id) === hazId) return false;
           if (roadName && h.isRoadSegment) {
-            const hRoad = (h.roadSegment?.roadName || h.label || '').toLowerCase().trim()
-            if (hRoad && (hRoad.includes(roadName.toLowerCase()) || roadName.toLowerCase().includes(hRoad))) {
-              return false
+            const hRoad = (h.roadSegment?.roadName || h.label || "").toLowerCase().trim();
+            if (
+              hRoad &&
+              (hRoad.includes(roadName.toLowerCase()) || roadName.toLowerCase().includes(hRoad))
+            ) {
+              return false;
             }
           }
           if (matched) {
-            const dist = Math.hypot(h.lat - matched.lat, h.lng - matched.lng)
-            if (dist < 0.004) return false
+            const dist = Math.hypot(h.lat - matched.lat, h.lng - matched.lng);
+            if (dist < 0.004) return false;
           }
-          return true
-        })
-      )
+          return true;
+        }),
+      );
 
-      setLastActionMessage('❌ Report rejected by LGU Dispatch (marked as false alarm / spam).')
+      setLastActionMessage("❌ Report rejected by LGU Dispatch (marked as false alarm / spam).");
 
       // Global Cross-Device Cloud Broadcast
       broadcastCloudEvent({
-        type: 'REPORT_REJECTED',
+        type: "REPORT_REJECTED",
         reportId: repId,
         hazardId: hazId,
         roadName,
-      })
+      });
 
       if (API_BASE_URL) {
-        fetch(`${API_BASE_URL}/reports/${reportId}/reject`, { method: 'PATCH' }).catch(() => {})
+        fetch(`${API_BASE_URL}/reports/${reportId}/reject`, { method: "PATCH" }).catch(() => {});
       }
     },
-    [reports, broadcastCloudEvent]
-  )
+    [reports, broadcastCloudEvent],
+  );
 
   const resolveReport = useCallback(
     async (reportId: number | string) => {
-      const matched = reports.find((r) => r.id === reportId)
-      const hazId = matched?.hazardId ? String(matched.hazardId) : String(reportId)
-      const repId = String(reportId)
-      const roadName = matched?.roadSegment?.roadName || matched?.locationName || ''
+      const matched = reports.find((r) => r.id === reportId);
+      const hazId = matched?.hazardId ? String(matched.hazardId) : String(reportId);
+      const repId = String(reportId);
+      const roadName = matched?.roadSegment?.roadName || matched?.locationName || "";
 
       setResolvedIds((prev) => {
-        const updated = Array.from(new Set([...prev, repId, hazId].filter(Boolean)))
-        localStorage.setItem('gabai-resolved-ids', JSON.stringify(updated))
-        return updated
-      })
+        const updated = Array.from(new Set([...prev, repId, hazId].filter(Boolean)));
+        localStorage.setItem("gabai-resolved-ids", JSON.stringify(updated));
+        return updated;
+      });
 
       setReports((prev) =>
-        prev.map((r) => (r.id === reportId ? { ...r, status: 'resolved' as const } : r))
-      )
+        prev.map((r) => (r.id === reportId ? { ...r, status: "resolved" as const } : r)),
+      );
 
       setHazards((prev) =>
         prev.filter((h) => {
-          if (String(h.id) === repId || String(h.id) === hazId) return false
+          if (String(h.id) === repId || String(h.id) === hazId) return false;
           if (roadName && h.isRoadSegment) {
-            const hRoad = (h.roadSegment?.roadName || h.label || '').toLowerCase().trim()
-            if (hRoad && (hRoad.includes(roadName.toLowerCase()) || roadName.toLowerCase().includes(hRoad))) {
-              return false
+            const hRoad = (h.roadSegment?.roadName || h.label || "").toLowerCase().trim();
+            if (
+              hRoad &&
+              (hRoad.includes(roadName.toLowerCase()) || roadName.toLowerCase().includes(hRoad))
+            ) {
+              return false;
             }
           }
           if (matched) {
-            const dist = Math.hypot(h.lat - matched.lat, h.lng - matched.lng)
-            if (dist < 0.004) return false
+            const dist = Math.hypot(h.lat - matched.lat, h.lng - matched.lng);
+            if (dist < 0.004) return false;
           }
-          return true
-        })
-      )
+          return true;
+        }),
+      );
 
-      setLastActionMessage('🏁 Incident resolved! Flood corridor cleared from live citizen map.')
+      setLastActionMessage("🏁 Incident resolved! Flood corridor cleared from live citizen map.");
 
       // Global Cross-Device Cloud Broadcast
       broadcastCloudEvent({
-        type: 'REPORT_RESOLVED',
+        type: "REPORT_RESOLVED",
         reportId: repId,
         hazardId: hazId,
         roadName,
-      })
+      });
 
       if (API_BASE_URL) {
-        fetch(`${API_BASE_URL}/reports/${reportId}/resolve`, { method: 'PATCH' }).catch(() => {})
+        fetch(`${API_BASE_URL}/reports/${reportId}/resolve`, { method: "PATCH" }).catch(() => {});
       }
     },
-    [reports, broadcastCloudEvent]
-  )
+    [reports, broadcastCloudEvent],
+  );
 
   // ── Unified Routing Hazards (All official hazards + active citizen reports) ──
   const allRoutingHazards = useMemo(() => {
-    const hazList = [...hazards]
-    const knownIds = new Set(hazList.map((h) => String(h.id)))
+    const hazList = [...hazards];
+    const knownIds = new Set(hazList.map((h) => String(h.id)));
 
     reports.forEach((r) => {
-      if (r.status === 'rejected' || r.status === 'resolved') return
-      const repHazardId = r.hazardId ? String(r.hazardId) : String(r.id)
+      if (r.status === "rejected" || r.status === "resolved") return;
+      const repHazardId = r.hazardId ? String(r.hazardId) : String(r.id);
       if (!knownIds.has(repHazardId) && !knownIds.has(String(r.id))) {
         hazList.push({
           id: repHazardId,
-          type: r.type || 'flood',
-          label: r.desc || 'Reported Road Flood',
-          severity: r.severity || 'high',
+          type: r.type || "flood",
+          label: r.desc || "Reported Road Flood",
+          severity: r.severity || "high",
           lat: r.lat,
           lng: r.lng,
           isRoadSegment: r.isRoadSegment,
@@ -1188,60 +1234,63 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           passability: r.passability,
           waterDepth: r.waterDepth,
           status: r.status,
-          verified: r.status === 'verified' ? 1 : 0,
-        } as Hazard)
+          verified: r.status === "verified" ? 1 : 0,
+        } as Hazard);
       }
-    })
+    });
 
-    return hazList
-  }, [hazards, reports])
+    return hazList;
+  }, [hazards, reports]);
 
   // ── Dynamic Safe Routes Engine with Real-World Road Network Routing ──
   const initialRoutes = useMemo(() => {
     const dest = destination || {
-      name: evacCenters[0]?.name || 'Primary Evacuation Center',
+      name: evacCenters[0]?.name || "Primary Evacuation Center",
       lat: evacCenters[0]?.lat || userLoc.coords.lat + 0.015,
       lng: evacCenters[0]?.lng || userLoc.coords.lng - 0.012,
-    }
+    };
     return generateDynamicRoutes(
       userLoc.coords.lat,
       userLoc.coords.lng,
       dest.lat,
       dest.lng,
-      allRoutingHazards
-    )
-  }, [userLoc.coords.lat, userLoc.coords.lng, destination, evacCenters, allRoutingHazards])
+      allRoutingHazards,
+    );
+  }, [userLoc.coords.lat, userLoc.coords.lng, destination, evacCenters, allRoutingHazards]);
 
-  const [liveRoutes, setLiveRoutes] = useState<Record<'safe' | 'balanced' | 'fast', RouteInfo> | null>(null)
-  const latestRequestIdRef = useRef(0)
+  const [liveRoutes, setLiveRoutes] = useState<Record<
+    "safe" | "balanced" | "fast",
+    RouteInfo
+  > | null>(null);
+  const latestRequestIdRef = useRef(0);
 
   useEffect(() => {
     const dest = destination || {
-      name: evacCenters[0]?.name || 'Primary Evacuation Center',
+      name: evacCenters[0]?.name || "Primary Evacuation Center",
       lat: evacCenters[0]?.lat || userLoc.coords.lat + 0.015,
       lng: evacCenters[0]?.lng || userLoc.coords.lng - 0.012,
-    }
+    };
 
-    const currentRequestId = ++latestRequestIdRef.current
+    const currentRequestId = ++latestRequestIdRef.current;
 
     fetchAccurateRealWorldRoutes(
       userLoc.coords.lat,
       userLoc.coords.lng,
       dest.lat,
       dest.lng,
-      allRoutingHazards
+      allRoutingHazards,
     ).then((res) => {
       if (currentRequestId === latestRequestIdRef.current && res) {
-        setLiveRoutes(res)
+        setLiveRoutes(res);
       }
-    })
-  }, [userLoc.coords.lat, userLoc.coords.lng, destination, evacCenters, allRoutingHazards])
+    });
+  }, [userLoc.coords.lat, userLoc.coords.lng, destination, evacCenters, allRoutingHazards]);
 
-  const routes = liveRoutes || initialRoutes
+  const routes = liveRoutes || initialRoutes;
 
   const clearLastActionMessage = useCallback(() => {
-    setLastActionMessage(null)
-  }, [])
+    setLastActionMessage(null);
+  }, []);
 
   return (
     <DisasterContext.Provider
@@ -1270,11 +1319,11 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     >
       {children}
     </DisasterContext.Provider>
-  )
-}
+  );
+};
 
 export function useDisaster() {
-  const ctx = useContext(DisasterContext)
-  if (!ctx) throw new Error('useDisaster must be used within DisasterProvider')
-  return ctx
+  const ctx = useContext(DisasterContext);
+  if (!ctx) throw new Error("useDisaster must be used within DisasterProvider");
+  return ctx;
 }

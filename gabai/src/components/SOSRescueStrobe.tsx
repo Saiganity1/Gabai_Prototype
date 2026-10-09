@@ -1,55 +1,55 @@
-import React, { useState, useEffect } from 'react'
-import { X, Volume2, VolumeX, Shield, Radio } from 'lucide-react'
+import React, { useState, useEffect } from "react";
+import { X, Volume2, VolumeX, Shield, Radio } from "lucide-react";
 
 interface Props {
-  lat: number
-  lng: number
-  locationName: string
-  onClose: () => void
+  lat: number;
+  lng: number;
+  locationName: string;
+  onClose: () => void;
 }
 
 export default function SOSRescueStrobe({ lat, lng, locationName, onClose }: Props) {
-  const [strobeColor, setStrobeColor] = useState<'white' | 'red'>('white')
-  const [isAudioWhistleOn, setIsAudioWhistleOn] = useState(true)
+  const [strobeColor, setStrobeColor] = useState<"white" | "red">("white");
+  const [isAudioWhistleOn, setIsAudioWhistleOn] = useState(true);
 
   // Strobe flashing interval (4Hz)
   useEffect(() => {
     const timer = setInterval(() => {
-      setStrobeColor((prev) => (prev === 'white' ? 'red' : 'white'))
-    }, 250)
-    return () => clearInterval(timer)
-  }, [])
+      setStrobeColor((prev) => (prev === "white" ? "red" : "white"));
+    }, 250);
+    return () => clearInterval(timer);
+  }, []);
 
   // Audio Rescue Whistle Buzzer via Web Audio API
   useEffect(() => {
-    if (!isAudioWhistleOn) return
+    if (!isAudioWhistleOn) return;
 
     try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const osc = audioCtx.createOscillator()
-      const gain = audioCtx.createGain()
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
 
-      osc.type = 'sawtooth'
-      osc.frequency.setValueAtTime(880, audioCtx.currentTime) // High-pitch whistle tone
-      gain.gain.setValueAtTime(0.3, audioCtx.currentTime)
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime); // High-pitch whistle tone
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
 
-      osc.connect(gain)
-      gain.connect(audioCtx.destination)
-      osc.start()
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
 
       return () => {
         try {
-          osc.stop()
-          audioCtx.close()
+          osc.stop();
+          audioCtx.close();
         } catch {}
-      }
+      };
     } catch {}
-  }, [isAudioWhistleOn])
+  }, [isAudioWhistleOn]);
 
   return (
     <div
       className={`fixed inset-0 z-50 transition-colors duration-100 flex flex-col justify-between p-6 select-none ${
-        strobeColor === 'white' ? 'bg-white text-black' : 'bg-red-600 text-white'
+        strobeColor === "white" ? "bg-white text-black" : "bg-red-600 text-white"
       }`}
     >
       {/* Top Header Controls */}
@@ -88,7 +88,9 @@ export default function SOSRescueStrobe({ lat, lng, locationName, onClose }: Pro
           </p>
 
           <div className="mt-6 pt-4 border-t border-white/20 text-xs font-mono text-slate-200">
-            <div>GPS: {lat.toFixed(5)}°N, {lng.toFixed(5)}°E</div>
+            <div>
+              GPS: {lat.toFixed(5)}°N, {lng.toFixed(5)}°E
+            </div>
             <div className="mt-1 font-sans font-bold text-white">{locationName}</div>
           </div>
         </div>
@@ -104,5 +106,5 @@ export default function SOSRescueStrobe({ lat, lng, locationName, onClose }: Pro
         </button>
       </div>
     </div>
-  )
+  );
 }

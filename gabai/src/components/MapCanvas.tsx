@@ -1,114 +1,133 @@
-import { useState, useCallback, useRef, useEffect, useMemo, useImperativeHandle, forwardRef } from 'react'
-import Map, { Source, Layer, Marker, Popup, NavigationControl } from 'react-map-gl/maplibre'
-import * as maplibregl from 'maplibre-gl'
-import 'maplibre-gl/dist/maplibre-gl.css'
-import { UserCoordinates } from '../hooks/useUserLocation'
-import { RouteInfo } from '../utils/routingEngine'
+import {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useMemo,
+  useImperativeHandle,
+  forwardRef,
+} from "react";
+import Map, { Source, Layer, Marker, Popup, NavigationControl } from "react-map-gl/maplibre";
+import * as maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import { UserCoordinates } from "../hooks/useUserLocation";
+import { RouteInfo } from "../utils/routingEngine";
 
 export interface RoadSegment {
-  from: { lat: number; lng: number; name?: string }
-  to: { lat: number; lng: number; name?: string }
-  path?: [number, number][]
-  roadName?: string
+  from: { lat: number; lng: number; name?: string };
+  to: { lat: number; lng: number; name?: string };
+  path?: [number, number][];
+  roadName?: string;
 }
 
-export type PassabilityType = 'all_passable' | 'not_passable_light' | 'not_passable_all'
+export type PassabilityType = "all_passable" | "not_passable_light" | "not_passable_all";
 
 export interface Hazard {
-  id: number | string
-  type: string
-  emoji: string
-  label: string
-  lat: number
-  lng: number
-  severity: 'high' | 'medium' | 'low'
-  confidence: number
-  distance: string
-  reports: number
-  verified: number
-  ago: string
-  status: string
-  isRoadSegment?: boolean
-  roadSegment?: RoadSegment
-  passability?: PassabilityType
-  waterDepth?: string
-  isVerified?: boolean
+  id: number | string;
+  type: string;
+  emoji: string;
+  label: string;
+  lat: number;
+  lng: number;
+  severity: "high" | "medium" | "low";
+  confidence: number;
+  distance: string;
+  reports: number;
+  verified: number;
+  ago: string;
+  status: string;
+  isRoadSegment?: boolean;
+  roadSegment?: RoadSegment;
+  passability?: PassabilityType;
+  waterDepth?: string;
+  isVerified?: boolean;
 }
 
 export interface MapCanvasHandle {
-  flyToUser: () => void
-  flyToCoords: (lat: number, lng: number, zoom?: number) => void
-  set3DMode: (is3D: boolean) => void
-  toggle3D: () => void
-  startNavigationPerspective: (originLat: number, originLng: number, targetBearing?: number) => void
-  exitNavigationPerspective: () => void
+  flyToUser: () => void;
+  flyToCoords: (lat: number, lng: number, zoom?: number) => void;
+  set3DMode: (is3D: boolean) => void;
+  toggle3D: () => void;
+  startNavigationPerspective: (
+    originLat: number,
+    originLng: number,
+    targetBearing?: number,
+  ) => void;
+  exitNavigationPerspective: () => void;
 }
 
 interface Props {
-  darkMode: boolean
-  isSatellite?: boolean
-  selectedHazard: Hazard | null
-  showRoutes: boolean
-  selectedRoute: string | null
-  onHazardClick: (h: Hazard) => void
-  emergencyMode: boolean
-  navPosition?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
-  userLocation?: UserCoordinates
-  hazards?: Hazard[]
-  evacCenters?: Array<{ name: string; lat: number; lng: number; dist?: string; cap?: string; status?: string }>
-  routes?: Record<'safe' | 'balanced' | 'fast', RouteInfo>
-  destination?: { name: string; lat: number; lng: number } | null
-  onMapClick?: (coords: { lat: number; lng: number }) => void
-  flyToTrigger?: number
-  showRadar?: boolean
-  show3DBuildings?: boolean
-  showDangerZones?: boolean
-  showRoadLines?: boolean
-  showEvacCenters?: boolean
-  is3D?: boolean
-  onToggle3D?: () => void
-  isPickingRoadSegment?: 'from' | 'to' | null
-  isPickingPoint?: boolean
-  onResolveHazard?: (h: Hazard) => void
-  onVerifyHazard?: (h: Hazard) => void
-  floodedRouteSegment?: [number, number][] | null
-  pulsingRouteHazard?: { lat: number; lng: number; label: string } | null
+  darkMode: boolean;
+  isSatellite?: boolean;
+  selectedHazard: Hazard | null;
+  showRoutes: boolean;
+  selectedRoute: string | null;
+  onHazardClick: (h: Hazard) => void;
+  emergencyMode: boolean;
+  navPosition?: "top-right" | "top-left" | "bottom-right" | "bottom-left";
+  userLocation?: UserCoordinates;
+  hazards?: Hazard[];
+  evacCenters?: Array<{
+    name: string;
+    lat: number;
+    lng: number;
+    dist?: string;
+    cap?: string;
+    status?: string;
+  }>;
+  routes?: Record<"safe" | "balanced" | "fast", RouteInfo>;
+  destination?: { name: string; lat: number; lng: number } | null;
+  onMapClick?: (coords: { lat: number; lng: number }) => void;
+  flyToTrigger?: number;
+  showRadar?: boolean;
+  show3DBuildings?: boolean;
+  showDangerZones?: boolean;
+  showRoadLines?: boolean;
+  showEvacCenters?: boolean;
+  is3D?: boolean;
+  onToggle3D?: () => void;
+  isPickingRoadSegment?: "from" | "to" | null;
+  isPickingPoint?: boolean;
+  onResolveHazard?: (h: Hazard) => void;
+  onVerifyHazard?: (h: Hazard) => void;
+  floodedRouteSegment?: [number, number][] | null;
+  pulsingRouteHazard?: { lat: number; lng: number; label: string } | null;
 }
 
 const SEVERITY_COLORS: Record<string, string> = {
-  high: '#EF4444',
-  medium: '#F59E0B',
-  low: '#3B82F6',
-}
+  high: "#EF4444",
+  medium: "#F59E0B",
+  low: "#3B82F6",
+};
 
 /**
  * Generates an accurate geographic circle polygon in real meters
  */
 function createGeoCircle(center: [number, number], radiusMeters: number, points = 64) {
-  const [lng, lat] = center
-  const coords: [number, number][] = []
-  const distanceX = radiusMeters / (111320 * Math.cos((lat * Math.PI) / 180))
-  const distanceY = radiusMeters / 110574
+  const [lng, lat] = center;
+  const coords: [number, number][] = [];
+  const distanceX = radiusMeters / (111320 * Math.cos((lat * Math.PI) / 180));
+  const distanceY = radiusMeters / 110574;
 
   for (let i = 0; i <= points; i++) {
-    const theta = (i / points) * (2 * Math.PI)
-    const x = distanceX * Math.cos(theta)
-    const y = distanceY * Math.sin(theta)
-    coords.push([lng + x, lat + y])
+    const theta = (i / points) * (2 * Math.PI);
+    const x = distanceX * Math.cos(theta);
+    const y = distanceY * Math.sin(theta);
+    coords.push([lng + x, lat + y]);
   }
-  coords.push(coords[0])
+  coords.push(coords[0]);
 
   return {
-    type: 'Feature' as const,
+    type: "Feature" as const,
     geometry: {
-      type: 'Polygon' as const,
+      type: "Polygon" as const,
       coordinates: [coords],
     },
     properties: {},
-  }
+  };
 }
 
-const MAPTILER_KEY = 'nTk681BgoYKH6JYBCUgo'
+const MAPTILER_KEY = "nTk681BgoYKH6JYBCUgo";
 
 const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   {
@@ -119,7 +138,7 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     selectedRoute,
     onHazardClick,
     emergencyMode,
-    navPosition = 'top-right',
+    navPosition = "top-right",
     userLocation = { lat: 14.5995, lng: 120.9842, accuracy: 25 },
     hazards = [],
     evacCenters = [],
@@ -141,83 +160,79 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     floodedRouteSegment,
     pulsingRouteHazard,
   },
-  ref
+  ref,
 ) {
-  const mapRef = useRef<any>(null)
-  const initialCentered = useRef(false)
-  const rafRef = useRef<number | null>(null)
+  const mapRef = useRef<any>(null);
+  const initialCentered = useRef(false);
+  const rafRef = useRef<number | null>(null);
 
   const lightStyle: any = {
     version: 8,
     sources: {
-      'maptiler-voyager': {
-        type: 'raster',
-        tiles: [
-          `https://api.maptiler.com/maps/voyager/256/{z}/{x}/{y}@2x.png?key=${MAPTILER_KEY}`,
-        ],
+      "maptiler-voyager": {
+        type: "raster",
+        tiles: [`https://api.maptiler.com/maps/voyager/256/{z}/{x}/{y}@2x.png?key=${MAPTILER_KEY}`],
         tileSize: 256,
-        attribution: '&copy; MapTiler &copy; OpenStreetMap contributors',
+        attribution: "&copy; MapTiler &copy; OpenStreetMap contributors",
       },
     },
     layers: [
       {
-        id: 'maptiler-voyager-layer',
-        type: 'raster',
-        source: 'maptiler-voyager',
+        id: "maptiler-voyager-layer",
+        type: "raster",
+        source: "maptiler-voyager",
         minzoom: 0,
         maxzoom: 22,
       },
     ],
-  }
+  };
 
   const darkStyle: any = {
     version: 8,
     sources: {
-      'maptiler-dark': {
-        type: 'raster',
+      "maptiler-dark": {
+        type: "raster",
         tiles: [
           `https://api.maptiler.com/maps/streets-v2-dark/256/{z}/{x}/{y}@2x.png?key=${MAPTILER_KEY}`,
         ],
         tileSize: 256,
-        attribution: '&copy; MapTiler &copy; OpenStreetMap contributors',
+        attribution: "&copy; MapTiler &copy; OpenStreetMap contributors",
       },
     },
     layers: [
       {
-        id: 'maptiler-dark-layer',
-        type: 'raster',
-        source: 'maptiler-dark',
+        id: "maptiler-dark-layer",
+        type: "raster",
+        source: "maptiler-dark",
         minzoom: 0,
         maxzoom: 22,
       },
     ],
-  }
+  };
 
   const satelliteStyle: any = {
     version: 8,
     sources: {
-      'maptiler-satellite': {
-        type: 'raster',
-        tiles: [
-          `https://api.maptiler.com/maps/hybrid/256/{z}/{x}/{y}@2x.jpg?key=${MAPTILER_KEY}`,
-        ],
+      "maptiler-satellite": {
+        type: "raster",
+        tiles: [`https://api.maptiler.com/maps/hybrid/256/{z}/{x}/{y}@2x.jpg?key=${MAPTILER_KEY}`],
         tileSize: 256,
-        attribution: '&copy; MapTiler &copy; OpenStreetMap contributors',
+        attribution: "&copy; MapTiler &copy; OpenStreetMap contributors",
       },
     },
     layers: [
       {
-        id: 'maptiler-satellite-layer',
-        type: 'raster',
-        source: 'maptiler-satellite',
+        id: "maptiler-satellite-layer",
+        type: "raster",
+        source: "maptiler-satellite",
         minzoom: 0,
         maxzoom: 22,
       },
     ],
-  }
+  };
 
-  const userLat = userLocation?.lat ?? 14.5995
-  const userLng = userLocation?.lng ?? 120.9842
+  const userLat = userLocation?.lat ?? 14.5995;
+  const userLng = userLocation?.lng ?? 120.9842;
 
   const flyToUser = () => {
     if (mapRef.current && userLat && userLng) {
@@ -228,9 +243,9 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         bearing: is3D ? -15 : 0,
         duration: 1200,
         essential: true,
-      })
+      });
     }
-  }
+  };
 
   useImperativeHandle(ref, () => ({
     flyToUser,
@@ -241,23 +256,23 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         pitch: is3D ? 60 : 0,
         duration: 1200,
         essential: true,
-      })
+      });
     },
     set3DMode: (threeD: boolean) => {
       mapRef.current?.easeTo({
         pitch: threeD ? 60 : 0,
         bearing: threeD ? -15 : 0,
         duration: 600,
-      })
+      });
     },
     toggle3D: () => {
-      const currentPitch = mapRef.current?.getPitch() || 0
-      const nextPitch = currentPitch > 20 ? 0 : 60
+      const currentPitch = mapRef.current?.getPitch() || 0;
+      const nextPitch = currentPitch > 20 ? 0 : 60;
       mapRef.current?.easeTo({
         pitch: nextPitch,
         bearing: nextPitch > 0 ? -15 : 0,
         duration: 600,
-      })
+      });
     },
     startNavigationPerspective: (originLat: number, originLng: number, targetBearing = -15) => {
       mapRef.current?.flyTo({
@@ -267,7 +282,7 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         bearing: targetBearing,
         duration: 1800,
         essential: true,
-      })
+      });
     },
     exitNavigationPerspective: () => {
       mapRef.current?.flyTo({
@@ -276,36 +291,35 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         bearing: 0,
         duration: 1200,
         essential: true,
-      })
+      });
     },
-  }))
+  }));
 
   useEffect(() => {
     if (!initialCentered.current && userLat && userLng) {
       if (userLat !== 14.5995 || userLng !== 120.9842) {
-        initialCentered.current = true
-        flyToUser()
+        initialCentered.current = true;
+        flyToUser();
       }
     }
-  }, [userLat, userLng])
+  }, [userLat, userLng]);
 
   useEffect(() => {
     if (flyToTrigger && flyToTrigger > 0) {
-      flyToUser()
+      flyToUser();
     }
-  }, [flyToTrigger])
+  }, [flyToTrigger]);
 
   // Geodesic Danger Zones for standard point hazards
   const hazardZonesGeoJSON = useMemo(() => {
     return {
-      type: 'FeatureCollection' as const,
+      type: "FeatureCollection" as const,
       features: hazards
-        .filter((h) => !h.isRoadSegment && h.status !== 'Resolved')
+        .filter((h) => !h.isRoadSegment && h.status !== "Resolved")
         .map((h) => {
-          const radius =
-            h.severity === 'high' ? 200 : h.severity === 'medium' ? 120 : 60
-          const color = SEVERITY_COLORS[h.severity] || '#EF4444'
-          const feat = createGeoCircle([h.lng, h.lat], radius)
+          const radius = h.severity === "high" ? 200 : h.severity === "medium" ? 120 : 60;
+          const color = SEVERITY_COLORS[h.severity] || "#EF4444";
+          const feat = createGeoCircle([h.lng, h.lat], radius);
           return {
             ...feat,
             properties: {
@@ -314,26 +328,26 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
               color,
               isSelected: selectedHazard?.id === h.id,
             },
-          }
+          };
         }),
-    }
-  }, [hazards, selectedHazard])
+    };
+  }, [hazards, selectedHazard]);
 
-// Interpolate points between two coordinates for smooth 3D line rendering
-function interpolateSegment(
-  from: [number, number],
-  to: [number, number],
-  steps = 25
-): [number, number][] {
-  const result: [number, number][] = []
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps
-    const lng = from[0] + (to[0] - from[0]) * t
-    const lat = from[1] + (to[1] - from[1]) * t
-    result.push([lng, lat])
+  // Interpolate points between two coordinates for smooth 3D line rendering
+  function interpolateSegment(
+    from: [number, number],
+    to: [number, number],
+    steps = 25,
+  ): [number, number][] {
+    const result: [number, number][] = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const lng = from[0] + (to[0] - from[0]) * t;
+      const lat = from[1] + (to[1] - from[1]) * t;
+      result.push([lng, lat]);
+    }
+    return result;
   }
-  return result
-}
 
   // ── Unified Hardware-Accelerated Road Flood Lines ──
   const roadFloodLinesGeoJSON = useMemo(() => {
@@ -343,36 +357,36 @@ function interpolateSegment(
         h.roadSegment &&
         h.roadSegment.from &&
         h.roadSegment.to &&
-        typeof h.roadSegment.from.lng === 'number' &&
-        typeof h.roadSegment.from.lat === 'number' &&
-        typeof h.roadSegment.to.lng === 'number' &&
-        h.status !== 'Resolved' &&
-        h.status !== 'Rejected by LGU' &&
-        !h.status?.toLowerCase().includes('resolve') &&
-        !h.status?.toLowerCase().includes('reject')
-    )
+        typeof h.roadSegment.from.lng === "number" &&
+        typeof h.roadSegment.from.lat === "number" &&
+        typeof h.roadSegment.to.lng === "number" &&
+        h.status !== "Resolved" &&
+        h.status !== "Rejected by LGU" &&
+        !h.status?.toLowerCase().includes("resolve") &&
+        !h.status?.toLowerCase().includes("reject"),
+    );
 
     return {
-      type: 'FeatureCollection' as const,
+      type: "FeatureCollection" as const,
       features: list.map((h) => {
-        const seg = h.roadSegment!
+        const seg = h.roadSegment!;
         const isVerified = Boolean(
           (h.verified && h.verified > 0) ||
-            h.isVerified ||
-            h.status === 'Verified' ||
-            h.status?.includes('Verified')
-        )
-        const color = isVerified ? '#2563EB' : '#F97316'
+          h.isVerified ||
+          h.status === "Verified" ||
+          h.status?.includes("Verified"),
+        );
+        const color = isVerified ? "#2563EB" : "#F97316";
 
         const coords =
           seg.path && seg.path.length > 1
             ? seg.path
-            : interpolateSegment([seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat], 25)
+            : interpolateSegment([seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat], 25);
 
         return {
-          type: 'Feature' as const,
+          type: "Feature" as const,
           geometry: {
-            type: 'LineString' as const,
+            type: "LineString" as const,
             coordinates: coords,
           },
           properties: {
@@ -381,62 +395,60 @@ function interpolateSegment(
             isVerified,
             isSelected: selectedHazard?.id === h.id,
           },
-        }
+        };
       }),
-    }
-  }, [hazards, selectedHazard])
+    };
+  }, [hazards, selectedHazard]);
 
   // Accurate User GPS Accuracy Perimeter
   const userAccuracyGeoJSON = useMemo(() => {
-    const radius = Math.min(Math.max(userLocation.accuracy || 35, 20), 80)
-    return createGeoCircle([userLng, userLat], radius)
-  }, [userLng, userLat, userLocation.accuracy])
+    const radius = Math.min(Math.max(userLocation.accuracy || 35, 20), 80);
+    return createGeoCircle([userLng, userLat], radius);
+  }, [userLng, userLat, userLocation.accuracy]);
 
   // Doppler Weather Radar Simulated Storm Cell Polygons
   const radarPrecipitationGeoJSON = useMemo(() => {
-    if (!showRadar) return null
+    if (!showRadar) return null;
     return {
-      type: 'FeatureCollection' as const,
+      type: "FeatureCollection" as const,
       features: [
         {
           ...createGeoCircle([userLng - 0.018, userLat + 0.015], 1800),
-          properties: { color: '#EF4444', intensity: 'Heavy Precipitation (35mm/hr)' },
+          properties: { color: "#EF4444", intensity: "Heavy Precipitation (35mm/hr)" },
         },
         {
           ...createGeoCircle([userLng + 0.022, userLat - 0.012], 2400),
-          properties: { color: '#F59E0B', intensity: 'Moderate Rain (15mm/hr)' },
+          properties: { color: "#F59E0B", intensity: "Moderate Rain (15mm/hr)" },
         },
         {
           ...createGeoCircle([userLng, userLat], 3200),
-          properties: { color: '#10B981', intensity: 'Scattered Showers' },
+          properties: { color: "#10B981", intensity: "Scattered Showers" },
         },
       ],
-    }
-  }, [showRadar, userLng, userLat])
-
-
+    };
+  }, [showRadar, userLng, userLat]);
 
   const [screenLines, setScreenLines] = useState<
     Array<{
-      id: string | number
-      points: string
-      color: string
+      id: string | number;
+      points: string;
+      color: string;
     }>
-  >([])
+  >([]);
 
   const [screenRouteLine, setScreenRouteLine] = useState<{
-    points: string
-    color: string
-  } | null>(null)
+    points: string;
+    color: string;
+  } | null>(null);
 
   const updateScreenLines = useCallback(() => {
     if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current)
+      cancelAnimationFrame(rafRef.current);
     }
     rafRef.current = requestAnimationFrame(() => {
-      if (!mapRef.current) return
-      const map = mapRef.current.getMap ? mapRef.current.getMap() : mapRef.current
-      if (!map || typeof map.project !== 'function') return
+      if (!mapRef.current) return;
+      const map = mapRef.current.getMap ? mapRef.current.getMap() : mapRef.current;
+      if (!map || typeof map.project !== "function") return;
 
       // 1. Synchronize Road Flood Lines
       if (showRoadLines) {
@@ -446,84 +458,85 @@ function interpolateSegment(
             h.roadSegment &&
             h.roadSegment.from &&
             h.roadSegment.to &&
-            typeof h.roadSegment.from.lng === 'number' &&
-            typeof h.roadSegment.from.lat === 'number' &&
-            typeof h.roadSegment.to.lng === 'number' &&
-            typeof h.roadSegment.to.lat === 'number' &&
-            h.status !== 'Resolved'
-        )
+            typeof h.roadSegment.from.lng === "number" &&
+            typeof h.roadSegment.from.lat === "number" &&
+            typeof h.roadSegment.to.lng === "number" &&
+            typeof h.roadSegment.to.lat === "number" &&
+            h.status !== "Resolved",
+        );
 
         const lines = roadHazards
           .map((h) => {
-            const seg = h.roadSegment!
+            const seg = h.roadSegment!;
             const isVerified = Boolean(
               (h.verified && h.verified > 0) ||
-                h.isVerified ||
-                h.status === 'Verified' ||
-                h.status?.includes('Verified')
-            )
-            const color = isVerified ? '#2563EB' : '#F97316'
+              h.isVerified ||
+              h.status === "Verified" ||
+              h.status?.includes("Verified"),
+            );
+            const color = isVerified ? "#2563EB" : "#F97316";
 
             const rawCoords: [number, number][] =
               seg.path && seg.path.length > 1
                 ? seg.path
-                : interpolateSegment([seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat], 25)
+                : interpolateSegment([seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat], 25);
 
             try {
               const projected = rawCoords.map(([lng, lat]) => {
-                const p = map.project([lng, lat])
-                return `${p.x.toFixed(1)},${p.y.toFixed(1)}`
-              })
+                const p = map.project([lng, lat]);
+                return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+              });
               return {
                 id: h.id,
-                points: projected.join(' '),
+                points: projected.join(" "),
                 color,
-              }
+              };
             } catch {
-              return null
+              return null;
             }
           })
           .filter(Boolean) as Array<{
-          id: string | number
-          points: string
-          color: string
-        }>
+          id: string | number;
+          points: string;
+          color: string;
+        }>;
 
-        setScreenLines(lines)
+        setScreenLines(lines);
       } else {
-        setScreenLines((prev) => (prev.length > 0 ? [] : prev))
+        setScreenLines((prev) => (prev.length > 0 ? [] : prev));
       }
 
       // 2. Synchronize Active Driving / Safe Navigation Route Line
       if (showRoutes && routes) {
-        const activeKey = (selectedRoute || 'safe') as 'safe' | 'balanced' | 'fast'
-        const activeRoute = routes[activeKey]
-        const coords = activeRoute?.geoJSON?.geometry?.coordinates
-        if (Array.isArray(coords) && coords.length > 1) {
+        const activeKey = (selectedRoute || "safe") as "safe" | "balanced" | "fast";
+        const activeRoute = routes[activeKey];
+        const coords = activeRoute?.geoJSON?.geometry?.coordinates;
+        if (Array.isArray(coords) && coords.length > 4) {
           try {
             const projected = coords.map(([lng, lat]: [number, number]) => {
-              const p = map.project([lng, lat])
-              return `${p.x.toFixed(1)},${p.y.toFixed(1)}`
-            })
+              const p = map.project([lng, lat]);
+              return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+            });
             setScreenRouteLine({
-              points: projected.join(' '),
-              color: activeKey === 'fast' ? '#EF4444' : activeKey === 'balanced' ? '#F59E0B' : '#10B981',
-            })
+              points: projected.join(" "),
+              color:
+                activeKey === "fast" ? "#EF4444" : activeKey === "balanced" ? "#F59E0B" : "#10B981",
+            });
           } catch {
-            setScreenRouteLine(null)
+            setScreenRouteLine(null);
           }
         } else {
-          setScreenRouteLine(null)
+          setScreenRouteLine(null);
         }
       } else {
-        setScreenRouteLine(null)
+        setScreenRouteLine(null);
       }
-    })
-  }, [hazards, showRoadLines, showRoutes, routes, selectedRoute])
+    });
+  }, [hazards, showRoadLines, showRoutes, routes, selectedRoute]);
 
   useEffect(() => {
-    updateScreenLines()
-  }, [hazards, showRoadLines, showRoutes, routes, selectedRoute, updateScreenLines])
+    updateScreenLines();
+  }, [hazards, showRoadLines, showRoutes, routes, selectedRoute, updateScreenLines]);
 
   return (
     <div className="relative w-full h-full overflow-hidden">
@@ -636,9 +649,12 @@ function interpolateSegment(
           pitch: is3D ? 60 : 0,
           bearing: is3D ? -15 : 0,
         }}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: "100%", height: "100%" }}
         mapStyle={isSatellite ? satelliteStyle : darkMode ? darkStyle : lightStyle}
-        maxBounds={[[114.0, 4.0], [127.0, 22.0]]}
+        maxBounds={[
+          [114.0, 4.0],
+          [127.0, 22.0],
+        ]}
         minZoom={5}
         onMove={updateScreenLines}
         onMoveEnd={updateScreenLines}
@@ -647,665 +663,695 @@ function interpolateSegment(
         onRotateEnd={updateScreenLines}
         onLoad={updateScreenLines}
         onClick={(e) => {
-          if (!e.lngLat) return
+          if (!e.lngLat) return;
           if (onMapClick) {
-            onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng })
+            onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng });
           }
           if (isPickingPoint || isPickingRoadSegment) {
-            return
+            return;
           }
           const hit = hazards.find((h) => {
-            if (!h.isRoadSegment || !h.roadSegment) return false
-            const seg = h.roadSegment
+            if (!h.isRoadSegment || !h.roadSegment) return false;
+            const seg = h.roadSegment;
             const coords =
               seg.path && seg.path.length > 1
                 ? seg.path
-                : [[seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat]]
+                : [
+                    [seg.from.lng, seg.from.lat],
+                    [seg.to.lng, seg.to.lat],
+                  ];
 
             return coords.some(([lng, lat]) => {
-              const dist = Math.hypot(e.lngLat.lat - lat, e.lngLat.lng - lng)
-              return dist < 0.0015
-            })
-          })
+              const dist = Math.hypot(e.lngLat.lat - lat, e.lngLat.lng - lng);
+              return dist < 0.0015;
+            });
+          });
           if (hit) {
-            onHazardClick(hit)
+            onHazardClick(hit);
           } else {
-            onHazardClick(null as any)
+            onHazardClick(null as any);
           }
         }}
       >
-      {/* ── True 3D Extruded Buildings Vector Layer (Active only in 3D Mode) ── */}
-      {show3DBuildings && is3D && (
-        <Source
-          id="maptiler-buildings-source"
-          type="vector"
-          tiles={[`https://api.maptiler.com/tiles/v3/{z}/{x}/{y}.pbf?key=${MAPTILER_KEY}`]}
-          minzoom={13}
-        >
-          <Layer
-            id="3d-buildings-extrusion"
-            source-layer="building"
-            type="fill-extrusion"
+        {/* ── True 3D Extruded Buildings Vector Layer (Active only in 3D Mode) ── */}
+        {show3DBuildings && is3D && (
+          <Source
+            id="maptiler-buildings-source"
+            type="vector"
+            tiles={[`https://api.maptiler.com/tiles/v3/{z}/{x}/{y}.pbf?key=${MAPTILER_KEY}`]}
             minzoom={13}
-            paint={{
-              'fill-extrusion-color': darkMode ? '#334155' : '#cbd5e1',
-              'fill-extrusion-height': [
-                'case',
-                ['has', 'render_height'],
-                ['get', 'render_height'],
-                ['has', 'height'],
-                ['get', 'height'],
-                ['has', 'levels'],
-                ['*', ['get', 'levels'], 3.8],
-                18,
-              ],
-              'fill-extrusion-base': [
-                'case',
-                ['has', 'render_min_height'],
-                ['get', 'render_min_height'],
-                0,
-              ],
-              'fill-extrusion-opacity': 0.85,
-            }}
-          />
-        </Source>
-      )}
-
-      {/* ── Doppler Weather Radar Layer ── */}
-      {showRadar && radarPrecipitationGeoJSON && (
-        <Source id="weather-radar-source" type="geojson" data={radarPrecipitationGeoJSON}>
-          <Layer
-            id="weather-radar-fill"
-            type="fill"
-            paint={{
-              'fill-color': ['get', 'color'],
-              'fill-opacity': 0.28,
-            }}
-          />
-          <Layer
-            id="weather-radar-outline"
-            type="line"
-            paint={{
-              'line-color': ['get', 'color'],
-              'line-width': 1.5,
-              'line-opacity': 0.7,
-              'line-dasharray': [3, 2],
-            }}
-          />
-        </Source>
-      )}
-
-      {/* ── Geographically Accurate Danger Zones ── */}
-      {showDangerZones && (
-        <Source id="hazard-zones-source" type="geojson" data={hazardZonesGeoJSON}>
-          <Layer
-            id="hazard-zones-fill"
-            type="fill"
-            paint={{
-              'fill-color': ['get', 'color'],
-              'fill-opacity': ['case', ['get', 'isSelected'], 0.35, 0.16],
-            }}
-          />
-          <Layer
-            id="hazard-zones-line"
-            type="line"
-            paint={{
-              'line-color': ['get', 'color'],
-              'line-width': ['case', ['get', 'isSelected'], 3, 1.5],
-              'line-opacity': 0.85,
-            }}
-          />
-        </Source>
-      )}
-
-      {/* ── Unified GPU-Accelerated Road Flood Vector Line Layer (100% Locked to Road) ── */}
-      {showRoadLines && (
-        <Source id="road-flood-vector-source" type="geojson" data={roadFloodLinesGeoJSON}>
-          {/* 1. Outer Soft Glow Base (Orange unverified) */}
-          <Layer
-            id="road-flood-orange-glow"
-            type="line"
-            filter={['!=', ['get', 'isVerified'], true]}
-            layout={{
-              'line-cap': 'round',
-              'line-join': 'round',
-            }}
-            paint={{
-              'line-color': '#F97316',
-              'line-width': ['case', ['get', 'isSelected'], 22, 16],
-              'line-blur': 2,
-              'line-opacity': 0.5,
-            }}
-          />
-          {/* 2. Dark Outline (Orange) */}
-          <Layer
-            id="road-flood-orange-outline"
-            type="line"
-            filter={['!=', ['get', 'isVerified'], true]}
-            layout={{
-              'line-cap': 'round',
-              'line-join': 'round',
-            }}
-            paint={{
-              'line-color': '#0F172A',
-              'line-width': ['case', ['get', 'isSelected'], 11, 8.5],
-              'line-opacity': 0.85,
-            }}
-          />
-          {/* 3. Solid Vibrant Core (Orange) */}
-          <Layer
-            id="road-flood-orange-core"
-            type="line"
-            filter={['!=', ['get', 'isVerified'], true]}
-            layout={{
-              'line-cap': 'round',
-              'line-join': 'round',
-            }}
-            paint={{
-              'line-color': '#F97316',
-              'line-width': ['case', ['get', 'isSelected'], 8, 6],
-              'line-opacity': 1.0,
-            }}
-          />
-          {/* 4. Center Dashed Striping (Orange) */}
-          <Layer
-            id="road-flood-orange-stripe"
-            type="line"
-            filter={['!=', ['get', 'isVerified'], true]}
-            layout={{
-              'line-cap': 'round',
-              'line-join': 'round',
-            }}
-            paint={{
-              'line-color': '#FFFFFF',
-              'line-width': 2,
-              'line-dasharray': [2, 2.5],
-              'line-opacity': 0.95,
-            }}
-          />
-
-          {/* 5. Outer Soft Glow Base (Blue verified) */}
-          <Layer
-            id="road-flood-blue-glow"
-            type="line"
-            filter={['==', ['get', 'isVerified'], true]}
-            layout={{
-              'line-cap': 'round',
-              'line-join': 'round',
-            }}
-            paint={{
-              'line-color': '#2563EB',
-              'line-width': ['case', ['get', 'isSelected'], 22, 16],
-              'line-blur': 2,
-              'line-opacity': 0.55,
-            }}
-          />
-          {/* 6. Dark Outline (Blue) */}
-          <Layer
-            id="road-flood-blue-outline"
-            type="line"
-            filter={['==', ['get', 'isVerified'], true]}
-            layout={{
-              'line-cap': 'round',
-              'line-join': 'round',
-            }}
-            paint={{
-              'line-color': '#0F172A',
-              'line-width': ['case', ['get', 'isSelected'], 11, 8.5],
-              'line-opacity': 0.85,
-            }}
-          />
-          {/* 7. Solid Vibrant Core (Blue) */}
-          <Layer
-            id="road-flood-blue-core"
-            type="line"
-            filter={['==', ['get', 'isVerified'], true]}
-            layout={{
-              'line-cap': 'round',
-              'line-join': 'round',
-            }}
-            paint={{
-              'line-color': '#2563EB',
-              'line-width': ['case', ['get', 'isSelected'], 8, 6],
-              'line-opacity': 1.0,
-            }}
-          />
-          {/* 8. Center Dashed Striping (Blue) */}
-          <Layer
-            id="road-flood-blue-stripe"
-            type="line"
-            filter={['==', ['get', 'isVerified'], true]}
-            layout={{
-              'line-cap': 'round',
-              'line-join': 'round',
-            }}
-            paint={{
-              'line-color': '#FFFFFF',
-              'line-width': 2,
-              'line-dasharray': [2, 2.5],
-              'line-opacity': 0.95,
-            }}
-          />
-        </Source>
-      )}
-
-      {/* ── Accurate User GPS Accuracy Circle ── */}
-      <Source id="user-accuracy-source" type="geojson" data={userAccuracyGeoJSON}>
-        <Layer
-          id="user-accuracy-fill"
-          type="fill"
-          paint={{
-            'fill-color': '#06B6D4',
-            'fill-opacity': 0.12,
-          }}
-        />
-        <Layer
-          id="user-accuracy-line"
-          type="line"
-          paint={{
-            'line-color': '#06B6D4',
-            'line-width': 1.5,
-            'line-opacity': 0.6,
-          }}
-        />
-      </Source>
-
-      {/* User GPS Live Beacon Marker */}
-      <Marker longitude={userLng} latitude={userLat} anchor="center">
-        <div className="relative flex items-center justify-center pointer-events-none">
-          <div className="absolute w-8 h-8 rounded-full bg-cyan-500/30 animate-ping" />
-          <div className="absolute w-6 h-6 rounded-full bg-cyan-400/40 animate-pulse" />
-          <div className="relative w-4 h-4 bg-cyan-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-            <div className="w-1.5 h-1.5 bg-white rounded-full" />
-          </div>
-        </div>
-      </Marker>
-
-      {/* Dynamic Route Overlays (High-Contrast WebGL Layers) */}
-      {showRoutes && routes && (
-        <>
-          {/* Only render fast direct route on map if it does not intersect high-risk flood hazards */}
-          {routes.fast.risk !== 'high' && (
-            <Source id="route-fast" type="geojson" data={routes.fast.geoJSON}>
-              <Layer
-                type="line"
-                layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-                paint={{
-                  'line-color': '#EF4444',
-                  'line-width': selectedRoute === 'fast' ? 8 : 3.5,
-                  'line-opacity': selectedRoute === 'fast' ? 1.0 : 0.25,
-                }}
-              />
-            </Source>
-          )}
-          <Source id="route-safe" type="geojson" data={routes.safe.geoJSON}>
-            {/* Safe Route Ambient Glow */}
+          >
             <Layer
-              id="route-safe-glow"
-              type="line"
-              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              id="3d-buildings-extrusion"
+              source-layer="building"
+              type="fill-extrusion"
+              minzoom={13}
               paint={{
-                'line-color': '#10B981',
-                'line-width': selectedRoute === 'safe' ? 22 : 6,
-                'line-opacity': selectedRoute === 'safe' ? 0.5 : 0.15,
-                'line-blur': 3,
-              }}
-            />
-            {/* Safe Route Dark Contrast Edge */}
-            <Layer
-              id="route-safe-edge"
-              type="line"
-              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-              paint={{
-                'line-color': '#064E3B',
-                'line-width': selectedRoute === 'safe' ? 11 : 5,
-                'line-opacity': selectedRoute === 'safe' ? 0.9 : 0.2,
-              }}
-            />
-            {/* Safe Route Vibrant Core */}
-            <Layer
-              id="route-safe-core"
-              type="line"
-              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-              paint={{
-                'line-color': '#10B981',
-                'line-width': selectedRoute === 'safe' ? 7 : 3.5,
-                'line-opacity': selectedRoute === 'safe' ? 1.0 : 0.4,
-              }}
-            />
-            {/* Safe Route White Moving Waypoint Dashes */}
-            <Layer
-              id="route-safe-stripe"
-              type="line"
-              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-              paint={{
-                'line-color': '#FFFFFF',
-                'line-width': 2.2,
-                'line-dasharray': [3, 3],
-                'line-opacity': selectedRoute === 'safe' ? 0.95 : 0,
+                "fill-extrusion-color": darkMode ? "#334155" : "#cbd5e1",
+                "fill-extrusion-height": [
+                  "case",
+                  ["has", "render_height"],
+                  ["get", "render_height"],
+                  ["has", "height"],
+                  ["get", "height"],
+                  ["has", "levels"],
+                  ["*", ["get", "levels"], 3.8],
+                  18,
+                ],
+                "fill-extrusion-base": [
+                  "case",
+                  ["has", "render_min_height"],
+                  ["get", "render_min_height"],
+                  0,
+                ],
+                "fill-extrusion-opacity": 0.85,
               }}
             />
           </Source>
-        </>
-      )}
+        )}
 
-      {/* ── Flooded Segment On User Route (Marked High-Visibility Red) ── */}
-      {floodedRouteSegment && floodedRouteSegment.length > 1 && (
-        <Source
-          id="route-hazard-flooded-segment"
-          type="geojson"
-          data={{
-            type: 'Feature',
-            geometry: {
-              type: 'LineString',
-              coordinates: floodedRouteSegment,
-            },
-            properties: {},
-          }}
-        >
+        {/* ── Doppler Weather Radar Layer ── */}
+        {showRadar && radarPrecipitationGeoJSON && (
+          <Source id="weather-radar-source" type="geojson" data={radarPrecipitationGeoJSON}>
+            <Layer
+              id="weather-radar-fill"
+              type="fill"
+              paint={{
+                "fill-color": ["get", "color"],
+                "fill-opacity": 0.28,
+              }}
+            />
+            <Layer
+              id="weather-radar-outline"
+              type="line"
+              paint={{
+                "line-color": ["get", "color"],
+                "line-width": 1.5,
+                "line-opacity": 0.7,
+                "line-dasharray": [3, 2],
+              }}
+            />
+          </Source>
+        )}
+
+        {/* ── Geographically Accurate Danger Zones ── */}
+        {showDangerZones && (
+          <Source id="hazard-zones-source" type="geojson" data={hazardZonesGeoJSON}>
+            <Layer
+              id="hazard-zones-fill"
+              type="fill"
+              paint={{
+                "fill-color": ["get", "color"],
+                "fill-opacity": ["case", ["get", "isSelected"], 0.35, 0.16],
+              }}
+            />
+            <Layer
+              id="hazard-zones-line"
+              type="line"
+              paint={{
+                "line-color": ["get", "color"],
+                "line-width": ["case", ["get", "isSelected"], 3, 1.5],
+                "line-opacity": 0.85,
+              }}
+            />
+          </Source>
+        )}
+
+        {/* ── Unified GPU-Accelerated Road Flood Vector Line Layer (100% Locked to Road) ── */}
+        {showRoadLines && (
+          <Source id="road-flood-vector-source" type="geojson" data={roadFloodLinesGeoJSON}>
+            {/* 1. Outer Soft Glow Base (Orange unverified) */}
+            <Layer
+              id="road-flood-orange-glow"
+              type="line"
+              filter={["!=", ["get", "isVerified"], true]}
+              layout={{
+                "line-cap": "round",
+                "line-join": "round",
+              }}
+              paint={{
+                "line-color": "#F97316",
+                "line-width": ["case", ["get", "isSelected"], 22, 16],
+                "line-blur": 2,
+                "line-opacity": 0.5,
+              }}
+            />
+            {/* 2. Dark Outline (Orange) */}
+            <Layer
+              id="road-flood-orange-outline"
+              type="line"
+              filter={["!=", ["get", "isVerified"], true]}
+              layout={{
+                "line-cap": "round",
+                "line-join": "round",
+              }}
+              paint={{
+                "line-color": "#0F172A",
+                "line-width": ["case", ["get", "isSelected"], 11, 8.5],
+                "line-opacity": 0.85,
+              }}
+            />
+            {/* 3. Solid Vibrant Core (Orange) */}
+            <Layer
+              id="road-flood-orange-core"
+              type="line"
+              filter={["!=", ["get", "isVerified"], true]}
+              layout={{
+                "line-cap": "round",
+                "line-join": "round",
+              }}
+              paint={{
+                "line-color": "#F97316",
+                "line-width": ["case", ["get", "isSelected"], 8, 6],
+                "line-opacity": 1.0,
+              }}
+            />
+            {/* 4. Center Dashed Striping (Orange) */}
+            <Layer
+              id="road-flood-orange-stripe"
+              type="line"
+              filter={["!=", ["get", "isVerified"], true]}
+              layout={{
+                "line-cap": "round",
+                "line-join": "round",
+              }}
+              paint={{
+                "line-color": "#FFFFFF",
+                "line-width": 2,
+                "line-dasharray": [2, 2.5],
+                "line-opacity": 0.95,
+              }}
+            />
+
+            {/* 5. Outer Soft Glow Base (Blue verified) */}
+            <Layer
+              id="road-flood-blue-glow"
+              type="line"
+              filter={["==", ["get", "isVerified"], true]}
+              layout={{
+                "line-cap": "round",
+                "line-join": "round",
+              }}
+              paint={{
+                "line-color": "#2563EB",
+                "line-width": ["case", ["get", "isSelected"], 22, 16],
+                "line-blur": 2,
+                "line-opacity": 0.55,
+              }}
+            />
+            {/* 6. Dark Outline (Blue) */}
+            <Layer
+              id="road-flood-blue-outline"
+              type="line"
+              filter={["==", ["get", "isVerified"], true]}
+              layout={{
+                "line-cap": "round",
+                "line-join": "round",
+              }}
+              paint={{
+                "line-color": "#0F172A",
+                "line-width": ["case", ["get", "isSelected"], 11, 8.5],
+                "line-opacity": 0.85,
+              }}
+            />
+            {/* 7. Solid Vibrant Core (Blue) */}
+            <Layer
+              id="road-flood-blue-core"
+              type="line"
+              filter={["==", ["get", "isVerified"], true]}
+              layout={{
+                "line-cap": "round",
+                "line-join": "round",
+              }}
+              paint={{
+                "line-color": "#2563EB",
+                "line-width": ["case", ["get", "isSelected"], 8, 6],
+                "line-opacity": 1.0,
+              }}
+            />
+            {/* 8. Center Dashed Striping (Blue) */}
+            <Layer
+              id="road-flood-blue-stripe"
+              type="line"
+              filter={["==", ["get", "isVerified"], true]}
+              layout={{
+                "line-cap": "round",
+                "line-join": "round",
+              }}
+              paint={{
+                "line-color": "#FFFFFF",
+                "line-width": 2,
+                "line-dasharray": [2, 2.5],
+                "line-opacity": 0.95,
+              }}
+            />
+          </Source>
+        )}
+
+        {/* ── Accurate User GPS Accuracy Circle ── */}
+        <Source id="user-accuracy-source" type="geojson" data={userAccuracyGeoJSON}>
           <Layer
-            id="route-hazard-flooded-glow"
-            type="line"
-            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            id="user-accuracy-fill"
+            type="fill"
             paint={{
-              'line-color': '#EF4444',
-              'line-width': 22,
-              'line-opacity': 0.6,
-              'line-blur': 4,
+              "fill-color": "#06B6D4",
+              "fill-opacity": 0.12,
             }}
           />
           <Layer
-            id="route-hazard-flooded-edge"
+            id="user-accuracy-line"
             type="line"
-            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{
-              'line-color': '#7F1D1D',
-              'line-width': 12,
-              'line-opacity': 0.95,
-            }}
-          />
-          <Layer
-            id="route-hazard-flooded-core"
-            type="line"
-            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{
-              'line-color': '#DC2626',
-              'line-width': 8,
-              'line-opacity': 1.0,
-            }}
-          />
-          <Layer
-            id="route-hazard-flooded-stripe"
-            type="line"
-            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{
-              'line-color': '#FFFFFF',
-              'line-width': 2.5,
-              'line-dasharray': [2, 2],
-              'line-opacity': 0.95,
+              "line-color": "#06B6D4",
+              "line-width": 1.5,
+              "line-opacity": 0.6,
             }}
           />
         </Source>
-      )}
 
-      {/* ── Pulsing Marker When Hazard is Directly On User's Route ── */}
-      {pulsingRouteHazard && (
-        <Marker longitude={pulsingRouteHazard.lng} latitude={pulsingRouteHazard.lat} anchor="center">
-          <div className="relative flex items-center justify-center pointer-events-none z-40">
-            <div className="absolute w-14 h-14 rounded-full bg-red-600/40 animate-ping" />
-            <div className="absolute w-9 h-9 rounded-full bg-red-500/60 animate-pulse" />
-            <div className="relative w-8 h-8 rounded-full bg-red-600 border-2 border-white shadow-2xl flex items-center justify-center text-white text-xs font-black">
-              🌊
+        {/* User GPS Live Beacon Marker */}
+        <Marker longitude={userLng} latitude={userLat} anchor="center">
+          <div className="relative flex items-center justify-center pointer-events-none">
+            <div className="absolute w-8 h-8 rounded-full bg-cyan-500/30 animate-ping" />
+            <div className="absolute w-6 h-6 rounded-full bg-cyan-400/40 animate-pulse" />
+            <div className="relative w-4 h-4 bg-cyan-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
+              <div className="w-1.5 h-1.5 bg-white rounded-full" />
             </div>
-            {pulsingRouteHazard.label && (
-              <div className="absolute -bottom-6 whitespace-nowrap bg-red-600 text-white font-extrabold text-[9px] px-2 py-0.5 rounded-full border border-white/40 shadow-lg">
-                ⚠️ {pulsingRouteHazard.label}
-              </div>
-            )}
           </div>
         </Marker>
-      )}
 
-      {/* ── Active Target Destination Pin ── */}
-      {destination && (
-        <Marker longitude={destination.lng} latitude={destination.lat} anchor="bottom">
-          <div className="relative flex flex-col items-center pointer-events-none z-30 anim-bounce-short">
-            <div className="bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1 rounded-full shadow-xl border border-white/30 whitespace-nowrap mb-1 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{destination.name}</span>
-            </div>
-            <div className="w-9 h-9 rounded-full bg-emerald-600 border-2 border-white shadow-2xl flex items-center justify-center text-white text-base">
-              🏁
-            </div>
-            <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[6px] border-t-emerald-600 -mt-0.5" />
-          </div>
-        </Marker>
-      )}
-
-      {/* ── Road Flood Endpoint & Center Badges (Visible ONLY When Line is Tapped / Selected) ── */}
-      {!isPickingPoint && !isPickingRoadSegment && hazards
-        .filter((h) => h.isRoadSegment && h.roadSegment && h.status !== 'Resolved' && selectedHazard?.id === h.id)
-        .map((h) => {
-          const seg = h.roadSegment!
-          const isVerified = Boolean((h.verified && h.verified > 0) || h.isVerified || h.status === 'Verified' || h.status?.includes('Verified'))
-          const color = isVerified ? '#2563EB' : '#F97316'
-
-          const midLat = (seg.from.lat + seg.to.lat) / 2
-          const midLng = (seg.from.lng + seg.to.lng) / 2
-
-          return (
-            <div key={`road-flood-markers-${h.id}`}>
-              {/* Center Floating Passability Badge (Appears only on tap) */}
-              <Marker longitude={midLng} latitude={midLat} anchor="center">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onHazardClick(h)
-                  }}
-                  className="cursor-pointer focus:outline-none transition-transform hover:scale-110 active:scale-95 z-30 scale-105 ring-4 ring-cyan-400 rounded-full anim-scale-up"
-                >
-                  <div
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-white text-white text-[10px] font-black shadow-2xl"
-                    style={{ backgroundColor: color }}
-                  >
-                    <span className="text-xs">🌊</span>
-                    <span className="uppercase tracking-wider">
-                      {isVerified ? 'VERIFIED' : 'ROAD FLOOD'}
-                    </span>
-                    <span className="bg-black/35 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold">
-                      {h.passability === 'not_passable_all'
-                        ? '⛔ CLOSED'
-                        : h.passability === 'all_passable'
-                        ? '🟢 PASSABLE'
-                        : '🚫 NO LIGHT CARS'}
-                    </span>
-                  </div>
-                </button>
-              </Marker>
-
-              {/* Point A (From) */}
-              <Marker longitude={seg.from.lng} latitude={seg.from.lat} anchor="center">
-                <div className="flex flex-col items-center pointer-events-none anim-scale-up z-20">
-                  <div
-                    className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-1 whitespace-nowrap bg-slate-900 border border-white/30"
-                  >
-                    Start: {seg.from.name || 'Point A'}
-                  </div>
-                  <div
-                    className="w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-black shadow-lg"
-                    style={{ backgroundColor: color }}
-                  >
-                    A
-                  </div>
-                </div>
-              </Marker>
-
-              {/* Point B (To) */}
-              <Marker longitude={seg.to.lng} latitude={seg.to.lat} anchor="center">
-                <div className="flex flex-col items-center pointer-events-none anim-scale-up z-20">
-                  <div
-                    className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-1 whitespace-nowrap bg-slate-900 border border-white/30"
-                  >
-                    End: {seg.to.name || 'Point B'}
-                  </div>
-                  <div
-                    className="w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-black shadow-lg"
-                    style={{ backgroundColor: color }}
-                  >
-                    B
-                  </div>
-                </div>
-              </Marker>
-            </div>
-          )
-        })}
-
-      {/* ── Interactive Point Hazard Markers with Tap Handler ── */}
-      {hazards
-        .filter((h) => !h.isRoadSegment && h.status !== 'Resolved')
-        .map((h) => {
-          const isSelected = selectedHazard?.id === h.id
-          const isVerified = h.verified > 0 || h.status === 'Verified'
-
-          return (
-            <Marker key={h.id} longitude={h.lng} latitude={h.lat} anchor="center">
-              <button
-                type="button"
-                onClick={(e) => {
-                  if (isPickingPoint || isPickingRoadSegment) return
-                  e.stopPropagation()
-                  onHazardClick(h)
-                }}
-                disabled={Boolean(isPickingPoint || isPickingRoadSegment)}
-                className={`group relative flex items-center justify-center cursor-pointer transition-all hover:scale-125 active:scale-95 focus:outline-none ${
-                  isPickingPoint || isPickingRoadSegment ? 'pointer-events-none' : ''
-                }`}
-                style={{
-                  width: h.severity === 'high' ? '40px' : h.severity === 'medium' ? '34px' : '28px',
-                  height: h.severity === 'high' ? '40px' : h.severity === 'medium' ? '34px' : '28px',
-                }}
-                title={`Tap to view details: ${h.label}`}
-              >
-                {/* Pulsing ring for high severity */}
-                {h.severity === 'high' && (
-                  <div
-                    className="absolute inset-0 rounded-full animate-ping opacity-75"
-                    style={{ backgroundColor: SEVERITY_COLORS[h.severity] }}
+        {/* Dynamic Route Overlays (High-Contrast WebGL Layers) */}
+        {showRoutes && routes && (
+          <>
+            {/* Only render fast direct route on map if it does not intersect high-risk flood hazards and has real road coordinates */}
+            {routes.fast.risk !== "high" &&
+              (routes.fast.geoJSON?.geometry?.coordinates?.length || 0) > 4 && (
+                <Source id="route-fast" type="geojson" data={routes.fast.geoJSON}>
+                  <Layer
+                    type="line"
+                    layout={{ "line-cap": "round", "line-join": "round" }}
+                    paint={{
+                      "line-color": "#EF4444",
+                      "line-width": selectedRoute === "fast" ? 8 : 3.5,
+                      "line-opacity": selectedRoute === "fast" ? 1.0 : 0.25,
+                    }}
                   />
-                )}
-
-                {/* Main Badge */}
-                <div
-                  className="relative inset-0 w-full h-full rounded-full border-2 border-white shadow-xl flex items-center justify-center transition-all"
-                  style={{
-                    backgroundColor: SEVERITY_COLORS[h.severity],
-                    opacity: 1,
-                    boxShadow: isSelected
-                      ? '0 0 25px rgba(239, 68, 68, 1)'
-                      : isVerified
-                      ? '0 0 14px rgba(16, 185, 129, 0.8)'
-                      : '0 4px 10px rgba(0,0,0,0.4)',
+                </Source>
+              )}
+            {(routes.safe.geoJSON?.geometry?.coordinates?.length || 0) > 4 && (
+              <Source id="route-safe" type="geojson" data={routes.safe.geoJSON}>
+                {/* Safe Route Ambient Glow */}
+                <Layer
+                  id="route-safe-glow"
+                  type="line"
+                  layout={{ "line-cap": "round", "line-join": "round" }}
+                  paint={{
+                    "line-color": "#10B981",
+                    "line-width": selectedRoute === "safe" ? 22 : 6,
+                    "line-opacity": selectedRoute === "safe" ? 0.5 : 0.15,
+                    "line-blur": 3,
                   }}
-                >
-                  <span className="text-base select-none drop-shadow-sm">{h.emoji}</span>
+                />
+                {/* Safe Route Dark Contrast Edge */}
+                <Layer
+                  id="route-safe-edge"
+                  type="line"
+                  layout={{ "line-cap": "round", "line-join": "round" }}
+                  paint={{
+                    "line-color": "#064E3B",
+                    "line-width": selectedRoute === "safe" ? 11 : 5,
+                    "line-opacity": selectedRoute === "safe" ? 0.9 : 0.2,
+                  }}
+                />
+                {/* Safe Route Vibrant Core */}
+                <Layer
+                  id="route-safe-core"
+                  type="line"
+                  layout={{ "line-cap": "round", "line-join": "round" }}
+                  paint={{
+                    "line-color": "#10B981",
+                    "line-width": selectedRoute === "safe" ? 7 : 3.5,
+                    "line-opacity": selectedRoute === "safe" ? 1.0 : 0.4,
+                  }}
+                />
+                {/* Safe Route White Moving Waypoint Dashes */}
+                <Layer
+                  id="route-safe-stripe"
+                  type="line"
+                  layout={{ "line-cap": "round", "line-join": "round" }}
+                  paint={{
+                    "line-color": "#FFFFFF",
+                    "line-width": 2.2,
+                    "line-dasharray": [3, 3],
+                    "line-opacity": selectedRoute === "safe" ? 0.95 : 0,
+                  }}
+                />
+              </Source>
+            )}
+          </>
+        )}
+
+        {/* ── Flooded Segment On User Route (Marked High-Visibility Red) ── */}
+        {floodedRouteSegment && floodedRouteSegment.length > 1 && (
+          <Source
+            id="route-hazard-flooded-segment"
+            type="geojson"
+            data={{
+              type: "Feature",
+              geometry: {
+                type: "LineString",
+                coordinates: floodedRouteSegment,
+              },
+              properties: {},
+            }}
+          >
+            <Layer
+              id="route-hazard-flooded-glow"
+              type="line"
+              layout={{ "line-cap": "round", "line-join": "round" }}
+              paint={{
+                "line-color": "#EF4444",
+                "line-width": 22,
+                "line-opacity": 0.6,
+                "line-blur": 4,
+              }}
+            />
+            <Layer
+              id="route-hazard-flooded-edge"
+              type="line"
+              layout={{ "line-cap": "round", "line-join": "round" }}
+              paint={{
+                "line-color": "#7F1D1D",
+                "line-width": 12,
+                "line-opacity": 0.95,
+              }}
+            />
+            <Layer
+              id="route-hazard-flooded-core"
+              type="line"
+              layout={{ "line-cap": "round", "line-join": "round" }}
+              paint={{
+                "line-color": "#DC2626",
+                "line-width": 8,
+                "line-opacity": 1.0,
+              }}
+            />
+            <Layer
+              id="route-hazard-flooded-stripe"
+              type="line"
+              layout={{ "line-cap": "round", "line-join": "round" }}
+              paint={{
+                "line-color": "#FFFFFF",
+                "line-width": 2.5,
+                "line-dasharray": [2, 2],
+                "line-opacity": 0.95,
+              }}
+            />
+          </Source>
+        )}
+
+        {/* ── Pulsing Marker When Hazard is Directly On User's Route ── */}
+        {pulsingRouteHazard && (
+          <Marker
+            longitude={pulsingRouteHazard.lng}
+            latitude={pulsingRouteHazard.lat}
+            anchor="center"
+          >
+            <div className="relative flex items-center justify-center pointer-events-none z-40">
+              <div className="absolute w-14 h-14 rounded-full bg-red-600/40 animate-ping" />
+              <div className="absolute w-9 h-9 rounded-full bg-red-500/60 animate-pulse" />
+              <div className="relative w-8 h-8 rounded-full bg-red-600 border-2 border-white shadow-2xl flex items-center justify-center text-white text-xs font-black">
+                🌊
+              </div>
+              {pulsingRouteHazard.label && (
+                <div className="absolute -bottom-6 whitespace-nowrap bg-red-600 text-white font-extrabold text-[9px] px-2 py-0.5 rounded-full border border-white/40 shadow-lg">
+                  ⚠️ {pulsingRouteHazard.label}
                 </div>
-
-                {/* Verified Check Badge */}
-                {isVerified && (
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center text-[8px] text-white font-black shadow-sm">
-                    ✓
-                  </div>
-                )}
-              </button>
-            </Marker>
-          )
-        })}
-
-      {/* ── Evacuation Shelter Center Markers ── */}
-      {showEvacCenters &&
-        evacCenters.map((e, idx) => (
-          <Marker key={`evac-marker-${idx}`} longitude={e.lng} latitude={e.lat} anchor="bottom">
-            <div className="flex flex-col items-center group cursor-pointer">
-              <div className="bg-slate-900 text-emerald-400 font-bold text-[9px] px-2 py-0.5 rounded-full shadow-lg border border-emerald-500/50 mb-0.5 whitespace-nowrap hidden group-hover:block">
-                🏥 {e.name}
-              </div>
-              <div className="w-7 h-7 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center text-white text-xs font-bold shadow-xl transition-transform group-hover:scale-125">
-                🏥
-              </div>
+              )}
             </div>
           </Marker>
-        ))}
+        )}
 
-      {/* ── Interactive Info Popup Tooltip when Hazard Tapped ── */}
-      {selectedHazard && (
-        <Popup
-          longitude={selectedHazard.lng}
-          latitude={selectedHazard.lat}
-          anchor="bottom"
-          offset={26}
-          closeButton={true}
-          closeOnClick={false}
-          onClose={() => onHazardClick(null as any)}
-          className="z-30 rounded-2xl overflow-hidden shadow-2xl"
-        >
-          <div className="p-3 max-w-[240px] text-slate-900 bg-white font-sans">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-2xl">{selectedHazard.emoji}</span>
-              <div>
-                <div className="font-black text-sm leading-tight text-slate-900">{selectedHazard.label}</div>
-                <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
-                  <span className="capitalize font-semibold">{selectedHazard.severity} Severity</span>
-                  {selectedHazard.verified > 0 && <span className="text-emerald-600 font-bold">✓ Verified</span>}
-                </div>
+        {/* ── Active Target Destination Pin ── */}
+        {destination && (
+          <Marker longitude={destination.lng} latitude={destination.lat} anchor="bottom">
+            <div className="relative flex flex-col items-center pointer-events-none z-30 anim-bounce-short">
+              <div className="bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1 rounded-full shadow-xl border border-white/30 whitespace-nowrap mb-1 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>{destination.name}</span>
               </div>
+              <div className="w-9 h-9 rounded-full bg-emerald-600 border-2 border-white shadow-2xl flex items-center justify-center text-white text-base">
+                🏁
+              </div>
+              <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[6px] border-t-emerald-600 -mt-0.5" />
             </div>
-            <div className="text-xs text-slate-600 my-2 bg-slate-100 p-2 rounded-xl">
-              Status: <span className="font-bold text-red-600">{selectedHazard.status}</span> · {selectedHazard.distance}
-            </div>
+          </Marker>
+        )}
 
-            {onResolveHazard ? (
-              <div className="flex flex-col gap-1.5 mt-2">
+        {/* ── Road Flood Endpoint & Center Badges (Visible ONLY When Line is Tapped / Selected) ── */}
+        {!isPickingPoint &&
+          !isPickingRoadSegment &&
+          hazards
+            .filter(
+              (h) =>
+                h.isRoadSegment &&
+                h.roadSegment &&
+                h.status !== "Resolved" &&
+                selectedHazard?.id === h.id,
+            )
+            .map((h) => {
+              const seg = h.roadSegment!;
+              const isVerified = Boolean(
+                (h.verified && h.verified > 0) ||
+                h.isVerified ||
+                h.status === "Verified" ||
+                h.status?.includes("Verified"),
+              );
+              const color = isVerified ? "#2563EB" : "#F97316";
+
+              const midLat = (seg.from.lat + seg.to.lat) / 2;
+              const midLng = (seg.from.lng + seg.to.lng) / 2;
+
+              return (
+                <div key={`road-flood-markers-${h.id}`}>
+                  {/* Center Floating Passability Badge (Appears only on tap) */}
+                  <Marker longitude={midLng} latitude={midLat} anchor="center">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onHazardClick(h);
+                      }}
+                      className="cursor-pointer focus:outline-none transition-transform hover:scale-110 active:scale-95 z-30 scale-105 ring-4 ring-cyan-400 rounded-full anim-scale-up"
+                    >
+                      <div
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-white text-white text-[10px] font-black shadow-2xl"
+                        style={{ backgroundColor: color }}
+                      >
+                        <span className="text-xs">🌊</span>
+                        <span className="uppercase tracking-wider">
+                          {isVerified ? "VERIFIED" : "ROAD FLOOD"}
+                        </span>
+                        <span className="bg-black/35 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold">
+                          {h.passability === "not_passable_all"
+                            ? "⛔ CLOSED"
+                            : h.passability === "all_passable"
+                              ? "🟢 PASSABLE"
+                              : "🚫 NO LIGHT CARS"}
+                        </span>
+                      </div>
+                    </button>
+                  </Marker>
+
+                  {/* Point A (From) */}
+                  <Marker longitude={seg.from.lng} latitude={seg.from.lat} anchor="center">
+                    <div className="flex flex-col items-center pointer-events-none anim-scale-up z-20">
+                      <div className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-1 whitespace-nowrap bg-slate-900 border border-white/30">
+                        Start: {seg.from.name || "Point A"}
+                      </div>
+                      <div
+                        className="w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-black shadow-lg"
+                        style={{ backgroundColor: color }}
+                      >
+                        A
+                      </div>
+                    </div>
+                  </Marker>
+
+                  {/* Point B (To) */}
+                  <Marker longitude={seg.to.lng} latitude={seg.to.lat} anchor="center">
+                    <div className="flex flex-col items-center pointer-events-none anim-scale-up z-20">
+                      <div className="px-2 py-0.5 rounded-md text-[9px] font-black text-white shadow-md mb-1 whitespace-nowrap bg-slate-900 border border-white/30">
+                        End: {seg.to.name || "Point B"}
+                      </div>
+                      <div
+                        className="w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-black shadow-lg"
+                        style={{ backgroundColor: color }}
+                      >
+                        B
+                      </div>
+                    </div>
+                  </Marker>
+                </div>
+              );
+            })}
+
+        {/* ── Interactive Point Hazard Markers with Tap Handler ── */}
+        {hazards
+          .filter((h) => !h.isRoadSegment && h.status !== "Resolved")
+          .map((h) => {
+            const isSelected = selectedHazard?.id === h.id;
+            const isVerified = h.verified > 0 || h.status === "Verified";
+
+            return (
+              <Marker key={h.id} longitude={h.lng} latitude={h.lat} anchor="center">
                 <button
                   type="button"
                   onClick={(e) => {
-                    e.stopPropagation()
-                    onResolveHazard(selectedHazard)
+                    if (isPickingPoint || isPickingRoadSegment) return;
+                    e.stopPropagation();
+                    onHazardClick(h);
                   }}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+                  disabled={Boolean(isPickingPoint || isPickingRoadSegment)}
+                  className={`group relative flex items-center justify-center cursor-pointer transition-all hover:scale-125 active:scale-95 focus:outline-none ${
+                    isPickingPoint || isPickingRoadSegment ? "pointer-events-none" : ""
+                  }`}
+                  style={{
+                    width:
+                      h.severity === "high" ? "40px" : h.severity === "medium" ? "34px" : "28px",
+                    height:
+                      h.severity === "high" ? "40px" : h.severity === "medium" ? "34px" : "28px",
+                  }}
+                  title={`Tap to view details: ${h.label}`}
                 >
-                  <span>🏁</span>
-                  <span>Resolve & Clear Flood</span>
+                  {/* Pulsing ring for high severity */}
+                  {h.severity === "high" && (
+                    <div
+                      className="absolute inset-0 rounded-full animate-ping opacity-75"
+                      style={{ backgroundColor: SEVERITY_COLORS[h.severity] }}
+                    />
+                  )}
+
+                  {/* Main Badge */}
+                  <div
+                    className="relative inset-0 w-full h-full rounded-full border-2 border-white shadow-xl flex items-center justify-center transition-all"
+                    style={{
+                      backgroundColor: SEVERITY_COLORS[h.severity],
+                      opacity: 1,
+                      boxShadow: isSelected
+                        ? "0 0 25px rgba(239, 68, 68, 1)"
+                        : isVerified
+                          ? "0 0 14px rgba(16, 185, 129, 0.8)"
+                          : "0 4px 10px rgba(0,0,0,0.4)",
+                    }}
+                  >
+                    <span className="text-base select-none drop-shadow-sm">{h.emoji}</span>
+                  </div>
+
+                  {/* Verified Check Badge */}
+                  {isVerified && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center text-[8px] text-white font-black shadow-sm">
+                      ✓
+                    </div>
+                  )}
                 </button>
-                {onVerifyHazard && !selectedHazard.isVerified && selectedHazard.status !== 'Verified' && (
+              </Marker>
+            );
+          })}
+
+        {/* ── Evacuation Shelter Center Markers ── */}
+        {showEvacCenters &&
+          evacCenters.map((e, idx) => (
+            <Marker key={`evac-marker-${idx}`} longitude={e.lng} latitude={e.lat} anchor="bottom">
+              <div className="flex flex-col items-center group cursor-pointer">
+                <div className="bg-slate-900 text-emerald-400 font-bold text-[9px] px-2 py-0.5 rounded-full shadow-lg border border-emerald-500/50 mb-0.5 whitespace-nowrap hidden group-hover:block">
+                  🏥 {e.name}
+                </div>
+                <div className="w-7 h-7 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center text-white text-xs font-bold shadow-xl transition-transform group-hover:scale-125">
+                  🏥
+                </div>
+              </div>
+            </Marker>
+          ))}
+
+        {/* ── Interactive Info Popup Tooltip when Hazard Tapped ── */}
+        {selectedHazard && (
+          <Popup
+            longitude={selectedHazard.lng}
+            latitude={selectedHazard.lat}
+            anchor="bottom"
+            offset={26}
+            closeButton={true}
+            closeOnClick={false}
+            onClose={() => onHazardClick(null as any)}
+            className="z-30 rounded-2xl overflow-hidden shadow-2xl"
+          >
+            <div className="p-3 max-w-[240px] text-slate-900 bg-white font-sans">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-2xl">{selectedHazard.emoji}</span>
+                <div>
+                  <div className="font-black text-sm leading-tight text-slate-900">
+                    {selectedHazard.label}
+                  </div>
+                  <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
+                    <span className="capitalize font-semibold">
+                      {selectedHazard.severity} Severity
+                    </span>
+                    {selectedHazard.verified > 0 && (
+                      <span className="text-emerald-600 font-bold">✓ Verified</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs text-slate-600 my-2 bg-slate-100 p-2 rounded-xl">
+                Status: <span className="font-bold text-red-600">{selectedHazard.status}</span> ·{" "}
+                {selectedHazard.distance}
+              </div>
+
+              {onResolveHazard ? (
+                <div className="flex flex-col gap-1.5 mt-2">
                   <button
                     type="button"
                     onClick={(e) => {
-                      e.stopPropagation()
-                      onVerifyHazard(selectedHazard)
+                      e.stopPropagation();
+                      onResolveHazard(selectedHazard);
                     }}
-                    className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 px-3 rounded-xl flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
                   >
-                    <span>✓</span>
-                    <span>Verify Incident</span>
+                    <span>🏁</span>
+                    <span>Resolve & Clear Flood</span>
                   </button>
-                )}
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onHazardClick(selectedHazard)}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2 rounded-xl transition-colors shadow-sm cursor-pointer"
-              >
-                Open Full Report Sheet
-              </button>
-            )}
-          </div>
-        </Popup>
-      )}
-    </Map>
+                  {onVerifyHazard &&
+                    !selectedHazard.isVerified &&
+                    selectedHazard.status !== "Verified" && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onVerifyHazard(selectedHazard);
+                        }}
+                        className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 px-3 rounded-xl flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+                      >
+                        <span>✓</span>
+                        <span>Verify Incident</span>
+                      </button>
+                    )}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onHazardClick(selectedHazard)}
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2 rounded-xl transition-colors shadow-sm cursor-pointer"
+                >
+                  Open Full Report Sheet
+                </button>
+              )}
+            </div>
+          </Popup>
+        )}
+      </Map>
     </div>
-  )
-})
+  );
+});
 
-export default MapCanvas
+export default MapCanvas;

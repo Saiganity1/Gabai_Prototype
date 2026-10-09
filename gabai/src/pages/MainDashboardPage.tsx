@@ -54,8 +54,6 @@ import {
   googleGeocodePlace,
 } from "../utils/geminiClient";
 import { calculateDistanceKm } from "../hooks/useUserLocation";
-import { useRouteHazardMonitor } from "../hooks/useRouteHazardMonitor";
-import HazardAlertModal from "../components/HazardAlertModal";
 import HazardSimulationPanel from "../components/HazardSimulationPanel";
 import {
   formatLocalizedRouteCardText,
@@ -2194,8 +2192,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
               </div>
             )}
           </div>
-
-
         </div>
       </header>
 
@@ -2234,7 +2230,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             </div>
 
             <div className="space-y-3">
-
               <div className="py-1">
                 <div
                   className={`flex items-center gap-2 text-xs font-semibold cursor-pointer ${darkMode ? "text-slate-200" : "text-slate-800"}`}
@@ -3680,39 +3675,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         onInjectFakeReport={injectSimulatedHazardAhead}
         darkMode={darkMode}
       />
-
-      {/* ── Live Route Hazard Alert Modal ── */}
-      {routeHazardAlert && activeRouteForHazardMonitor && (
-        <HazardAlertModal
-          alertData={routeHazardAlert}
-          darkMode={darkMode}
-          currentRoute={activeRouteForHazardMonitor}
-          userLocation={userLocation}
-          destination={
-            destination || {
-              lat: userLocation.lat + 0.02,
-              lng: userLocation.lng - 0.015,
-              name: "Safe Evacuation Center",
-            }
-          }
-          existingHazards={publicHazards}
-          evacCenters={evacCenters}
-          onAcceptNewRoute={(newRoute) => {
-            setCustomDetourRoute(newRoute);
-            setSelectedRoute(newRoute.id as any);
-            dismissRouteHazardAlert();
-          }}
-          onContinueAnyway={(hazardId) => {
-            confirmRouteHazardContinue(hazardId);
-          }}
-          onDismiss={dismissRouteHazardAlert}
-          onNavigateToShelter={(shelter) => {
-            setCustomDetourRoute(null);
-            setDestination(shelter);
-            dismissRouteHazardAlert();
-          }}
-        />
-      )}
     </div>
   );
 }

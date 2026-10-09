@@ -1,31 +1,32 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from "react";
 
 const isLocalhost =
-  typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (isLocalhost ? 'http://localhost:3000/api' : '');
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || (isLocalhost ? "http://localhost:3000/api" : "");
 
-export type VoiceState = 'idle' | 'listening' | 'processing' | 'speaking';
+export type VoiceState = "idle" | "listening" | "processing" | "speaking";
 
 export interface VoiceActionPayload {
-  action: 'REPORT_HAZARD' | 'SAFE_ROUTE' | 'NAVIGATE' | 'GENERAL_QUERY';
-  hazardType?: 'flood' | 'fire' | 'road' | 'rain' | 'power' | 'other';
-  severity?: 'high' | 'medium' | 'low';
+  action: "REPORT_HAZARD" | "SAFE_ROUTE" | "NAVIGATE" | "GENERAL_QUERY";
+  hazardType?: "flood" | "fire" | "road" | "rain" | "power" | "other";
+  severity?: "high" | "medium" | "low";
   destination?: string;
   transcript: string;
 }
 
 export function useVoiceAssistant(
   contextData: any,
-  onAction?: (payload: VoiceActionPayload) => void
+  onAction?: (payload: VoiceActionPayload) => void,
 ) {
-  const [state, setState] = useState<VoiceState>('idle');
-  const [transcript, setTranscript] = useState('');
-  const [response, setResponse] = useState('');
-  const [language, setLanguage] = useState<'auto' | 'fil' | 'en' | 'pam'>('auto');
-  const [detectedLanguage, setDetectedLanguage] = useState<string>('');
-  
+  const [state, setState] = useState<VoiceState>("idle");
+  const [transcript, setTranscript] = useState("");
+  const [response, setResponse] = useState("");
+  const [language, setLanguage] = useState<"auto" | "fil" | "en" | "pam">("auto");
+  const [detectedLanguage, setDetectedLanguage] = useState<string>("");
+
   const recognitionRef = useRef<any>(null);
   const synthesisRef = useRef<SpeechSynthesis | null>(null);
   const contextRef = useRef<any>(contextData);
@@ -42,8 +43,8 @@ export function useVoiceAssistant(
 
   useEffect(() => {
     languageRef.current = language;
-    if (recognitionRef.current && language !== 'auto') {
-      recognitionRef.current.lang = language === 'en' ? 'en-US' : 'fil-PH';
+    if (recognitionRef.current && language !== "auto") {
+      recognitionRef.current.lang = language === "en" ? "en-US" : "fil-PH";
     }
   }, [language]);
 
@@ -58,7 +59,7 @@ export function useVoiceAssistant(
       /(?:find|show|give|get|search|look for)?\s*(?:a\s+)?(?:safe\s+)?(?:route|direction|directions|way|path)\s+(?:to|going to|towards|for)\s+(.+)/i,
       /(?:navigate|nav|drive|take me|bring me|go|guide me|lead me)\s+(?:to|towards)\s+(.+)/i,
       /(?:how\s+(?:do\s+i|to|can\s+i)\s+(?:get|go|reach|drive)\s+(?:to|at))\s+(.+)/i,
-      
+
       // Tagalog patterns
       /(?:maghanap|hanap|ipakita|bigyan|alamin)\s+(?:ng\s+)?(?:ligtas\s+na\s+)?(?:ruta|daan|direksyon)\s+(?:papunta|papuntang|patungo|patungong|para\s+sa|sa)\s+(.+)/i,
       /(?:paano\s+(?:pumunta|makapunta|makarating|dumaan))\s+(?:sa|papuntang|patungong)\s+(.+)/i,
@@ -75,8 +76,8 @@ export function useVoiceAssistant(
       const match = trimmed.match(regex);
       if (match && match[1]) {
         let dest = match[1].trim();
-        dest = dest.replace(/[\?\.\!]+$/, '').trim();
-        dest = dest.replace(/^(?:ang|yung|mga|the|a|an)\s+/i, '').trim();
+        dest = dest.replace(/[\?\.\!]+$/, "").trim();
+        dest = dest.replace(/^(?:ang|yung|mga|the|a|an)\s+/i, "").trim();
         if (dest.length > 1) {
           return dest;
         }
@@ -85,18 +86,37 @@ export function useVoiceAssistant(
 
     // Direct landmark mention heuristic
     const landmarkKeywords = [
-      'hospital', 'center', 'shelter', 'evacuation', 'mall', 'sm', 'clark',
-      'san fernando', 'angeles', 'mexico', 'santa maria', 'san sebastian',
-      'guagua', 'lubao', 'hall', 'school', 'church', 'highway', 'terminal'
+      "hospital",
+      "center",
+      "shelter",
+      "evacuation",
+      "mall",
+      "sm",
+      "clark",
+      "san fernando",
+      "angeles",
+      "mexico",
+      "santa maria",
+      "san sebastian",
+      "guagua",
+      "lubao",
+      "hall",
+      "school",
+      "church",
+      "highway",
+      "terminal",
     ];
     const lower = trimmed.toLowerCase();
     if (
       landmarkKeywords.some((k) => lower.includes(k)) &&
-      !lower.includes('baha') &&
-      !lower.includes('sunog') &&
-      !lower.includes('harang')
+      !lower.includes("baha") &&
+      !lower.includes("sunog") &&
+      !lower.includes("harang")
     ) {
-      return trimmed.replace(/^(?:to|sa|papunta|ruta|route)\s+/i, '').replace(/[\?\.\!]+$/, '').trim();
+      return trimmed
+        .replace(/^(?:to|sa|papunta|ruta|route)\s+/i, "")
+        .replace(/[\?\.\!]+$/, "")
+        .trim();
     }
 
     return null;
@@ -108,42 +128,45 @@ export function useVoiceAssistant(
 
     // 1. Hazard Reporting
     if (
-      (lower.includes('baha') || lower.includes('flood') || lower.includes('lubog') || lower.includes('tubig')) &&
-      !lower.includes('iwas') &&
-      !lower.includes('avoid') &&
-      !lower.includes('may daan ba')
+      (lower.includes("baha") ||
+        lower.includes("flood") ||
+        lower.includes("lubog") ||
+        lower.includes("tubig")) &&
+      !lower.includes("iwas") &&
+      !lower.includes("avoid") &&
+      !lower.includes("may daan ba")
     ) {
       return {
-        action: 'REPORT_HAZARD',
-        hazardType: 'flood',
-        severity: 'high',
+        action: "REPORT_HAZARD",
+        hazardType: "flood",
+        severity: "high",
         transcript: text,
       };
     }
     if (
-      lower.includes('sunog') ||
-      lower.includes('fire') ||
-      lower.includes('apoy') ||
-      lower.includes('usok')
+      lower.includes("sunog") ||
+      lower.includes("fire") ||
+      lower.includes("apoy") ||
+      lower.includes("usok")
     ) {
       return {
-        action: 'REPORT_HAZARD',
-        hazardType: 'fire',
-        severity: 'high',
+        action: "REPORT_HAZARD",
+        hazardType: "fire",
+        severity: "high",
         transcript: text,
       };
     }
     if (
-      lower.includes('harang') ||
-      lower.includes('block') ||
-      lower.includes('sarado') ||
-      lower.includes('closed') ||
-      lower.includes('puno')
+      lower.includes("harang") ||
+      lower.includes("block") ||
+      lower.includes("sarado") ||
+      lower.includes("closed") ||
+      lower.includes("puno")
     ) {
       return {
-        action: 'REPORT_HAZARD',
-        hazardType: 'road',
-        severity: 'medium',
+        action: "REPORT_HAZARD",
+        hazardType: "road",
+        severity: "medium",
         transcript: text,
       };
     }
@@ -152,7 +175,7 @@ export function useVoiceAssistant(
     const destination = extractDestination(text);
     if (destination) {
       return {
-        action: 'NAVIGATE',
+        action: "NAVIGATE",
         destination,
         transcript: text,
       };
@@ -160,42 +183,42 @@ export function useVoiceAssistant(
 
     // 3. Generic Safe Route to nearest shelter
     if (
-      lower.includes('ruta') ||
-      lower.includes('route') ||
-      lower.includes('daan') ||
-      lower.includes('evac') ||
-      lower.includes('shelter') ||
-      lower.includes('uwi') ||
-      lower.includes('safe') ||
-      lower.includes('pinakaligtas')
+      lower.includes("ruta") ||
+      lower.includes("route") ||
+      lower.includes("daan") ||
+      lower.includes("evac") ||
+      lower.includes("shelter") ||
+      lower.includes("uwi") ||
+      lower.includes("safe") ||
+      lower.includes("pinakaligtas")
     ) {
       return {
-        action: 'SAFE_ROUTE',
+        action: "SAFE_ROUTE",
         transcript: text,
       };
     }
 
     return {
-      action: 'GENERAL_QUERY',
+      action: "GENERAL_QUERY",
       transcript: text,
     };
   };
 
   // Initialize SpeechRecognition and SpeechSynthesis
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const SpeechRecognition =
         (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
         recognition.continuous = false;
         recognition.interimResults = true;
-        recognition.lang = languageRef.current === 'en' ? 'en-US' : 'fil-PH';
+        recognition.lang = languageRef.current === "en" ? "en-US" : "fil-PH";
 
-        recognition.onstart = () => setState('listening');
+        recognition.onstart = () => setState("listening");
 
         recognition.onresult = (event: any) => {
-          let currentTranscript = '';
+          let currentTranscript = "";
           for (let i = event.resultIndex; i < event.results.length; i++) {
             currentTranscript += event.results[i][0].transcript;
           }
@@ -203,19 +226,19 @@ export function useVoiceAssistant(
         };
 
         recognition.onerror = (event: any) => {
-          console.warn('Speech Recognition notice:', event.error);
-          setState('idle');
+          console.warn("Speech Recognition notice:", event.error);
+          setState("idle");
         };
 
         recognition.onend = () => {
-          setState('processing');
+          setState("processing");
           processTranscript();
         };
 
         recognitionRef.current = recognition;
       }
 
-      if ('speechSynthesis' in window) {
+      if ("speechSynthesis" in window) {
         synthesisRef.current = window.speechSynthesis;
       }
     }
@@ -225,23 +248,25 @@ export function useVoiceAssistant(
     setTimeout(async () => {
       setTranscript((finalTranscript) => {
         if (!finalTranscript.trim()) {
-          setState('idle');
+          setState("idle");
           return finalTranscript;
         }
 
         const localIntent = parseLocalIntent(finalTranscript);
 
         const handleFallback = async () => {
-          let fallbackReply = 'Narinig ko ang iyong ulat.';
-          if (localIntent.action === 'REPORT_HAZARD') {
-            fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
-          } else if (localIntent.action === 'SAFE_ROUTE') {
-            fallbackReply = 'Naghahanap ng pinakaligtas na ruta sa pinakamalapit na evacuation shelter na iniiwasan ang mga baha.';
-          } else if (localIntent.action === 'NAVIGATE') {
-            fallbackReply = `Naghahanap ng ligtas na ruta papuntang ${localIntent.destination || 'iyong destinasyon'}. Iniiwasan ang mga bahang kalsada.`;
+          let fallbackReply = "Narinig ko ang iyong ulat.";
+          if (localIntent.action === "REPORT_HAZARD") {
+            fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === "flood" ? "baha" : localIntent.hazardType === "fire" ? "sunog" : "harang sa kalsada"} sa inyong lokasyon.`;
+          } else if (localIntent.action === "SAFE_ROUTE") {
+            fallbackReply =
+              "Naghahanap ng pinakaligtas na ruta sa pinakamalapit na evacuation shelter na iniiwasan ang mga baha.";
+          } else if (localIntent.action === "NAVIGATE") {
+            fallbackReply = `Naghahanap ng ligtas na ruta papuntang ${localIntent.destination || "iyong destinasyon"}. Iniiwasan ang mga bahang kalsada.`;
           } else {
             // General query fallback
-            fallbackReply = 'Ako si GABAI. Maaari mo akong utusan na maghanap ng ligtas na ruta (halimbawa: "Route to Clark Airport" o "Daan papuntang San Fernando") o mag-report ng baha.';
+            fallbackReply =
+              'Ako si GABAI. Maaari mo akong utusan na maghanap ng ligtas na ruta (halimbawa: "Route to Clark Airport" o "Daan papuntang San Fernando") o mag-report ng baha.';
           }
 
           setResponse(fallbackReply);
@@ -249,7 +274,9 @@ export function useVoiceAssistant(
 
           if (
             onActionRef.current &&
-            (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE' || localIntent.action === 'NAVIGATE')
+            (localIntent.action === "REPORT_HAZARD" ||
+              localIntent.action === "SAFE_ROUTE" ||
+              localIntent.action === "NAVIGATE")
           ) {
             onActionRef.current(localIntent);
           }
@@ -262,8 +289,8 @@ export function useVoiceAssistant(
 
         // Send to backend if available
         fetch(`${API_BASE_URL}/ai/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             transcript: finalTranscript,
             language: languageRef.current,
@@ -272,7 +299,7 @@ export function useVoiceAssistant(
         })
           .then((res) => res.json())
           .then((data) => {
-            const aiReply = data.response || 'Naitala ang iyong ulat.';
+            const aiReply = data.response || "Naitala ang iyong ulat.";
             const action = data.action || localIntent.action;
             const hazardType = data.hazardType || localIntent.hazardType;
             const severity = data.severity || localIntent.severity;
@@ -283,7 +310,10 @@ export function useVoiceAssistant(
             setResponse(aiReply);
             speakResponse(aiReply, detLang || languageRef.current);
 
-            if (onActionRef.current && (action === 'REPORT_HAZARD' || action === 'SAFE_ROUTE' || action === 'NAVIGATE')) {
+            if (
+              onActionRef.current &&
+              (action === "REPORT_HAZARD" || action === "SAFE_ROUTE" || action === "NAVIGATE")
+            ) {
               onActionRef.current({
                 action,
                 hazardType,
@@ -302,9 +332,9 @@ export function useVoiceAssistant(
     }, 100);
   };
 
-  const speakResponse = (text: string, langHint: string = 'fil') => {
+  const speakResponse = (text: string, langHint: string = "fil") => {
     if (!synthesisRef.current) {
-      setState('idle');
+      setState("idle");
       return;
     }
 
@@ -312,31 +342,34 @@ export function useVoiceAssistant(
 
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = synthesisRef.current.getVoices();
-    
+
     // Find appropriate voice based on language
     let selectedVoice;
-    if (langHint.includes('en')) {
-      selectedVoice = voices.find(v => v.lang.includes('en-PH')) || voices.find(v => v.lang.includes('en'));
+    if (langHint.includes("en")) {
+      selectedVoice =
+        voices.find((v) => v.lang.includes("en-PH")) || voices.find((v) => v.lang.includes("en"));
     } else {
       // Fallback to Filipino for Tagalog, Kapampangan, Cebuano, etc if no specific voice exists
-      selectedVoice = voices.find(v => v.lang.includes('tl') || v.lang.includes('ph') || v.lang.includes('PH'));
+      selectedVoice = voices.find(
+        (v) => v.lang.includes("tl") || v.lang.includes("ph") || v.lang.includes("PH"),
+      );
     }
 
     if (selectedVoice) utterance.voice = selectedVoice;
 
-    utterance.onstart = () => setState('speaking');
-    utterance.onend = () => setState('idle');
-    utterance.onerror = () => setState('idle');
+    utterance.onstart = () => setState("speaking");
+    utterance.onend = () => setState("idle");
+    utterance.onerror = () => setState("idle");
 
     synthesisRef.current.speak(utterance);
   };
 
   const toggleListening = useCallback(() => {
-    if (state === 'idle') {
+    if (state === "idle") {
       if (synthesisRef.current) synthesisRef.current.cancel();
-      setTranscript('');
-      setResponse('');
-      setState('listening');
+      setTranscript("");
+      setResponse("");
+      setState("listening");
       try {
         recognitionRef.current?.start();
       } catch (e) {
@@ -345,34 +378,38 @@ export function useVoiceAssistant(
     } else {
       recognitionRef.current?.stop();
       if (synthesisRef.current) synthesisRef.current.cancel();
-      setState('idle');
+      setState("idle");
     }
   }, [state]);
 
   const triggerTextPrompt = useCallback((text: string, skipVoice?: boolean) => {
     setTranscript(text);
-    setState('processing');
+    setState("processing");
     const localIntent = parseLocalIntent(text);
 
     const handleFallback = async () => {
-      let fallbackReply = 'Narinig ko ang iyong tanong.';
-      if (localIntent.action === 'REPORT_HAZARD') {
-        fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === 'flood' ? 'baha' : localIntent.hazardType === 'fire' ? 'sunog' : 'harang sa kalsada'} sa inyong lokasyon.`;
-      } else if (localIntent.action === 'SAFE_ROUTE') {
-        fallbackReply = 'Naghahanap ng pinakaligtas na ruta sa pinakamalapit na evacuation shelter na iniiwasan ang mga baha.';
-      } else if (localIntent.action === 'NAVIGATE') {
-        fallbackReply = `Naghahanap ng ligtas na ruta papuntang ${localIntent.destination || 'iyong destinasyon'}. Iniiwasan ang mga bahang kalsada.`;
+      let fallbackReply = "Narinig ko ang iyong tanong.";
+      if (localIntent.action === "REPORT_HAZARD") {
+        fallbackReply = `Nai-report ko na ang ${localIntent.hazardType === "flood" ? "baha" : localIntent.hazardType === "fire" ? "sunog" : "harang sa kalsada"} sa inyong lokasyon.`;
+      } else if (localIntent.action === "SAFE_ROUTE") {
+        fallbackReply =
+          "Naghahanap ng pinakaligtas na ruta sa pinakamalapit na evacuation shelter na iniiwasan ang mga baha.";
+      } else if (localIntent.action === "NAVIGATE") {
+        fallbackReply = `Naghahanap ng ligtas na ruta papuntang ${localIntent.destination || "iyong destinasyon"}. Iniiwasan ang mga bahang kalsada.`;
       } else {
-        fallbackReply = 'Ako si GABAI. Maaari mo akong utusan na maghanap ng ligtas na ruta (halimbawa: "Route to Clark Airport" o "Daan papuntang San Fernando") o mag-report ng baha.';
+        fallbackReply =
+          'Ako si GABAI. Maaari mo akong utusan na maghanap ng ligtas na ruta (halimbawa: "Route to Clark Airport" o "Daan papuntang San Fernando") o mag-report ng baha.';
       }
 
       setResponse(fallbackReply);
       if (!skipVoice) speakResponse(fallbackReply, languageRef.current);
-      else setState('idle');
+      else setState("idle");
 
       if (
         onActionRef.current &&
-        (localIntent.action === 'REPORT_HAZARD' || localIntent.action === 'SAFE_ROUTE' || localIntent.action === 'NAVIGATE')
+        (localIntent.action === "REPORT_HAZARD" ||
+          localIntent.action === "SAFE_ROUTE" ||
+          localIntent.action === "NAVIGATE")
       ) {
         onActionRef.current(localIntent);
       }
@@ -384,8 +421,8 @@ export function useVoiceAssistant(
     }
 
     fetch(`${API_BASE_URL}/ai/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         transcript: text,
         language: languageRef.current,
@@ -394,7 +431,7 @@ export function useVoiceAssistant(
     })
       .then((res) => res.json())
       .then((data) => {
-        const aiReply = data.response || 'Naitala ang iyong ulat.';
+        const aiReply = data.response || "Naitala ang iyong ulat.";
         const action = data.action || localIntent.action;
         const hazardType = data.hazardType || localIntent.hazardType;
         const severity = data.severity || localIntent.severity;
@@ -404,9 +441,12 @@ export function useVoiceAssistant(
 
         setResponse(aiReply);
         if (!skipVoice) speakResponse(aiReply, detLang || languageRef.current);
-        else setState('idle');
+        else setState("idle");
 
-        if (onActionRef.current && (action === 'REPORT_HAZARD' || action === 'SAFE_ROUTE' || action === 'NAVIGATE')) {
+        if (
+          onActionRef.current &&
+          (action === "REPORT_HAZARD" || action === "SAFE_ROUTE" || action === "NAVIGATE")
+        ) {
           onActionRef.current({
             action,
             hazardType,

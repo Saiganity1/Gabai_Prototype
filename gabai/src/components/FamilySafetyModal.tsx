@@ -1,83 +1,96 @@
-import React, { useState } from 'react'
+import React, { useState } from "react";
 import {
-  Users, Shield, CheckCircle, Clock,
-  X, Send, PhoneCall, Plus, Zap, BatteryCharging, Radio
-} from 'lucide-react'
+  Users,
+  Shield,
+  CheckCircle,
+  Clock,
+  X,
+  Send,
+  PhoneCall,
+  Plus,
+  Zap,
+  BatteryCharging,
+  Radio,
+} from "lucide-react";
 
 interface FamilyMember {
-  id: string
-  name: string
-  relation: string
-  status: 'safe' | 'pending' | 'evacuating'
-  location: string
-  lastSeen: string
-  battery: string
+  id: string;
+  name: string;
+  relation: string;
+  status: "safe" | "pending" | "evacuating";
+  location: string;
+  lastSeen: string;
+  battery: string;
 }
 
 interface Props {
-  currentLocationName: string
-  onClose: () => void
-  onTriggerSOSStrobe: () => void
+  currentLocationName: string;
+  onClose: () => void;
+  onTriggerSOSStrobe: () => void;
 }
 
-export default function FamilySafetyModal({ currentLocationName, onClose, onTriggerSOSStrobe }: Props) {
+export default function FamilySafetyModal({
+  currentLocationName,
+  onClose,
+  onTriggerSOSStrobe,
+}: Props) {
   const [family, setFamily] = useState<FamilyMember[]>([
     {
-      id: 'fam-1',
-      name: 'Elena Santos',
-      relation: 'Mother',
-      status: 'safe',
-      location: 'Central Evacuation Gym',
-      lastSeen: '10 mins ago',
-      battery: '82%',
+      id: "fam-1",
+      name: "Elena Santos",
+      relation: "Mother",
+      status: "safe",
+      location: "Central Evacuation Gym",
+      lastSeen: "10 mins ago",
+      battery: "82%",
     },
     {
-      id: 'fam-2',
-      name: 'Marco Santos',
-      relation: 'Brother',
-      status: 'safe',
-      location: 'Home (2nd Floor)',
-      lastSeen: '18 mins ago',
-      battery: '64%',
+      id: "fam-2",
+      name: "Marco Santos",
+      relation: "Brother",
+      status: "safe",
+      location: "Home (2nd Floor)",
+      lastSeen: "18 mins ago",
+      battery: "64%",
     },
     {
-      id: 'fam-3',
-      name: 'Lola Teresa',
-      relation: 'Grandmother',
-      status: 'pending',
-      location: 'Sta. Cruz Sector',
-      lastSeen: '45 mins ago',
-      battery: '38%',
+      id: "fam-3",
+      name: "Lola Teresa",
+      relation: "Grandmother",
+      status: "pending",
+      location: "Sta. Cruz Sector",
+      lastSeen: "45 mins ago",
+      battery: "38%",
     },
-  ])
+  ]);
 
-  const [hasBroadcastedSafe, setHasBroadcastedSafe] = useState(false)
-  const [showAddContact, setShowAddContact] = useState(false)
-  const [newContactName, setNewContactName] = useState('')
-  const [newContactRelation, setNewContactRelation] = useState('')
+  const [hasBroadcastedSafe, setHasBroadcastedSafe] = useState(false);
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [newContactName, setNewContactName] = useState("");
+  const [newContactRelation, setNewContactRelation] = useState("");
 
   const handleBroadcastSafe = () => {
-    setHasBroadcastedSafe(true)
-    setTimeout(() => setHasBroadcastedSafe(false), 5000)
-  }
+    setHasBroadcastedSafe(true);
+    setTimeout(() => setHasBroadcastedSafe(false), 5000);
+  };
 
   const handleAddContact = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newContactName) return
+    e.preventDefault();
+    if (!newContactName) return;
     const newMember: FamilyMember = {
       id: `fam-${Date.now()}`,
       name: newContactName,
-      relation: newContactRelation || 'Family',
-      status: 'safe',
-      location: 'Nearby Sector',
-      lastSeen: 'Just now',
-      battery: '90%',
-    }
-    setFamily([...family, newMember])
-    setNewContactName('')
-    setNewContactRelation('')
-    setShowAddContact(false)
-  }
+      relation: newContactRelation || "Family",
+      status: "safe",
+      location: "Nearby Sector",
+      lastSeen: "Just now",
+      battery: "90%",
+    };
+    setFamily([...family, newMember]);
+    setNewContactName("");
+    setNewContactRelation("");
+    setShowAddContact(false);
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 anim-fade-in select-none">
@@ -93,7 +106,10 @@ export default function FamilySafetyModal({ currentLocationName, onClose, onTrig
               <p className="text-xs text-slate-400">Real-time disaster check-in & SOS alerts</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white">
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -106,7 +122,7 @@ export default function FamilySafetyModal({ currentLocationName, onClose, onTrig
               <span>Broadcast Safety Status</span>
             </div>
             <p className="text-[11px] text-slate-300 mt-0.5">
-              Sends GPS ({currentLocationName.split(',')[0]}) & battery level to family
+              Sends GPS ({currentLocationName.split(",")[0]}) & battery level to family
             </p>
           </div>
           <button
@@ -114,8 +130,12 @@ export default function FamilySafetyModal({ currentLocationName, onClose, onTrig
             disabled={hasBroadcastedSafe}
             className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-md flex items-center gap-1.5 shrink-0 transition-all active:scale-95 disabled:opacity-50"
           >
-            {hasBroadcastedSafe ? <CheckCircle className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
-            <span>{hasBroadcastedSafe ? 'Broadcasted!' : "I'm Safe"}</span>
+            {hasBroadcastedSafe ? (
+              <CheckCircle className="w-3.5 h-3.5" />
+            ) : (
+              <Send className="w-3.5 h-3.5" />
+            )}
+            <span>{hasBroadcastedSafe ? "Broadcasted!" : "I'm Safe"}</span>
           </button>
         </div>
 
@@ -133,7 +153,9 @@ export default function FamilySafetyModal({ currentLocationName, onClose, onTrig
                 <div>
                   <div className="font-bold text-xs text-white flex items-center gap-1.5">
                     <span>{member.name}</span>
-                    <span className="text-[10px] text-slate-400 font-normal">({member.relation})</span>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      ({member.relation})
+                    </span>
                   </div>
                   <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
                     <span>{member.location}</span>
@@ -147,11 +169,11 @@ export default function FamilySafetyModal({ currentLocationName, onClose, onTrig
 
               <span
                 className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
-                  member.status === 'safe'
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    : member.status === 'pending'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
-                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                  member.status === "safe"
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    : member.status === "pending"
+                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse"
+                      : "bg-red-500/20 text-red-400 border border-red-500/30"
                 }`}
               >
                 {member.status}
@@ -161,7 +183,10 @@ export default function FamilySafetyModal({ currentLocationName, onClose, onTrig
 
           {/* Add Contact Form */}
           {showAddContact ? (
-            <form onSubmit={handleAddContact} className="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-2">
+            <form
+              onSubmit={handleAddContact}
+              className="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-2"
+            >
               <input
                 type="text"
                 value={newContactName}
@@ -207,8 +232,8 @@ export default function FamilySafetyModal({ currentLocationName, onClose, onTrig
         <div className="pt-3 border-t border-slate-800 flex gap-2">
           <button
             onClick={() => {
-              onClose()
-              onTriggerSOSStrobe()
+              onClose();
+              onTriggerSOSStrobe();
             }}
             className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs py-3 rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
           >
@@ -218,5 +243,5 @@ export default function FamilySafetyModal({ currentLocationName, onClose, onTrig
         </div>
       </div>
     </div>
-  )
+  );
 }

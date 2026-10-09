@@ -1,10 +1,10 @@
-import { Shield, ChevronRight, Sun, Moon, AlertTriangle } from 'lucide-react'
-import GabaiLogo from '../components/GabaiLogo'
+import { Shield, ChevronRight, Sun, Moon, AlertTriangle } from "lucide-react";
+import GabaiLogo from "../components/GabaiLogo";
 
 interface Props {
-  onEnter: () => void
-  darkMode: boolean
-  toggleDark: () => void
+  onEnter: () => void;
+  darkMode: boolean;
+  toggleDark: () => void;
 }
 
 export default function Landing({ onEnter, darkMode, toggleDark }: Props) {
@@ -15,10 +15,10 @@ export default function Landing({ onEnter, darkMode, toggleDark }: Props) {
         className="absolute inset-0"
         style={{
           backgroundImage: `url('https://images.unsplash.com/photo-1524661135-423995f22d0b?w=1600&h=900&fit=crop&auto=format')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundSize: "cover",
+          backgroundPosition: "center",
           opacity: darkMode ? 0.12 : 0.18,
-          filter: darkMode ? 'invert(1) grayscale(0.4)' : 'grayscale(0.3)',
+          filter: darkMode ? "invert(1) grayscale(0.4)" : "grayscale(0.3)",
         }}
       />
       {/* Gradient overlay */}
@@ -28,7 +28,9 @@ export default function Landing({ onEnter, darkMode, toggleDark }: Props) {
       <header className="relative z-10 flex items-center justify-between px-6 py-4 sm:px-8">
         <div className="flex items-center gap-2.5">
           <GabaiLogo size="sm" animated />
-          <span className="font-extrabold text-slate-900 dark:text-white tracking-tight text-lg">GABAI</span>
+          <span className="font-extrabold text-slate-900 dark:text-white tracking-tight text-lg">
+            GABAI
+          </span>
         </div>
         <button
           onClick={toggleDark}
@@ -57,7 +59,8 @@ export default function Landing({ onEnter, darkMode, toggleDark }: Props) {
           </div>
 
           <h1 className="text-4xl sm:text-5xl font-semibold text-slate-900 dark:text-white tracking-tight leading-[1.1] mb-4">
-            Know the danger.<br />
+            Know the danger.
+            <br />
             <span className="text-cyan-600 dark:text-cyan-400">Find the safer way.</span>
           </h1>
 
@@ -76,11 +79,14 @@ export default function Landing({ onEnter, darkMode, toggleDark }: Props) {
           {/* Stats strip */}
           <div className="mt-12 grid grid-cols-3 gap-4 text-center">
             {[
-              { val: '94%', label: 'AI accuracy' },
-              { val: '2.4k', label: 'Active users' },
-              { val: '<30s', label: 'Alert time' },
+              { val: "94%", label: "AI accuracy" },
+              { val: "2.4k", label: "Active users" },
+              { val: "<30s", label: "Alert time" },
             ].map(({ val, label }) => (
-              <div key={label} className="bg-white/70 dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-200/60 dark:border-slate-700/40">
+              <div
+                key={label}
+                className="bg-white/70 dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-200/60 dark:border-slate-700/40"
+              >
                 <div className="text-xl font-bold text-slate-900 dark:text-white">{val}</div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{label}</div>
               </div>
@@ -99,5 +105,5 @@ export default function Landing({ onEnter, darkMode, toggleDark }: Props) {
         </div>
       </div>
     </div>
-  )
+  );
 }
