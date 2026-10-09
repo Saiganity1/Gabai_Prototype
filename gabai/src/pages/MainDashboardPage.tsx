@@ -19,7 +19,7 @@ import { RiskBadge } from '../components/ui/RiskBadge'
 import { GabaiChatbot } from '../components/GabaiChatbot'
 import GabaiLogo from '../components/GabaiLogo'
 import { searchRealWorldPlaces } from '../utils/placeSearch'
-import { fetchRoadSegmentPath } from '../utils/routingEngine'
+import { fetchRoadSegmentPath, fetchAccurateRealWorldRoutes } from '../utils/routingEngine'
 import { analyzeRouteWithAI } from '../utils/aiRouteAdvisor'
 import { geminiAnalyzeFloodPhoto, geminiAnalyzeRoute, geminiChatAssistant, geminiGeocodePlace, googleGeocodePlace } from '../utils/geminiClient'
 import { calculateDistanceKm } from '../hooks/useUserLocation'
@@ -565,21 +565,24 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       const hasNavIntent =
         /\b(?:punta|pupunta|pumunta|magpunta|papunta|papuntang|patungo|patungong|biyahe|byahe|byaheng|dalhin|ihatid|ihahatid|dumaan|makapunta|makarating|munta|muntang|padulong|mapan)\b/i.test(lower) ||
         /\b(?:go|going|reach|drive|navigate|route|directions?|way|take me|bring me|lead me|guide me|head to)\b/i.test(lower) ||
-        /\b(?:gusto\s+(?:ko|kong)|nais\s+(?:ko|kong)|bisa\s+ku|pwede\s+bang|paki|paano|how\s+to|how\s+do\s+i|can\s+you)\b/i.test(lower)
+        /\b(?:gusto\s+(?:ko|kong)|nais\s+(?:ko|kong)|bisa\s+ku|pwede\s+bang|paki|paano|how\s+to|how\s+do\s+i|can\s+you)\b/i.test(lower) ||
+        /\b(?:ano\s+(?:ang|po\s+ang|ba\s+ang)\s+(?:daan|ruta|direksyon))\b/i.test(lower) ||
+        /\b(?:saan\s+(?:ang|po\s+ang)\s+(?:daan|ruta|direksyon))\b/i.test(lower)
 
       let destRaw = lower
-        .replace(/^(?:find\s+|show\s+|give\s+|get\s+)?(?:a\s+)?(?:safe\s+)?(?:route|direction|directions|way|path)\s+(?:to|going to|towards|for)\s+/i, '')
+        .replace(/^(?:ano\s+(?:po\s+)?(?:ang|ba\s+ang)\s+)?(?:pinakaligtas\s+na\s+)?(?:daan|ruta|direksyon)\s+(?:papuntang|patungong|papunta|patungo|para\s+sa|sa)?\s*(?:sa|kay|king|ng)?\s*/i, '')
+        .replace(/^(?:paano\s+(?:po\s+)?(?:ang\s+)?(?:daan|ruta|pumunta|makapunta|makarating|magpunta|dumaan))\s+(?:papuntang|patungong|papunta|patungo|sa)?\s*(?:sa|kay|king|ng)?\s*/i, '')
+        .replace(/^(?:saan\s+(?:po\s+)?(?:ang\s+)?(?:daan|ruta|direksyon)\s+(?:papuntang|patungong|papunta|patungo|sa)?\s*(?:sa|kay|king|ng)?\s*)/i, '')
+        .replace(/^(?:find\s+|show\s+|give\s+|get\s+)?(?:a\s+)?(?:safe\s+|best\s+)?(?:route|direction|directions|way|path)\s+(?:to|going to|towards|for)\s+/i, '')
+        .replace(/^(?:what\s+is\s+the\s+)?(?:best\s+|safe\s+)?(?:route|way|direction)\s+(?:to|going\s+to)\s+/i, '')
         .replace(/^(?:navigate|nav|drive|take me|bring me|go|guide me|lead me|route)\s+(?:to|towards)?\s*/i, '')
         .replace(/^(?:how\s+(?:do\s+i|to|can\s+i)\s+(?:get|go|reach|drive)\s+(?:to|at))\s+/i, '')
-        .replace(/^(?:maghanap|hanap|ipakita|bigyan|alamin)\s+(?:ng\s+)?(?:ligtas\s+na\s+)?(?:ruta|daan|direksyon)\s+(?:papunta|papuntang|patungo|patungong|para\s+sa|sa)\s+/i, '')
+        .replace(/^(?:maghanap|hanap|ipakita|bigyan|alamin)\s+(?:ng\s+)?(?:ligtas\s+na\s+)?(?:ruta|daan|direksyon)\s+(?:papuntang|patungong|papunta|patungo|para\s+sa|sa)?\s*(?:sa|kay|king|ng)?\s*/i, '')
         .replace(/^(?:gusto\s+(?:ko|kong)\s+|nais\s+(?:ko|kong)\s+|pwede\s+bang\s+|maaari\s+bang\s+|paki\s+)?(?:pumunta|magpunta|makapunta|makarating|pumaroon)\s+(?:sa|kay|nang)?\s*/i, '')
         .replace(/^(?:gusto\s+(?:ko|kong)\s+|nais\s+(?:ko|kong)\s+)?(?:dalhin\s+mo\s+(?:ako|kami)|ihatid\s+mo\s+(?:ako|kami)|dala\s+mu\s+ku)\s+(?:sa|king)?\s*/i, '')
         .replace(/^(?:i\s+(?:want|need|would\s+like|wanna)\s+to\s+go\s+to|can\s+you\s+(?:take|bring|guide|lead)\s+me\s+to|please\s+(?:take|bring|guide|lead|navigate)\s+me\s+to)\s+/i, '')
-        .replace(/^(?:paano\s+(?:pumunta|makapunta|makarating|dumaan))\s+(?:sa|papuntang|patungong)\s+/i, '')
-        .replace(/^(?:saan\s+(?:ang\s+)?(?:daan|ruta|direksyon)\s+(?:papunta|patungo|sa))\s+/i, '')
-        .replace(/^(?:pupunta|punta|papunta|papuntang|patungo|patungong|biyahe|byahe|byaheng)\s+(?:ako|kami|tayo)?\s*(?:sa|kay|nang)?\s*/i, '')
-        .replace(/^(?:daan|ruta|direksyon)\s+(?:papunta|papuntang|patungo|patungong|sa)\s+/i, '')
-        .replace(/^(?:bisa\s+ku\s+)?(?:munta|muntang|magpunta|dalan|dala)\s+(?:ku\s+)?(?:king|king\s+lugar|papuntang|karin)?\s*/i, '')
+        .replace(/^(?:pupunta|punta|papuntang|patungong|papunta|patungo|biyahe|byahe|byaheng)\s+(?:ako|kami|tayo)?\s*(?:sa|kay|nang)?\s*/i, '')
+        .replace(/^(?:bisa\s+ku\s+|bisa\s+kung\s+)?(?:munta|muntang|magpunta|dalan|dala)\s+(?:ku\s+)?(?:king|king\s+lugar|papuntang|karin)?\s*/i, '')
         .replace(/^(?:nukarin\s+ing\s+dalan\s+munta|nukarin\s+ing\s+dalan\s+papuntang)\s+/i, '')
         .replace(/^(?:asa\s+ang\s+dalan\s+padulong|padung\s+sa|dalan\s+padulong)\s+/i, '')
         .replace(/^(?:ayan\s+ti\s+kalsada\s+mapan|mapan\s+idiay|ayan\s+ti\s+dalan)\s+/i, '')
@@ -591,6 +594,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
       // Cleaned search term removing administrative prefixes & normalizing abbreviations
       const cleanedTarget = q
+        .replace(/^(?:ng|sa|kay|king)\s+/i, '')
         .replace(/\b(?:gusto\s+(?:ko|kong)|pumunta|magpunta|papunta|dalhin\s+mo\s+ako)\s+(?:sa|kay)?\b/gi, '')
         .replace(/^(?:the\s+)?(?:municipality\s+of|munisipyo\s+ng|bayan\s+ng|city\s+of|lungsod\s+ng|province\s+of)\s+/i, '')
         .replace(/\b(?:pampanga|philippines|ph)\b/gi, '')
@@ -671,7 +675,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       const isDestinationRequest =
         hasNavIntent ||
         KNOWN_PAMPANGA_PLACES.some((p) => p.keywords.some((k) => cleanedTarget.includes(k) || k.includes(cleanedTarget))) ||
-        (cleanedTarget.length >= 3 && !lower.includes('kumusta') && !lower.includes('kamusta') && !lower.includes('ano ang'))
+        (cleanedTarget.length >= 3 && !lower.includes('kumusta') && !lower.includes('kamusta'))
 
       if (isDestinationRequest) {
         // Priority 1: Google Gemini AI Geocoding Resolver (Searches destination & extracts precise GPS coordinates)
@@ -742,26 +746,64 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       if (target) {
         // Feed coordinates into system navigation & trigger real-world route recalculation
         setDestination(target)
+        setSelectedRoute('safe')
+        setActiveModal('routes')
         mapCanvasRef.current?.flyToCoords(target.lat, target.lng, 15)
 
-        const distKm = calculateDistanceKm(userLocation.lat, userLocation.lng, target.lat, target.lng)
-        const estMin = Math.max(3, Math.round((distKm / 35) * 60))
-        const activeBypassedCount = publicHazards.filter(
-          (h) => h.status !== 'Resolved' && h.status !== 'Rejected by LGU'
-        ).length
+        let roadDistKm = calculateDistanceKm(userLocation.lat, userLocation.lng, target.lat, target.lng)
+        let estMin = Math.max(3, Math.round((roadDistKm / 30) * 60))
+        let majorRoadsText = ''
+        let floodClearanceDetail = 'Beripikadong ligtas at walang baha sa rutang ito.'
+        let isDirectFlooded = false
 
-        const baseMsg = formatLocalizedRouteCardText(target.name, distKm, estMin, text)
-        const coordSnippet = `\n📍 Coordinates: ${target.lat.toFixed(5)}, ${target.lng.toFixed(5)}`
+        try {
+          const liveRoutes = await fetchAccurateRealWorldRoutes(
+            userLocation.lat,
+            userLocation.lng,
+            target.lat,
+            target.lng,
+            publicHazards
+          )
+          if (liveRoutes && liveRoutes.safe) {
+            const activeSafe = liveRoutes.safe
+            roadDistKm = activeSafe.distanceKm
+            const parsedTime = parseInt(activeSafe.time)
+            estMin = !isNaN(parsedTime) && parsedTime > 0 ? parsedTime : Math.max(2, Math.round((roadDistKm / 28) * 60))
+            floodClearanceDetail = activeSafe.detail || floodClearanceDetail
+            isDirectFlooded = liveRoutes.fast?.risk === 'high'
+
+            const steps = activeSafe.steps || []
+            const uniqueStreets = Array.from(
+              new Set(
+                steps
+                  .map((s) => s.streetName)
+                  .filter((n) => n && n !== 'Road Corridor' && n !== 'road' && n !== 'unnamed road')
+              )
+            ).slice(0, 4)
+
+            if (uniqueStreets.length > 0) {
+              majorRoadsText = `\n🛣️ **Dadaan sa:** ${uniqueStreets.join(' ➔ ')}`
+            }
+          }
+        } catch (err) {
+          console.warn('Real-world route calculation error in chatbot:', err)
+        }
+
+        const baseMsg = formatLocalizedRouteCardText(target.name, roadDistKm, estMin, text)
+        const coordSnippet = `\n📍 ${target.address || `${target.lat.toFixed(5)}, ${target.lng.toFixed(5)}`}`
+        const floodNote = isDirectFlooded
+          ? `\n🛡️ May naiulat na baha sa highway; awtomatikong inilipat ang ruta sa "Alternate Route" upang makaiwas sa tubig.`
+          : `\n🛡️ ${floodClearanceDetail}`
 
         return {
-          text: `${baseMsg}${coordSnippet}`,
+          text: `${baseMsg}${coordSnippet}${majorRoadsText}${floodNote}\n\nNai-plot na ito sa mapa. Piliin ang 'Alternate Route' para sa pinakaligtas na biyahe.`,
           routeCard: {
             destinationName: target.name,
             address: target.address,
-            distanceKm: distKm,
+            distanceKm: roadDistKm,
             durationMin: estMin,
-            riskLevel: 'LOW',
-            bypassedHazardsCount: activeBypassedCount,
+            riskLevel: isDirectFlooded ? 'MEDIUM' : 'LOW',
+            bypassedHazardsCount: isDirectFlooded ? 1 : 0,
             lat: target.lat,
             lng: target.lng,
           },
@@ -794,6 +836,14 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           activeHazardsList: activeHazardsList.slice(0, 6),
           activeHazardsCount: activeHazardsList.length,
           evacuationCenters: evacCenters.map((e) => e.name),
+          routeDetails: routes?.safe
+            ? {
+                destinationName: destination?.name || 'Kasalukuyang Destinasyon',
+                distanceKm: routes.safe.distanceKm,
+                durationMin: parseInt(routes.safe.time) || 5,
+                isClear: routes.safe.risk === 'low',
+              }
+            : undefined,
           history,
         })
 

@@ -135,8 +135,8 @@ export function routeIntersectsHazards(
   const blocking: Hazard[] = []
   const numSegments = coords.length - 1
 
-  // Realistic road corridor width: ~18-22 meters
-  const bufferMeters = Math.min(22, Math.max(14, safeBufferKm * 1000))
+  // Road corridor buffer width: ensures GPS slight deviation or wide multi-lane avenues are reliably protected
+  const bufferMeters = Math.max(35, Math.min(65, safeBufferKm * 1000 + 15))
 
   for (const h of activeHazards) {
     let d = 999
@@ -186,7 +186,7 @@ export function routeIntersectsHazards(
         const segDistMeters = segDistKm * 1000
         const segLenMeters = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) * 111320
 
-        // If route is within the flooded road corridor (<= 20m), count traversal length
+        // If route is within the flooded road corridor (<= bufferMeters), count traversal length
         if (segDistMeters <= bufferMeters) {
           hazardTraversalMeters += segLenMeters
         }
@@ -194,9 +194,12 @@ export function routeIntersectsHazards(
     } else {
       // Point Hazard: check distance from polyline
       d = getMinDistanceToPolylineKm(h.lat, h.lng, coords)
-      const hazardRadiusKm = Math.max(0.025, Math.min(0.060, (h.radius || 35) / 1000))
-      if (d <= hazardRadiusKm) {
-        hazardTraversalMeters += 25
+      const hazardRadiusKm = Math.max(
+        (h.radius || 0) / 1000,
+        h.severity === 'high' ? 0.080 : h.severity === 'medium' ? 0.065 : 0.045
+      )
+      if (d <= hazardRadiusKm + safeBufferKm) {
+        hazardTraversalMeters += 35
         directlyCrosses = true
       }
     }
@@ -204,8 +207,8 @@ export function routeIntersectsHazards(
     if (d < minDistance) minDistance = d
     totalFloodedTraversalMeters += hazardTraversalMeters
 
-    // A hazard blocks the route if the vehicle directly crosses it or traverses > 5m within the flood corridor
-    if (directlyCrosses || hazardTraversalMeters > 5) {
+    // A hazard blocks the route if the vehicle directly crosses it or traverses > 3m within the flood corridor
+    if (directlyCrosses || hazardTraversalMeters > 3) {
       blocking.push(h)
     }
   }
@@ -505,48 +508,107 @@ async function fetchOsrmCandidateRoutes(
 
     // 3. HAZARD-CENTRIC DETOUR ENGINE: Actively seek clean road bypasses around flood hazards
     if (activeHazards.length > 0) {
-      const strategicWaypoints: Array<{ name: string; lat: number; lng: number }> = []
+      // 3.1 Trip corridor bounding box (~3.3km buffer) to prioritize trip-relevant hazards
+      const tripMinLat = Math.min(originLat, destLat) - 0.030
+      const tripMaxLat = Math.max(originLat, destLat) + 0.030
+      const tripMinLng = Math.min(originLng, destLng) - 0.030
+      const tripMaxLng = Math.max(originLng, destLng) + 0.030
 
-      // Generate strategic bypass waypoints around EACH active flood hazard
-      for (const h of activeHazards) {
+      const tripRelevantHazards = activeHazards.filter((h) => {
+        if (typeof h.lat !== 'number' || typeof h.lng !== 'number') return false
+        if (h.lat >= tripMinLat && h.lat <= tripMaxLat && h.lng >= tripMinLng && h.lng <= tripMaxLng) return true
+        if (h.isRoadSegment && h.roadSegment?.from && h.roadSegment?.to) {
+          const f = h.roadSegment.from
+          const t = h.roadSegment.to
+          return (
+            (f.lat >= tripMinLat && f.lat <= tripMaxLat && f.lng >= tripMinLng && f.lng <= tripMaxLng) ||
+            (t.lat >= tripMinLat && t.lat <= tripMaxLat && t.lng >= tripMinLng && t.lng <= tripMaxLng)
+          )
+        }
+        return false
+      })
+
+      // Sort relevant hazards by closeness to the direct route (prioritize obstacles directly on path)
+      tripRelevantHazards.sort((a, b) => {
+        const distA = getMinDistanceToPolylineKm(a.lat, a.lng, primaryCoords)
+        const distB = getMinDistanceToPolylineKm(b.lat, b.lng, primaryCoords)
+        return distA - distB
+      })
+
+      const prioritizedHazards = tripRelevantHazards.slice(0, 3)
+      const detourQueries: Array<{ name: string; url: string }> = []
+
+      for (const h of prioritizedHazards) {
         const hLat = h.lat
         const hLng = h.lng
-        if (typeof hLat !== 'number' || typeof hLng !== 'number') continue
 
-        // Radial cardinal shifts around hazard (North, South, East, West)
-        strategicWaypoints.push(
-          { name: 'Hazard North 350m', lat: hLat + 0.0035, lng: hLng },
-          { name: 'Hazard North 700m', lat: hLat + 0.0070, lng: hLng },
-          { name: 'Hazard South 350m', lat: hLat - 0.0035, lng: hLng },
-          { name: 'Hazard South 700m', lat: hLat - 0.0070, lng: hLng },
-          { name: 'Hazard East 400m', lat: hLat, lng: hLng + 0.0040 },
-          { name: 'Hazard East 800m', lat: hLat, lng: hLng + 0.0080 },
-          { name: 'Hazard West 400m', lat: hLat, lng: hLng - 0.0040 },
-          { name: 'Hazard West 800m', lat: hLat, lng: hLng - 0.0080 },
-          { name: 'Hazard NW 500m', lat: hLat + 0.0040, lng: hLng - 0.0040 },
-          { name: 'Hazard NE 500m', lat: hLat + 0.0040, lng: hLng + 0.0040 },
-          { name: 'Hazard SW 500m', lat: hLat - 0.0040, lng: hLng - 0.0040 },
-          { name: 'Hazard SE 500m', lat: hLat - 0.0040, lng: hLng + 0.0040 }
-        )
-
-        // Perpendicular parallel street shifts for road segments
         if (h.isRoadSegment && h.roadSegment?.from && h.roadSegment?.to) {
-          const dLat = h.roadSegment.to.lat - h.roadSegment.from.lat
-          const dLng = h.roadSegment.to.lng - h.roadSegment.from.lng
+          const f = h.roadSegment.from
+          const t = h.roadSegment.to
+          const dLat = t.lat - f.lat
+          const dLng = t.lng - f.lng
           const len = Math.hypot(dLat, dLng) || 1
           const pLat = -dLng / len
           const pLng = dLat / len
 
-          strategicWaypoints.push(
-            { name: 'Road Perp Left 350m', lat: hLat + pLat * 0.0035, lng: hLng + pLng * 0.0035 },
-            { name: 'Road Perp Right 350m', lat: hLat - pLat * 0.0035, lng: hLng - pLng * 0.0035 },
-            { name: 'Road Perp Left 650m', lat: hLat + pLat * 0.0065, lng: hLng + pLng * 0.0065 },
-            { name: 'Road Perp Right 650m', lat: hLat - pLat * 0.0065, lng: hLng - pLng * 0.0065 }
+          // Dual-waypoint corridor bypasses (Parallel road routing before flood entry & after flood exit)
+          detourQueries.push(
+            {
+              name: 'Road Dual Left 350m',
+              url: `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${(f.lng + pLng * 0.0035).toFixed(6)},${(f.lat + pLat * 0.0035).toFixed(6)};${(t.lng + pLng * 0.0035).toFixed(6)},${(t.lat + pLat * 0.0035).toFixed(6)};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`,
+            },
+            {
+              name: 'Road Dual Right 350m',
+              url: `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${(f.lng - pLng * 0.0035).toFixed(6)},${(f.lat - pLat * 0.0035).toFixed(6)};${(t.lng - pLng * 0.0035).toFixed(6)},${(t.lat - pLat * 0.0035).toFixed(6)};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`,
+            },
+            {
+              name: 'Road Dual Left 650m',
+              url: `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${(f.lng + pLng * 0.0065).toFixed(6)},${(f.lat + pLat * 0.0065).toFixed(6)};${(t.lng + pLng * 0.0065).toFixed(6)},${(t.lat + pLat * 0.0065).toFixed(6)};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`,
+            },
+            {
+              name: 'Road Dual Right 650m',
+              url: `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${(f.lng - pLng * 0.0065).toFixed(6)},${(f.lat - pLat * 0.0065).toFixed(6)};${(t.lng - pLng * 0.0065).toFixed(6)},${(t.lat - pLat * 0.0065).toFixed(6)};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`,
+            }
           )
+
+          // Mid-point lateral single-waypoint shifts
+          const midLat = (f.lat + t.lat) / 2
+          const midLng = (f.lng + t.lng) / 2
+          detourQueries.push(
+            {
+              name: 'Road Mid Left 450m',
+              url: `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${(midLng + pLng * 0.0045).toFixed(6)},${(midLat + pLat * 0.0045).toFixed(6)};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`,
+            },
+            {
+              name: 'Road Mid Right 450m',
+              url: `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${(midLng - pLng * 0.0045).toFixed(6)},${(midLat - pLat * 0.0045).toFixed(6)};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`,
+            }
+          )
+        } else {
+          // Point Hazard: Cardinal & diagonal radial shifts
+          const pointOffsets = [
+            { name: 'Hazard North 350m', lat: hLat + 0.0035, lng: hLng },
+            { name: 'Hazard South 350m', lat: hLat - 0.0035, lng: hLng },
+            { name: 'Hazard East 400m', lat: hLat, lng: hLng + 0.0040 },
+            { name: 'Hazard West 400m', lat: hLat, lng: hLng - 0.0040 },
+            { name: 'Hazard NW 450m', lat: hLat + 0.0035, lng: hLng - 0.0035 },
+            { name: 'Hazard NE 450m', lat: hLat + 0.0035, lng: hLng + 0.0035 },
+            { name: 'Hazard SW 450m', lat: hLat - 0.0035, lng: hLng - 0.0035 },
+            { name: 'Hazard SE 450m', lat: hLat - 0.0035, lng: hLng + 0.0035 },
+            { name: 'Hazard Wide North 700m', lat: hLat + 0.0070, lng: hLng },
+            { name: 'Hazard Wide South 700m', lat: hLat - 0.0070, lng: hLng },
+          ]
+
+          for (const off of pointOffsets) {
+            detourQueries.push({
+              name: off.name,
+              url: `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${off.lng.toFixed(6)},${off.lat.toFixed(6)};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`,
+            })
+          }
         }
       }
 
-      // Mid-trip corridor laterals
+      // Mid-trip corridor lateral bypasses
       const midLat = (originLat + destLat) / 2
       const midLng = (originLng + destLng) / 2
       const tripLatDiff = destLat - originLat
@@ -555,18 +617,24 @@ async function fetchOsrmCandidateRoutes(
       const tripPerpLat = -tripLngDiff / tripLen
       const tripPerpLng = tripLatDiff / tripLen
 
-      strategicWaypoints.push(
-        { name: 'Trip Perp Left 500m', lat: midLat + tripPerpLat * 0.0050, lng: midLng + tripPerpLng * 0.0050 },
-        { name: 'Trip Perp Right 500m', lat: midLat - tripPerpLat * 0.0050, lng: midLng - tripPerpLng * 0.0050 },
-        { name: 'Trip North 500m', lat: midLat + 0.0050, lng: midLng },
-        { name: 'Trip South 500m', lat: midLat - 0.0050, lng: midLng }
+      detourQueries.push(
+        {
+          name: 'Trip Perp Left 500m',
+          url: `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${(midLng + tripPerpLng * 0.0050).toFixed(6)},${(midLat + tripPerpLat * 0.0050).toFixed(6)};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`,
+        },
+        {
+          name: 'Trip Perp Right 500m',
+          url: `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${(midLng - tripPerpLng * 0.0050).toFixed(6)},${(midLat - tripPerpLat * 0.0050).toFixed(6)};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`,
+        }
       )
 
-      // Query all road bypass waypoints in parallel via OSRM
-      const detourPromises = strategicWaypoints.map(async (wp) => {
+      // Cap to 14 high-yield requests to prevent OSRM rate-limiting
+      const selectedQueries = detourQueries.slice(0, 14)
+
+      // Query bypass waypoints in parallel via OSRM
+      const detourPromises = selectedQueries.map(async (queryItem) => {
         try {
-          const detourUrl = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${wp.lng},${wp.lat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`
-          const detourRes = await fetch(detourUrl, { signal: AbortSignal.timeout(3200) })
+          const detourRes = await fetch(queryItem.url, { signal: AbortSignal.timeout(3500) })
           if (!detourRes.ok) return null
           const detourData = await detourRes.json()
 
@@ -579,7 +647,7 @@ async function fetchOsrmCandidateRoutes(
             const detourHazardCheck = routeIntersectsHazards(candidateCoords, activeHazards, 0.020)
 
             return {
-              name: wp.name,
+              name: queryItem.name,
               route: candidateRoute,
               distanceKm: candidateRoute.distance / 1000,
               durationMin: Math.max(1, Math.round(candidateRoute.duration / 60)),
