@@ -924,17 +924,20 @@ function interpolateSegment(
       {/* Dynamic Route Overlays (High-Contrast WebGL Layers) */}
       {showRoutes && routes && (
         <>
-          <Source id="route-fast" type="geojson" data={routes.fast.geoJSON}>
-            <Layer
-              type="line"
-              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-              paint={{
-                'line-color': '#EF4444',
-                'line-width': selectedRoute === 'fast' ? 8 : 3.5,
-                'line-opacity': selectedRoute === 'fast' ? 1.0 : 0.25,
-              }}
-            />
-          </Source>
+          {/* Only render fast direct route on map if it does not intersect high-risk flood hazards */}
+          {routes.fast.risk !== 'high' && (
+            <Source id="route-fast" type="geojson" data={routes.fast.geoJSON}>
+              <Layer
+                type="line"
+                layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                paint={{
+                  'line-color': '#EF4444',
+                  'line-width': selectedRoute === 'fast' ? 8 : 3.5,
+                  'line-opacity': selectedRoute === 'fast' ? 1.0 : 0.25,
+                }}
+              />
+            </Source>
+          )}
           <Source id="route-safe" type="geojson" data={routes.safe.geoJSON}>
             {/* Safe Route Ambient Glow */}
             <Layer

@@ -168,7 +168,15 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
   useEffect(() => {
     setCustomDetourRoute(null)
+    setSelectedRoute('safe')
   }, [destination])
+
+  // Automatically enforce safe route when direct route has flood hazards
+  useEffect(() => {
+    if (routes?.fast?.risk === 'high') {
+      setSelectedRoute('safe')
+    }
+  }, [routes])
 
   const effectiveRoutes = useMemo(() => {
     if (!customDetourRoute || !routes) return routes
@@ -259,6 +267,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         lng: coords.lng,
       })
       setIsMapClickDestinationMode(false)
+      setSelectedRoute('safe')
       setActiveModal('routes')
       mapCanvasRef.current?.flyToCoords(coords.lat, coords.lng, 15)
     }
@@ -937,6 +946,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
   const handleSelectSearchResult = (result: { name: string; lat: number; lng: number }) => {
     setDestination({ name: result.name, lat: result.lat, lng: result.lng })
+    setSelectedRoute('safe')
     setActiveModal('routes')
     mapCanvasRef.current?.flyToCoords(result.lat, result.lng, 16)
     setSearchQuery('')
@@ -1126,8 +1136,14 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
     setShow3DBuildings(true)
     setIsDrivingHUDActive(true)
 
+    // Strictly enforce safe route if current selection has flood hazard
+    const targetRouteKey = (selectedRoute === 'fast' && routes?.fast?.risk === 'high') ? 'safe' : selectedRoute
+    if (selectedRoute !== targetRouteKey) {
+      setSelectedRoute('safe')
+    }
+
     let initialBearing = -15
-    const activeRoute = routes?.[selectedRoute]
+    const activeRoute = routes?.[targetRouteKey]
     const coords = activeRoute?.geoJSON?.geometry?.coordinates
     if (Array.isArray(coords) && coords.length > 1) {
       const [lng1, lat1] = coords[0]
@@ -1159,7 +1175,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
       {/* ── Active Fullscreen Driving HUD ───────────────────── */}
       {isDrivingHUDActive && routes && (
         <DrivingHUD
-          route={customDetourRoute || routes[selectedRoute]}
+          route={customDetourRoute || routes[selectedRoute === 'fast' && routes?.fast?.risk === 'high' ? 'safe' : selectedRoute]}
           destinationName={destination?.name || 'Safe Evacuation Center'}
           nearbyHazards={hazards}
           userSpeed={userLocation.speed}
@@ -2063,39 +2079,54 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                     const isSelected = selectedRoute === r.id
                     const isSafe = r.id === 'safe'
                     const hasWarning = r.risk === 'high' || r.risk === 'medium'
+                    const isFloodedBlocked = r.id === 'fast' && r.risk === 'high'
 
                     return (
                       <button
                         key={r.id}
                         type="button"
                         onClick={() => {
+                          if (isFloodedBlocked) {
+                            setLastActionMessage('🚫 Sarado ang Direct Highway dahil sa naiulat na baha. Awtomatikong naka-lock sa Alternate Route para sa inyong kaligtasan.')
+                            setSelectedRoute('safe')
+                            return
+                          }
                           setSelectedRoute(r.id)
                           setCustomDetourRoute(null)
                         }}
-                        className={`w-full flex items-start gap-3.5 p-3.5 sm:p-4 rounded-2xl border transition-all text-left cursor-pointer ${
-                          isSelected
-                            ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30 shadow-sm ring-1 ring-emerald-500/30'
-                            : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                        disabled={isFloodedBlocked}
+                        className={`w-full flex items-start gap-3.5 p-3.5 sm:p-4 rounded-2xl border transition-all text-left ${
+                          isFloodedBlocked
+                            ? 'opacity-65 bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 cursor-not-allowed'
+                            : isSelected
+                              ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30 shadow-sm ring-1 ring-emerald-500/30 cursor-pointer'
+                              : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer'
                         }`}
                       >
-                        {/* Radio selection circle */}
+                        {/* Radio selection / Status circle */}
                         <div className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
-                          isSelected
-                            ? 'border-emerald-500 bg-emerald-500 text-white'
-                            : 'border-slate-300 dark:border-slate-600'
+                          isFloodedBlocked
+                            ? 'border-rose-400 bg-rose-500/20 text-rose-500 text-[9px] font-bold'
+                            : isSelected
+                              ? 'border-emerald-500 bg-emerald-500 text-white'
+                              : 'border-slate-300 dark:border-slate-600'
                         }`}>
-                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          {isFloodedBlocked ? '✕' : isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                         </div>
 
                         {/* Route Details */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="text-sm font-bold text-slate-900 dark:text-white">
+                            <span className={`text-sm font-bold ${isFloodedBlocked ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-900 dark:text-white'}`}>
                               {r.label}
                             </span>
                             {isSafe ? (
                               <span className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold px-2 py-0.5 rounded-md">
-                                Flood-Free
+                                Recommended · Flood-Free
+                              </span>
+                            ) : isFloodedBlocked ? (
+                              <span className="bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                🚫 Sarado / Baha (Closed)
                               </span>
                             ) : hasWarning ? (
                               <span className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-semibold px-2 py-0.5 rounded-md">
@@ -2115,7 +2146,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
                         {/* Timing and Fuel */}
                         <div className="text-right shrink-0">
-                          <div className="text-sm font-bold text-slate-900 dark:text-white">
+                          <div className={`text-sm font-bold ${isFloodedBlocked ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>
                             {r.time}
                           </div>
                           {r.fuelEstLiters && (

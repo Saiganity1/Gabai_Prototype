@@ -195,6 +195,9 @@ export async function queryValhallaRoute(params: {
 
     if (excludePolygons && excludePolygons.length > 0) {
       requestBody.exclude_polygons = excludePolygons
+      if (!requestBody.costing_options) requestBody.costing_options = {}
+      if (!requestBody.costing_options.auto) requestBody.costing_options.auto = {}
+      requestBody.costing_options.auto.exclude_polygons = excludePolygons
     }
 
     const res = await fetch(VALHALLA_API_URL, {
@@ -279,7 +282,7 @@ export async function fetchValhallaCandidates(
 
   if (directTrip && directTrip.geometry?.coordinates?.length > 1) {
     const coords: [number, number][] = directTrip.geometry.coordinates
-    const hazardCheck = routeIntersectsHazards(coords, activeHazards, 0.035)
+    const hazardCheck = routeIntersectsHazards(coords, activeHazards, 0.020)
     candidates.push({
       route: directTrip,
       distanceKm: directTrip.distance / 1000,
@@ -293,7 +296,7 @@ export async function fetchValhallaCandidates(
 
   if (safeTrip && safeTrip.geometry?.coordinates?.length > 1) {
     const coords: [number, number][] = safeTrip.geometry.coordinates
-    const hazardCheck = routeIntersectsHazards(coords, activeHazards, 0.035)
+    const hazardCheck = routeIntersectsHazards(coords, activeHazards, 0.020)
     candidates.push({
       route: safeTrip,
       distanceKm: safeTrip.distance / 1000,

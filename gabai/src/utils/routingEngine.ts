@@ -753,7 +753,7 @@ async function fetchOsrmCandidateRoutes(
     const safeDurationMin = resolvedSafe.durationMin
     const safeSteps = parseSteps(resolvedSafe.route, resolvedSafe.isDetour)
     const safeHazardClearanceKm = resolvedSafe.minHazardDistKm
-    const isSafeRouteFloodFree = resolvedSafe.isSafeAndDry
+    const isSafeRouteFloodFree = resolvedSafe.isSafeAndDry || resolvedSafe.floodedTraversalMeters === 0
 
     // GUARANTEE: Balanced route optimizes for fuel efficiency while avoiding floods
     let resolvedBalanced: (typeof indexedCandidates)[0]
@@ -804,7 +804,7 @@ async function fetchOsrmCandidateRoutes(
       : `Destination is near reported floodwater. Minimizes water exposure to ${resolvedSafe.floodedTraversalMeters}m.`
 
     const fastDetail = hasHazardOnDirect
-      ? `Warning: Directly intersects flooded road segment (${directHazardCheck.floodedTraversalMeters}m water exposure)`
+      ? `🚫 Sarado / Hindi madaanan: ${directHazardCheck.floodedTraversalMeters}m baha sa kalsada. Gamitin ang Alternate Route.`
       : 'Shortest direct road network trajectory'
 
     return {
