@@ -176,7 +176,7 @@ export async function queryValhallaRoute(params: {
   excludePolygons?: [number, number][][]
   timeoutMs?: number
 }): Promise<any | null> {
-  const { originLat, originLng, destLat, destLng, excludePolygons, timeoutMs = 4500 } = params
+  const { originLat, originLng, destLat, destLng, excludePolygons, timeoutMs = 1200 } = params
 
   try {
     const requestBody: any = {

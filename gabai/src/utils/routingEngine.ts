@@ -111,7 +111,7 @@ function samplePolylineDensely(rawPath: [number, number][], stepDeg = 0.00015): 
 /**
  * Checks if a route polyline intersects or comes within unsafe proximity of any active flood hazard (including blue LGU flood lines and citizen reports)
  */
-export function routeIntersectsHazards(rawCoords: [number, number][], hazards: Hazard[], safeBufferKm = 0.08): {
+export function routeIntersectsHazards(rawCoords: [number, number][], hazards: Hazard[], safeBufferKm = 0.045): {
   isUnsafe: boolean
   minHazardDistanceKm: number
   blockingHazards: Hazard[]
@@ -127,10 +127,12 @@ export function routeIntersectsHazards(rawCoords: [number, number][], hazards: H
   const coords = rawCoords.map(normalizeLngLat)
   let minDistance = 999
   const blocking: Hazard[] = []
+  const numSegments = coords.length - 1
 
   for (const h of activeHazards) {
     let d = 999
     let directlyCrosses = false
+    let floodedTraversalMeters = 0
 
     if (h.isRoadSegment && h.roadSegment && (h.roadSegment.path?.length || (h.roadSegment.from && h.roadSegment.to))) {
       const rawSegCoords: [number, number][] =
@@ -142,7 +144,7 @@ export function routeIntersectsHazards(rawCoords: [number, number][], hazards: H
             ]
 
       // 1. Direct segment-to-segment crossing check
-      for (let i = 0; i < coords.length - 1; i++) {
+      for (let i = 0; i < numSegments; i++) {
         const rP1 = coords[i]
         const rP2 = coords[i + 1]
         for (let j = 0; j < rawSegCoords.length - 1; j++) {
@@ -157,26 +159,42 @@ export function routeIntersectsHazards(rawCoords: [number, number][], hazards: H
         if (directlyCrosses) break
       }
 
-      // 2. Dense sample distance check along entire flood road segment
-      const denseFloodPoints = samplePolylineDensely(rawSegCoords, 0.00012) // ~12m spacing
-      for (const [sLng, sLat] of denseFloodPoints) {
-        const segDist = getMinDistanceToPolylineKm(sLat, sLng, coords)
-        if (segDist < d) d = segDist
+      // 2. Traversal along hazard corridor
+      for (let i = 0; i < numSegments; i++) {
+        const p1 = coords[i]
+        const p2 = coords[i + 1]
+        const mid: [number, number] = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2]
+
+        let segDistKm = Infinity
+        for (let j = 0; j < rawSegCoords.length - 1; j++) {
+          const d2 = distToSegmentSquared(mid, rawSegCoords[j], rawSegCoords[j + 1])
+          const distKm = Math.sqrt(d2) * 111.32
+          if (distKm < segDistKm) segDistKm = distKm
+        }
+
+        if (segDistKm < d) d = segDistKm
+
+        const segLenMeters = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) * 111320
+        // Standard asphalt road corridor is ~25-35m wide
+        if (segDistKm <= safeBufferKm) {
+          // If this is the very last arrival segment and destination is adjacent to hazard, only count if right in flood
+          if (i === numSegments - 1 && numSegments > 3 && segDistKm > 0.020) {
+            continue
+          }
+          floodedTraversalMeters += segLenMeters
+        }
       }
     } else {
+      // Point Hazard: check distance from polyline
       d = getMinDistanceToPolylineKm(h.lat, h.lng, coords)
+      const hazardRadiusKm = Math.max(0.040, Math.min(0.075, (h.radius || 40) / 1000))
+      if (d <= hazardRadiusKm) {
+        floodedTraversalMeters += 20
+      }
     }
 
-    // Safety clearance buffer:
-    // A standard road corridor is ~10-15m wide.
-    // If a route polyline passes within ~35m of the hazard point/segment, it is on the flooded road corridor.
-    // If it is on a parallel street (> 35-40m away), it is open and safe to navigate.
-    const hazardThresholdKm = h.isRoadSegment
-      ? Math.max(0.035, safeBufferKm)
-      : Math.max(0.035, Math.min(0.050, (h.radius || 35) / 1000))
-
     if (d < minDistance) minDistance = d
-    if (directlyCrosses || d <= hazardThresholdKm) {
+    if (directlyCrosses || floodedTraversalMeters > 5) {
       blocking.push(h)
     }
   }
@@ -260,15 +278,18 @@ export function generateDynamicRoutes(
 
   const activeHazards = (Array.isArray(rawHazards) ? rawHazards : []).filter((h) => h && h.status !== 'Resolved')
   const directDist = Math.max(0.5, calculateDistanceKm(originLat, originLng, destLat, destLng))
+  const midLat = (originLat + destLat) / 2
 
-  // Real-world road-snapped linear direct path in GeoJSON [lng, lat]
+  // Axis-aligned road grid path in GeoJSON [lng, lat]
   const roadWaypoints: [number, number][] = [
     [originLng, originLat],
+    [originLng, midLat],
+    [destLng, midLat],
     [destLng, destLat],
   ]
 
   // Check if direct path conflicts with any active flood hazard or citizen report
-  const directCheck = routeIntersectsHazards(roadWaypoints, activeHazards, 0.035)
+  const directCheck = routeIntersectsHazards(roadWaypoints, activeHazards, 0.045)
   const estMin = Math.max(1, Math.round((directDist / 30) * 60))
 
   return {
@@ -453,114 +474,40 @@ export async function fetchAccurateRealWorldRoutes(
       const perpLat = -lngDiff / len
       const perpLng = latDiff / len
 
-      // Robust lateral offset scales in degrees (1° ≈ 111km)
-      // ±0.004° ≈ 440m (immediate parallel street outside flood buffer)
-      // ±0.007° ≈ 780m (local town bypass)
-      // ±0.012° ≈ 1.3km (arterial bypass)
-      // ±0.018° ≈ 2.0km (major bypass)
-      // ±0.026° ≈ 2.9km (regional road)
-      // ±0.036° ≈ 4.0km (inter-town highway)
-      const offsetScales = [-0.004, 0.004, -0.007, 0.007, -0.012, 0.012, -0.018, 0.018, -0.026, 0.026, -0.036, 0.036]
+      const midLat = (originLat + destLat) / 2
+      const midLng = (originLng + destLng) / 2
 
-      const getHazardCenter = (h: Hazard): { lat: number; lng: number } => {
-        if (h.isRoadSegment && h.roadSegment) {
-          if (h.roadSegment.path && Array.isArray(h.roadSegment.path) && h.roadSegment.path.length > 0) {
-            const mid = Math.floor(h.roadSegment.path.length / 2)
-            return { lat: h.roadSegment.path[mid][1], lng: h.roadSegment.path[mid][0] }
-          }
-          if (h.roadSegment.from && h.roadSegment.to) {
-            return {
-              lat: (h.roadSegment.from.lat + h.roadSegment.to.lat) / 2,
-              lng: (h.roadSegment.from.lng + h.roadSegment.to.lng) / 2,
-            }
-          }
-        }
-        return { lat: h.lat, lng: h.lng }
-      }
+      // High-yield strategic road bypass waypoints covering both immediate parallel streets & wider arterials
+      const strategicWaypoints: Array<{ name: string; lat: number; lng: number }> = [
+        // 1. North Lateral Shifts (immediate ~350m & wider ~700m)
+        { name: 'North Lateral 350m', lat: midLat + 0.0035, lng: midLng },
+        { name: 'North Lateral 650m', lat: midLat + 0.0065, lng: midLng },
+        // 2. South Lateral Shifts
+        { name: 'South Lateral 350m', lat: midLat - 0.0035, lng: midLng },
+        { name: 'South Lateral 650m', lat: midLat - 0.0065, lng: midLng },
+        // 3. Perpendicular Hazard Corridor Bypasses
+        { name: 'Perp Hazard Bypass A', lat: midLat + perpLat * 0.0045, lng: midLng + perpLng * 0.0045 },
+        { name: 'Perp Hazard Bypass B', lat: midLat - perpLat * 0.0045, lng: midLng - perpLng * 0.0045 },
+        // 4. Diagonal Corner Shifts (approaching via perpendicular road intersections)
+        { name: 'Origin Corner Shift', lat: originLat + (perpLat > 0 ? 0.004 : -0.004), lng: originLng + 0.001 },
+        { name: 'Dest Corner Shift', lat: destLat + (perpLat > 0 ? 0.004 : -0.004), lng: destLng - 0.001 },
+      ]
 
-      const targetHazards = directHazardCheck.blockingHazards.length > 0
-        ? directHazardCheck.blockingHazards
-        : activeHazards.slice(0, 4)
-
-      const waypointsToTest: Array<{ lat: number; lng: number }> = []
-
-      for (const hz of targetHazards) {
-        const center = getHazardCenter(hz)
-        let hzPerpLat = perpLat
-        let hzPerpLng = perpLng
-
-        if (hz.isRoadSegment && hz.roadSegment?.from && hz.roadSegment?.to) {
-          const sDLat = hz.roadSegment.to.lat - hz.roadSegment.from.lat
-          const sDLng = hz.roadSegment.to.lng - hz.roadSegment.from.lng
-          const sLen = Math.hypot(sDLat, sDLng) || 1
-          hzPerpLat = -sDLng / sLen
-          hzPerpLng = sDLat / sLen
-
-          // Offsets from start and end points of the flooded road segment
-          for (const off of [-0.005, 0.005, -0.010, 0.010, -0.018, 0.018]) {
-            waypointsToTest.push({
-              lat: hz.roadSegment.from.lat + hzPerpLat * off,
-              lng: hz.roadSegment.from.lng + hzPerpLng * off,
-            })
-            waypointsToTest.push({
-              lat: hz.roadSegment.to.lat + hzPerpLat * off,
-              lng: hz.roadSegment.to.lng + hzPerpLng * off,
-            })
-          }
-        }
-
-        // Offsets from hazard center
-        for (const off of offsetScales) {
-          waypointsToTest.push({
-            lat: center.lat + hzPerpLat * off,
-            lng: center.lng + hzPerpLng * off,
-          })
-          if (hzPerpLat !== perpLat) {
-            waypointsToTest.push({
-              lat: center.lat + perpLat * off,
-              lng: center.lng + perpLng * off,
-            })
-          }
-        }
-      }
-
-      // Also add mid-trip lateral diversion waypoints
-      const midTripLat = (originLat + destLat) / 2
-      const midTripLng = (originLng + destLng) / 2
-      for (const off of [-0.006, 0.006, -0.012, 0.012, -0.020, 0.020]) {
-        waypointsToTest.push({
-          lat: midTripLat + perpLat * off,
-          lng: midTripLng + perpLng * off,
-        })
-      }
-
-      // Test top 6 diverse candidate road intersections to avoid rate limiting
-      const selectedWaypoints = waypointsToTest.slice(0, 6)
-
-      const detourPromises = selectedWaypoints.map(async ({ lat: candLat, lng: candLng }) => {
+      const detourPromises = strategicWaypoints.map(async (wp) => {
         try {
-          // Snap candidate waypoint to nearest asphalt road intersection
-          const nearUrl = `https://router.project-osrm.org/nearest/v1/driving/${candLng},${candLat}`
-          const nearRes = await fetch(nearUrl, { signal: AbortSignal.timeout(3500) })
-          if (!nearRes.ok) return null
-          const nearData = await nearRes.json()
-          const snappedLoc = nearData.waypoints?.[0]?.location
-          if (!snappedLoc) return null
-
-          const [snapLng, snapLat] = snappedLoc
-
-          // Query OSRM to route through the clean road intersection directly to Point B
-          const detourUrl = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${snapLng},${snapLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`
-          const detourRes = await fetch(detourUrl, { signal: AbortSignal.timeout(3500) })
+          // Direct OSRM route query snapping through the clean road bypass waypoint to Destination
+          const detourUrl = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${wp.lng},${wp.lat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`
+          const detourRes = await fetch(detourUrl, { signal: AbortSignal.timeout(3000) })
           if (!detourRes.ok) return null
           const detourData = await detourRes.json()
 
           if (detourData.code === 'Ok' && detourData.routes?.[0]) {
             const candidateRoute = detourData.routes[0]
             const candidateCoords: [number, number][] = candidateRoute.geometry?.coordinates || []
+            if (candidateCoords.length < 2) return null
 
-            // Strictly check entire detour polyline against all active flood hazard buffers (35m corridor)
-            const detourHazardCheck = routeIntersectsHazards(candidateCoords, activeHazards, 0.035)
+            // Strictly check entire detour polyline against all active flood hazard corridors
+            const detourHazardCheck = routeIntersectsHazards(candidateCoords, activeHazards, 0.045)
 
             return {
               route: candidateRoute,
