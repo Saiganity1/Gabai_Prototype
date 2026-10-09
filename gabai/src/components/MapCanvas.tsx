@@ -935,17 +935,6 @@ function interpolateSegment(
               }}
             />
           </Source>
-          <Source id="route-balanced" type="geojson" data={routes.balanced.geoJSON}>
-            <Layer
-              type="line"
-              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-              paint={{
-                'line-color': '#F59E0B',
-                'line-width': selectedRoute === 'balanced' ? 8 : 3.5,
-                'line-opacity': selectedRoute === 'balanced' ? 1.0 : 0.3,
-              }}
-            />
-          </Source>
           <Source id="route-safe" type="geojson" data={routes.safe.geoJSON}>
             {/* Safe Route Ambient Glow */}
             <Layer

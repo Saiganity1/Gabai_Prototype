@@ -50,24 +50,24 @@ export function analyzeRouteWithAI(
   if (!safeTouchesHazard) {
     confidenceScore = 99.6
     floodRiskIndex = 1.2
-    aiReasoning.push('✨ AI Verified: 0.0m floodwater across all OSM road graph nodes')
+    aiReasoning.push('Verified flood-free: 0.0m water across road network graph')
     if (bypassedHazardsCount > 0) {
-      aiReasoning.push(`🛡️ Dynamic AI Bypass: Safely skirted ${bypassedHazardsCount} active submerged choke point(s)`)
+      aiReasoning.push(`Safe bypass: Successfully routed around ${bypassedHazardsCount} active flood hazard(s)`)
     } else {
-      aiReasoning.push('🟢 All arterial road corridors verified dry & passable')
+      aiReasoning.push('All arterial road corridors verified dry and passable')
     }
-    aiReasoning.push(`🌦️ Weather Modeling: ${weatherRainIntensity} factored into road friction`)
-    aiReasoning.push('🚗 Vehicle Compatibility: 100% Passable for Sedans, Motorcycles & Heavy Vehicles')
+    aiReasoning.push(`Weather modeling: ${weatherRainIntensity} factored into road friction`)
+    aiReasoning.push('Vehicle compatibility: Passable for all standard vehicle types')
   } else {
     confidenceScore = 84.5
     floodRiskIndex = 28.0
     passabilityVerdict = 'Passable (High-Clearance Only)'
-    aiReasoning.push('⚠️ Moderate risk: Low-lying road segment nearby, reduced speed advised')
+    aiReasoning.push('Moderate risk: Low-lying road segment nearby, reduced speed advised')
   }
 
   const aiSummary = !safeTouchesHazard
-    ? `GABAI AI has analyzed the road graph: The Safe Route utilizes elevated bypass arteries with a 99.6% passability confidence score, completely avoiding low-lying river spillover.`
-    : `GABAI AI detected localized puddling near the corridor. Safe Route remains optimal with heightened flood defense.`
+    ? 'Road graph analysis: Alternate Route utilizes elevated bypass arteries, steering clear of low-lying floodwater.'
+    : 'Localized puddling detected near highway corridor. Alternate Route remains recommended for flood clearance.'
 
   return {
     confidenceScore,

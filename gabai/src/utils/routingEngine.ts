@@ -305,11 +305,11 @@ export function generateDynamicRoutes(
   return {
     safe: {
       id: 'safe',
-      label: directCheck.isUnsafe ? '⚡ AI Flood Bypass (Real Roads)' : '⚡ AI Optimal (Real Roads · Dry)',
+      label: 'Alternate Route (to avoid flood)',
       time: `${estMin} min (${directDist.toFixed(1)} km)`,
       detail: directCheck.isUnsafe
-        ? '🛡️ AI Detour: Navigating real road network around reported floodwater'
-        : '🛡️ AI Selected: Direct asphalt road trajectory to Destination',
+        ? 'Safe bypass: Navigating road network around reported floodwater'
+        : 'Direct road network path to destination',
       risk: directCheck.isUnsafe ? 'medium' : 'low',
       geoJSON: createRouteGeoJSON(roadWaypoints),
       distanceKm: directDist,
@@ -324,20 +324,20 @@ export function generateDynamicRoutes(
     },
     balanced: {
       id: 'balanced',
-      label: '🍃 Eco-Safe Alternate (Gas-Efficient & Dry)',
+      label: 'Alternate Route (to avoid flood)',
       time: `${estMin + 2} min (${(directDist * 1.1).toFixed(1)} km)`,
-      detail: '🍃 Smooth cruising arterial · 100% safe & dry',
+      detail: 'Alternative road corridor avoiding flood-prone zones',
       risk: 'low',
       geoJSON: createRouteGeoJSON(roadWaypoints),
       distanceKm: directDist * 1.1,
     },
     fast: {
       id: 'fast',
-      label: 'Direct Road Trajectory',
+      label: 'Direct Highway route',
       time: `${estMin} min (${directDist.toFixed(1)} km)`,
       detail: directCheck.isUnsafe
-        ? '⚠️ Caution: Direct path passes near reported flood hazard'
-        : 'Direct road network path',
+        ? 'Caution: Direct highway path passes near reported flood hazard'
+        : 'Shortest direct road network path',
       risk: directCheck.isUnsafe ? 'high' : 'low',
       geoJSON: createRouteGeoJSON(roadWaypoints),
       distanceKm: directDist,
@@ -726,17 +726,18 @@ async function fetchOsrmCandidateRoutes(
       Math.round(((fastFuelLiters - ecoFuelLiters) / (fastFuelLiters || 1)) * 100)
     )
 
-    const safeLabel = isSafeRouteFloodFree
-      ? resolvedSafe.isDetour
-        ? '⚡ AI Flood Bypass (100% Safe · Dry Real Roads)'
-        : '⚡ AI Optimal (Real Roads · 100% Flood-Free)'
-      : '⚠️ AI Safe Approach (Destination inside flood area)'
+    const safeLabel = 'Alternate Route (to avoid flood)'
+    const fastLabel = 'Direct Highway route'
 
     const safeDetail = isSafeRouteFloodFree
       ? resolvedSafe.isDetour
-        ? `🛡️ ${aiDecision.aiExplanation} · ${safeHazardClearanceKm.toFixed(1)} km flood clearance · ~${safeFuelLiters} L fuel`
-        : `🛡️ ${aiDecision.aiExplanation} · ~${safeFuelLiters} L fuel`
-      : `⚠️ Destination is in/near reported flood. Route minimizes water exposure (${resolvedSafe.floodedTraversalMeters}m exposure vs direct ${directHazardCheck.floodedTraversalMeters}m).`
+        ? `Safe bypass: ${safeHazardClearanceKm.toFixed(1)} km clearance from flood hazards`
+        : 'Verified dry road corridor to destination'
+      : `Destination is near reported floodwater. Minimizes water exposure to ${resolvedSafe.floodedTraversalMeters}m.`
+
+    const fastDetail = hasHazardOnDirect
+      ? `Warning: Directly intersects flooded road segment (${directHazardCheck.floodedTraversalMeters}m water exposure)`
+      : 'Shortest direct road network trajectory'
 
     return {
       safe: {
@@ -748,33 +749,31 @@ async function fetchOsrmCandidateRoutes(
         geoJSON: safeGeoJSON,
         distanceKm: safeDistanceKm,
         fuelEstLiters: safeFuelLiters,
-        ecoRating: `AI Score: ${aiDecision.overallScore}/100`,
+        ecoRating: 'Safe Route',
         steps: safeSteps,
       },
       balanced: {
         id: 'balanced',
-        label: '🍃 Eco-Safe Alternate (Gas-Efficient & Dry)',
+        label: safeLabel,
         time: `${balancedDurationMin} min (${balancedDistKm.toFixed(1)} km)`,
-        detail: `🍃 ${aiDecision.reasoning} · ~${ecoFuelLiters} L fuel (-${fuelSavings}% gas)`,
+        detail: `Secondary bypass with ${balancedDistKm.toFixed(1)} km path length`,
         risk: 'low',
         geoJSON: balancedGeoJSON,
         distanceKm: balancedDistKm,
         fuelEstLiters: ecoFuelLiters,
         fuelSavingsPct: fuelSavings,
-        ecoRating: '🍃 Best Gas Economy',
+        ecoRating: 'Alternate',
       },
       fast: {
         id: 'fast',
-        label: 'Direct Road Trajectory',
+        label: fastLabel,
         time: `${directDurationMin} min (${directDistKm.toFixed(1)} km)`,
-        detail: hasHazardOnDirect
-          ? `⚠️ Warning: Directly crosses active flooded road corridor (${directHazardCheck.floodedTraversalMeters}m water traversal)`
-          : `Shortest direct road network trajectory (~${fastFuelLiters} L)`,
+        detail: fastDetail,
         risk: hasHazardOnDirect ? 'high' : 'low',
         geoJSON: fastGeoJSON,
         distanceKm: directDistKm,
         fuelEstLiters: fastFuelLiters,
-        ecoRating: 'Direct Road',
+        ecoRating: 'Direct Highway',
         steps: directSteps,
       },
     }

@@ -67,7 +67,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const [activeModal, setActiveModal] = useState<ActiveModal | 'family_safety'>('none')
   const [appState, setAppState] = useState<AppState>('normal')
   const [selectedHazard, setSelectedHazard] = useState<Hazard | null>(null)
-  const [selectedRoute, setSelectedRoute] = useState<'safe' | 'balanced' | 'fast'>('safe')
+  const [selectedRoute, setSelectedRoute] = useState<'safe' | 'fast'>('safe')
   const [panelOpen, setPanelOpen] = useState(false)
 
   const [showRadar, setShowRadar] = useState(false)
@@ -1992,73 +1992,106 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                   </div>
                 )}
 
-                {/* ── AI Neural Route Optimizer Card ── */}
+                {/* ── AI Route Assessment Card (Clean & Minimal) ── */}
                 {aiRouteAnalysis && (
-                  <div className="mb-3.5 bg-gradient-to-br from-indigo-950/90 via-slate-900/95 to-slate-900/90 text-white rounded-2xl p-3.5 border border-cyan-500/40 shadow-lg relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
-                    <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
+                  <div className="mb-3.5 bg-slate-900/95 dark:bg-slate-900/90 text-white rounded-2xl p-3.5 border border-slate-700/60 dark:border-slate-800 shadow-md">
+                    <div className="flex items-center justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
-                          <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                        <div className="w-6 h-6 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                          <Sparkles className="w-3.5 h-3.5" />
                         </div>
-                        <span className="text-xs font-black tracking-wide text-cyan-300 uppercase">
-                          AI Neural Route Optimizer
+                        <span className="text-xs font-bold tracking-wide text-slate-200 uppercase">
+                          AI Route Assessment
                         </span>
                       </div>
-                      <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-black px-2 py-0.5 rounded-full">
-                        {aiRouteAnalysis.confidenceScore}% ACCURACY
+                      <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                        {aiRouteAnalysis.confidenceScore}% Accuracy
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-slate-300 leading-relaxed mb-2.5 relative z-10">
+                    <p className="text-[11px] text-slate-300 leading-relaxed mb-2.5">
                       {aiRouteAnalysis.aiSummary}
                     </p>
 
-                    <div className="space-y-1 relative z-10 bg-slate-950/50 rounded-xl p-2 border border-slate-800/80">
-                      {aiRouteAnalysis.aiReasoning.slice(0, 3).map((reason, idx) => (
-                        <div key={idx} className="text-[10px] text-slate-300 font-medium flex items-center gap-1.5">
-                          <span>{reason}</span>
-                        </div>
-                      ))}
-                    </div>
+                    {aiRouteAnalysis.aiReasoning.length > 0 && (
+                      <div className="space-y-1 bg-slate-950/60 rounded-xl p-2.5 border border-slate-800/80">
+                        {aiRouteAnalysis.aiReasoning.slice(0, 3).map((reason, idx) => (
+                          <div key={idx} className="text-[10px] text-slate-400 font-medium flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400/80 shrink-0" />
+                            <span>{reason}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* ── Route Options Comparison ── */}
-                <div className="space-y-2 mb-4">
-                  {(['safe', 'balanced', 'fast'] as const).map((rId) => {
+                {/* ── Route Options Comparison (2 Options: Alternate Route & Direct Highway) ── */}
+                <div className="space-y-2.5 mb-4">
+                  {(['safe', 'fast'] as const).map((rId) => {
                     const r = routes[rId]
+                    if (!r) return null
+                    const isSelected = selectedRoute === r.id
+                    const isSafe = r.id === 'safe'
+                    const hasWarning = r.risk === 'high' || r.risk === 'medium'
+
                     return (
                       <button
                         key={r.id}
+                        type="button"
                         onClick={() => {
                           setSelectedRoute(r.id)
                           setCustomDetourRoute(null)
                         }}
-                        className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all text-left cursor-pointer ${
-                          selectedRoute === r.id
-                            ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 shadow-sm scale-[1.01]'
-                            : 'border-transparent bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        className={`w-full flex items-start gap-3.5 p-3.5 sm:p-4 rounded-2xl border transition-all text-left cursor-pointer ${
+                          isSelected
+                            ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30 shadow-sm ring-1 ring-emerald-500/30'
+                            : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                         }`}
                       >
-                        <StatusDot risk={r.risk} />
+                        {/* Radio selection circle */}
+                        <div className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                          isSelected
+                            ? 'border-emerald-500 bg-emerald-500 text-white'
+                            : 'border-slate-300 dark:border-slate-600'
+                        }`}>
+                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+
+                        {/* Route Details */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                            <span className="text-sm font-extrabold text-slate-900 dark:text-white">{r.label}</span>
-                            <RiskBadge risk={r.risk} />
-                            {r.fuelSavingsPct && (
-                              <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 text-[9px] font-black px-1.5 py-0.5 rounded">
-                                🍃 -{r.fuelSavingsPct}% GAS
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">
+                              {r.label}
+                            </span>
+                            {isSafe ? (
+                              <span className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold px-2 py-0.5 rounded-md">
+                                Flood-Free
+                              </span>
+                            ) : hasWarning ? (
+                              <span className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-semibold px-2 py-0.5 rounded-md">
+                                Flood Warning
+                              </span>
+                            ) : (
+                              <span className="bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-500/30 text-[10px] font-semibold px-2 py-0.5 rounded-md">
+                                Direct
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{r.detail}</div>
+
+                          <div className="text-xs text-slate-600 dark:text-slate-400 leading-snug">
+                            {r.detail}
+                          </div>
                         </div>
+
+                        {/* Timing and Fuel */}
                         <div className="text-right shrink-0">
-                          <div className="text-sm font-extrabold text-slate-800 dark:text-slate-200">{r.time}</div>
+                          <div className="text-sm font-bold text-slate-900 dark:text-white">
+                            {r.time}
+                          </div>
                           {r.fuelEstLiters && (
-                            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
-                              ⛽ ~{r.fuelEstLiters} L
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                              ~{r.fuelEstLiters} L fuel
                             </div>
                           )}
                         </div>
