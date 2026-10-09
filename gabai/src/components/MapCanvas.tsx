@@ -113,7 +113,7 @@ const MAPTILER_KEY = 'nTk681BgoYKH6JYBCUgo'
 const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   {
     darkMode,
-    isSatellite = false,
+    isSatellite = true,
     selectedHazard,
     showRoutes,
     selectedRoute,
@@ -127,12 +127,12 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     destination,
     onMapClick,
     flyToTrigger,
-    showRadar = true,
+    showRadar = false,
     show3DBuildings = true,
     showDangerZones = true,
     showRoadLines = true,
     showEvacCenters = true,
-    is3D = true,
+    is3D = false,
     onToggle3D,
     isPickingRoadSegment,
     isPickingPoint,
@@ -392,7 +392,7 @@ function interpolateSegment(
     return createGeoCircle([userLng, userLat], radius)
   }, [userLng, userLat, userLocation.accuracy])
 
-  // PAGASA Doppler Weather Radar Simulated Storm Cell Polygons
+  // Doppler Weather Radar Simulated Storm Cell Polygons
   const radarPrecipitationGeoJSON = useMemo(() => {
     if (!showRadar) return null
     return {
@@ -711,11 +711,11 @@ function interpolateSegment(
         </Source>
       )}
 
-      {/* ── PAGASA Doppler Weather Radar Layer ── */}
+      {/* ── Doppler Weather Radar Layer ── */}
       {showRadar && radarPrecipitationGeoJSON && (
-        <Source id="pagasa-radar-source" type="geojson" data={radarPrecipitationGeoJSON}>
+        <Source id="weather-radar-source" type="geojson" data={radarPrecipitationGeoJSON}>
           <Layer
-            id="pagasa-radar-fill"
+            id="weather-radar-fill"
             type="fill"
             paint={{
               'fill-color': ['get', 'color'],
@@ -723,7 +723,7 @@ function interpolateSegment(
             }}
           />
           <Layer
-            id="pagasa-radar-outline"
+            id="weather-radar-outline"
             type="line"
             paint={{
               'line-color': ['get', 'color'],

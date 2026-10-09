@@ -70,7 +70,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const [selectedRoute, setSelectedRoute] = useState<'safe' | 'balanced' | 'fast'>('safe')
   const [panelOpen, setPanelOpen] = useState(false)
 
-  const [showRadar, setShowRadar] = useState(true)
+  const [showRadar, setShowRadar] = useState(false)
 
   // Destination Choosing States
   const [isChoosingDestination, setIsChoosingDestination] = useState(false)
@@ -145,8 +145,8 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const isGeofenceViolated = reportDistanceKm > 1.5
 
   // Map Layer & Perspective Controls
-  const [is3D, setIs3D] = useState(true)
-  const [isSatellite, setIsSatellite] = useState(false)
+  const [is3D, setIs3D] = useState(false)
+  const [isSatellite, setIsSatellite] = useState(true)
   const [show3DBuildings, setShow3DBuildings] = useState(true)
   const [showDangerZones, setShowDangerZones] = useState(true)
   const [showRoadLines, setShowRoadLines] = useState(true)
@@ -1167,7 +1167,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             <span className="text-slate-400 hidden sm:inline">and 1 more gauge near Pampanga</span>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <span className="text-[9px] font-bold tracking-widest text-slate-400 uppercase bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/60">PAGASA</span>
             <button onClick={() => setAppState('normal')} className="text-slate-400 hover:text-white transition-colors">
               <X className="w-3.5 h-3.5" />
             </button>
@@ -1388,7 +1387,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                   darkMode
                     ? 'text-slate-400 bg-slate-800/80 border-slate-700/50'
                     : 'text-slate-500 bg-slate-100 border-slate-200'
-                }`}>PAGASA</span>
+                }`}>SENSOR</span>
               </div>
 
               <div className="py-1">
@@ -2573,22 +2572,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                   />
                 </label>
 
-                {/* PAGASA Weather Radar */}
-                <label className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 cursor-pointer">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">🌧️</span>
-                    <div>
-                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">PAGASA Weather Doppler Radar</div>
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400">Live heavy rain & storm precipitation</div>
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={showRadar}
-                    onChange={(e) => setShowRadar(e.target.checked)}
-                    className="w-4 h-4 text-cyan-600 rounded focus:ring-cyan-500 cursor-pointer"
-                  />
-                </label>
 
                 {/* Evacuation Centers */}
                 <label className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 cursor-pointer">

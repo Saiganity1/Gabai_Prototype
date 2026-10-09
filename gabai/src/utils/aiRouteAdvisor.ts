@@ -18,7 +18,7 @@ export interface AIRouteAnalysis {
 export function analyzeRouteWithAI(
   routes: Record<'safe' | 'balanced' | 'fast', RouteInfo>,
   hazards: Hazard[],
-  weatherRainIntensity = 'Moderate Rain (PAGASA Doppler)'
+  weatherRainIntensity = 'Moderate Rain'
 ): AIRouteAnalysis {
   const activeHazards = hazards.filter((h) => h.status !== 'Resolved')
   const safeRoute = routes.safe

@@ -4,8 +4,8 @@ import {
   Shield, Sun, Moon,
   Clock, Layers, Locate,
   ChevronDown, ChevronUp, CheckCircle, XCircle, Flag, Sparkles, AlertTriangle,
-  Users, Megaphone, Send, LifeBuoy,
-  Copy, Check, Search, Plus, Minus, Volume2, VolumeX, Eye,
+  Users, Send, LifeBuoy,
+  Copy, Check, Search, Plus, Minus, Eye,
   Radio, Anchor, HeartPulse, Truck, Printer, Filter, MapPin, X
 } from 'lucide-react'
 import MapCanvas, { Hazard, MapCanvasHandle } from '../components/MapCanvas'
@@ -63,21 +63,11 @@ export default function LGUDashboardPage({ darkMode = true, toggleDark = () => {
   const [layersOpen, setLayersOpen] = useState(false)
   const [isPanelMinimized, setIsPanelMinimized] = useState(false)
   const [alertLevel, setAlertLevel] = useState<'red' | 'orange' | 'blue'>('red')
-  const [isSirenActive, setIsSirenActive] = useState(false)
   const [copiedSitRep, setCopiedSitRep] = useState(false)
-  const [showRadar, setShowRadar] = useState(true)
+  const [showRadar, setShowRadar] = useState(false)
   const [isAiInsightDismissed, setIsAiInsightDismissed] = useState(false)
   const [is3D, setIs3D] = useState(false)
-  const [isSatellite, setIsSatellite] = useState(false)
-
-  // Modals
-  const [showBroadcastModal, setShowBroadcastModal] = useState(false)
-  const [broadcastChannel, setBroadcastChannel] = useState<{ sms: boolean; app: boolean; siren: boolean }>({
-    sms: true,
-    app: true,
-    siren: false,
-  })
-  const [broadcastMessage, setBroadcastMessage] = useState('CRITICAL ADVISORY: Evacuate low-lying river areas immediately.')
+  const [isSatellite, setIsSatellite] = useState(true)
   
   const [showDispatchModal, setShowDispatchModal] = useState(false)
   const [dispatchTargetReport, setDispatchTargetReport] = useState<any>(null)
@@ -427,30 +417,6 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                   </button>
                 ))}
               </div>
-
-              {/* Broadcast Alert Button */}
-              <button
-                type="button"
-                onClick={() => setShowBroadcastModal(true)}
-                className="bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl shadow-md border border-red-400/40 flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
-              >
-                <Megaphone className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Broadcast Alert</span>
-              </button>
-
-              {/* Siren Audio Toggle */}
-              <button
-                type="button"
-                onClick={() => setIsSirenActive(!isSirenActive)}
-                className={`p-2 rounded-xl border transition-all cursor-pointer ${
-                  isSirenActive
-                    ? 'bg-red-600 border-red-400 text-white animate-pulse'
-                    : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white'
-                }`}
-                title="Toggle Emergency Audio Siren"
-              >
-                {isSirenActive ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-              </button>
 
               {/* Satellite / Streets Switcher */}
               <button
@@ -1230,15 +1196,6 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
             />
             <span className="font-bold">🛰️ Satellite Hybrid Imagery</span>
           </label>
-          <label className="flex items-center gap-2.5 py-1.5 cursor-pointer text-xs text-slate-300 hover:text-white">
-            <input
-              type="checkbox"
-              checked={showRadar}
-              onChange={(e) => setShowRadar(e.target.checked)}
-              className="w-3.5 h-3.5 accent-blue-500"
-            />
-            <span className="font-bold">PAGASA Weather Doppler Radar</span>
-          </label>
           {[
             { id: 'hazards', label: 'Flood Lines & Danger Zones' },
             { id: 'evac', label: 'Evacuation Shelters' },
@@ -1254,116 +1211,7 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
 
       {/* ════ MODALS ════ */}
 
-      {/* 1. Emergency Broadcast Modal */}
-      {showBroadcastModal && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 anim-fade-in">
-          <div className="bg-slate-900 border border-red-500/50 rounded-3xl p-6 max-w-md w-full shadow-[0_0_60px_rgba(239,68,68,0.35)] anim-slide-up">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400">
-                  <Megaphone className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-white text-base">Public Emergency Broadcast</h3>
-                  <p className="text-xs text-slate-400">Multi-Channel Citizen Alert Notification</p>
-                </div>
-              </div>
-              <button onClick={() => setShowBroadcastModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Quick Templates */}
-            <div className="mb-3">
-              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">
-                Quick Advisory Preset Templates:
-              </label>
-              <div className="grid grid-cols-1 gap-1.5">
-                {[
-                  '🚨 EVACUATION ORDER: Immediate pre-emptive evacuation for low-lying river areas.',
-                  '⛔ ROAD CLOSURE: Flooding detected on Mexico-San Luis corridor. Follow GABAI safe route.',
-                  '🟢 ALL CLEAR: Floodwaters subsiding. Relief goods distribution active at Municipal Gym.',
-                ].map((tmpl) => (
-                  <button
-                    key={tmpl}
-                    type="button"
-                    onClick={() => setBroadcastMessage(tmpl)}
-                    className="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[11px] text-slate-300 rounded-xl text-left truncate transition-colors cursor-pointer"
-                  >
-                    {tmpl}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">
-                Custom Broadcast Message:
-              </label>
-              <textarea
-                value={broadcastMessage}
-                onChange={(e) => setBroadcastMessage(e.target.value)}
-                rows={3}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-xs text-white placeholder-slate-500 outline-none focus:border-red-500 resize-none"
-              />
-            </div>
-
-            {/* Channels */}
-            <div className="grid grid-cols-3 gap-2 mb-4">
-              <label className="p-2 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2 text-[10px] font-bold text-slate-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={broadcastChannel.sms}
-                  onChange={(e) => setBroadcastChannel({ ...broadcastChannel, sms: e.target.checked })}
-                  className="accent-red-500"
-                />
-                <span>SMS Cell Broadcast</span>
-              </label>
-              <label className="p-2 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2 text-[10px] font-bold text-slate-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={broadcastChannel.app}
-                  onChange={(e) => setBroadcastChannel({ ...broadcastChannel, app: e.target.checked })}
-                  className="accent-red-500"
-                />
-                <span>App Push Alert</span>
-              </label>
-              <label className="p-2 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2 text-[10px] font-bold text-slate-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={broadcastChannel.siren}
-                  onChange={(e) => setBroadcastChannel({ ...broadcastChannel, siren: e.target.checked })}
-                  className="accent-red-500"
-                />
-                <span>OpCen Sirens</span>
-              </label>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowBroadcastModal(false)}
-                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowBroadcastModal(false)
-                  if (broadcastChannel.siren) setIsSirenActive(true)
-                }}
-                className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg cursor-pointer active:scale-95"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Send Broadcast</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2. Mutual Aid & Dispatch Modal */}
+      {/* Mutual Aid & Dispatch Modal */}
       {showDispatchModal && dispatchTargetReport && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 anim-fade-in">
           <form
