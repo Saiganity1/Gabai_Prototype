@@ -137,6 +137,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [photoAiAnalysis, setPhotoAiAnalysis] = useState<any>(null);
+  const [enlargedPhoto, setEnlargedPhoto] = useState<string | null>(null);
 
   // Road Flood Line Segment State
   const [isRoadSegmentMode, setIsRoadSegmentMode] = useState(true);
@@ -2593,6 +2594,42 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
             {/* Scrollable Body */}
             <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-3 space-y-3">
+              {/* Photo Evidence (Ground Truth Photo) */}
+              {(() => {
+                const photoSrc =
+                  selectedHazard.imageUrl ||
+                  reports.find(
+                    (r) =>
+                      String(r.hazardId) === String(selectedHazard.id) ||
+                      String(r.id) === String(selectedHazard.id) ||
+                      (Math.abs(r.lat - selectedHazard.lat) < 0.002 &&
+                        Math.abs(r.lng - selectedHazard.lng) < 0.002),
+                  )?.imageUrl;
+
+                if (!photoSrc) return null;
+                return (
+                  <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900 shadow-md group">
+                    <img
+                      src={photoSrc}
+                      alt="Flood On-Scene Evidence"
+                      className="w-full h-44 sm:h-52 object-cover cursor-pointer hover:scale-105 transition-all duration-300"
+                      onClick={() => setEnlargedPhoto(photoSrc)}
+                    />
+                    <div className="absolute top-2.5 left-2.5 bg-slate-950/80 backdrop-blur-md text-[10px] text-cyan-300 font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1.5 border border-cyan-500/30 shadow-lg">
+                      <Camera className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Citizen Photo Evidence (On-Scene)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEnlargedPhoto(photoSrc)}
+                      className="absolute bottom-2.5 right-2.5 bg-slate-900/90 hover:bg-blue-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl backdrop-blur-md border border-white/20 transition-all flex items-center gap-1.5 shadow-lg cursor-pointer"
+                    >
+                      <span>Enlarge Photo</span>
+                    </button>
+                  </div>
+                );
+              })()}
+
               {/* Stats row */}
               <div className="grid grid-cols-3 gap-2">
                 {[
@@ -3707,6 +3744,54 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         onInjectFakeReport={injectSimulatedHazardAhead}
         darkMode={darkMode}
       />
+
+      {/* ── High-Resolution Photo Evidence Lightbox Modal ── */}
+      {enlargedPhoto && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 anim-fade-in"
+          onClick={() => setEnlargedPhoto(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-slate-900 rounded-3xl border border-slate-700 overflow-hidden shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-3.5 px-4 bg-slate-950 flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-xl bg-cyan-500/20 text-cyan-400">
+                  <Camera className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-white">Citizen Flood Photo Evidence</h4>
+                  <p className="text-[10px] text-slate-400">Verified ground photo taken on-scene</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEnlargedPhoto(null)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-2 flex items-center justify-center overflow-auto max-h-[75vh] bg-slate-950/60">
+              <img
+                src={enlargedPhoto}
+                alt="Enlarged Flood Evidence"
+                className="max-w-full max-h-[72vh] object-contain rounded-2xl shadow-2xl"
+              />
+            </div>
+            <div className="p-3 bg-slate-950 flex justify-end gap-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setEnlargedPhoto(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl cursor-pointer"
+              >
+                Close Inspection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
