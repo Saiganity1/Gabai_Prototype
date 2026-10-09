@@ -177,20 +177,6 @@ const DEFAULT_SEED_REPORTS: CitizenReport[] = [
     passability: 'not_passable_light',
     waterDepth: 'Knee Deep (0.50m)',
   },
-  {
-    id: 'rep-102',
-    hazardId: 'haz-pamp-3',
-    citizen: 'Juan D. (Barangay Patrol)',
-    type: 'road',
-    emoji: '🚧',
-    desc: 'JASA road clearing in progress. Counterflow traffic enforced.',
-    lat: 15.046,
-    lng: 120.676,
-    severity: 'medium',
-    time: '10 mins ago',
-    status: 'verified',
-    locationName: 'Jose Abad Santos Avenue',
-  },
 ]
 
 export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -290,7 +276,9 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const saved = localStorage.getItem('gabai-live-reports')
       if (saved) {
         const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) initialReports = parsed
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          initialReports = parsed.filter((r: any) => r.id !== 'rep-102' && (!r.type || r.type === 'flood'))
+        }
       }
     } catch {}
 

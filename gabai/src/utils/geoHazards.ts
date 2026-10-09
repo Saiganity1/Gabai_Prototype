@@ -106,9 +106,9 @@ export const PAMPANGA_REAL_HAZARDS: Array<{
   },
   {
     id: 'haz-pamp-3',
-    type: 'closure',
-    emoji: '🚧',
-    label: 'Jose Abad Santos Avenue (JASA) Road Clearing',
+    type: 'flood',
+    emoji: '🌊',
+    label: 'Jose Abad Santos Avenue (JASA) Submerged Lane',
     lat: 15.046,
     lng: 120.676,
     severity: 'medium',
@@ -117,8 +117,9 @@ export const PAMPANGA_REAL_HAZARDS: Array<{
     verified: 2,
     isVerified: true,
     ago: '10 mins ago',
-    status: 'Counterflow Traffic Enforced',
+    status: 'Knee-Deep Water · Passable to Heavy Trucks Only',
     locationDesc: 'San Fernando - Guagua Boundary',
+    waterDepth: 'Knee Deep (0.40m)',
   },
   {
     id: 'haz-pamp-4',
@@ -138,9 +139,9 @@ export const PAMPANGA_REAL_HAZARDS: Array<{
   },
   {
     id: 'haz-pamp-5',
-    type: 'rain',
-    emoji: '🌧️',
-    label: 'Mt. Arayat Heavy Torrential Precipitation Cell',
+    type: 'flood',
+    emoji: '🌊',
+    label: 'Arayat-Magalang Mountain Runoff Flash Flood',
     lat: 15.205,
     lng: 120.742,
     severity: 'medium',
@@ -149,8 +150,9 @@ export const PAMPANGA_REAL_HAZARDS: Array<{
     verified: 1,
     isVerified: true,
     ago: '15 mins ago',
-    status: 'Flash Flood Watch Active',
+    status: 'Flash Flood Overflow Active',
     locationDesc: 'Arayat-Magalang Mountain Slope',
+    waterDepth: 'Knee Deep (0.45m)',
   },
   {
     id: 'haz-pamp-6',
@@ -186,7 +188,7 @@ export const PAMPANGA_REAL_HAZARDS: Array<{
 ]
 
 export function getContextualHazards(userLat: number, userLng: number): Hazard[] {
-  return PAMPANGA_REAL_HAZARDS.map((h) => {
+  return PAMPANGA_REAL_HAZARDS.filter((h) => h.type === 'flood').map((h) => {
     const distKm = calculateDistanceKm(userLat, userLng, h.lat, h.lng)
     return {
       id: h.id,
