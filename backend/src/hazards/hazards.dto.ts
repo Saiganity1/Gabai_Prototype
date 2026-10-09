@@ -32,6 +32,24 @@ export class CreateHazardDto {
   @IsOptional()
   @IsNumber()
   confidence?: number;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  isRoadSegment?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  roadSegment?: any;
+
+  @ApiPropertyOptional({ example: 'not_passable_light' })
+  @IsOptional()
+  @IsString()
+  passability?: string;
+
+  @ApiPropertyOptional({ example: 'Knee Deep (0.5m)' })
+  @IsOptional()
+  @IsString()
+  waterDepth?: string;
 }
 
 export class UpdateHazardStatusDto {

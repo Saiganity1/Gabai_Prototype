@@ -42,37 +42,17 @@ export interface AIPatternInsight {
 }
 
 /**
- * Anti-Spam Filter: Determines if a hazard is visible to the public.
- * Unverified citizen reports are hidden from other users until verified by the LGU.
+ * Public Visibility Filter: Determines if a hazard or citizen report is visible to motorists.
+ * All active hazards and citizen reports must be visible and actively avoided by navigation.
+ * Only resolved or rejected reports are hidden.
  */
 export function isHazardPubliclyVisible(h: Hazard, myReportIds: string[] = []): boolean {
   if (!h || h.status === 'Resolved' || h.status === 'rejected' || h.status?.includes('Rejected')) {
     return false
   }
 
-  // 1. Officially verified by LGU (published to all motorists)
-  if (
-    h.isVerified ||
-    (h.verified && h.verified > 0) ||
-    h.status === 'Verified' ||
-    h.status === 'Verified by LGU' ||
-    h.status?.includes('Verified')
-  ) {
-    return true
-  }
-
-  // 2. Pre-seeded baseline official LGU hazards
-  if (typeof h.id === 'string' && h.id.startsWith('haz-pamp-')) {
-    return true
-  }
-
-  // 3. User's own report (visible to creator with Pending status)
-  if (h.isMine || myReportIds.includes(String(h.id))) {
-    return true
-  }
-
-  // Hide unverified reports from other users to reduce spam and false reports
-  return false
+  // Active citizen flood reports and official hazards must remain visible and actively avoided
+  return true
 }
 
 interface DisasterContextType {
@@ -903,10 +883,12 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type,
+            description: newReport.desc,
             desc: newReport.desc,
             lat: reportLat,
             lng: reportLng,
             severity,
+            citizenName,
             citizen: citizenName,
             locationName: userLoc.locationName,
             isRoadSegment,

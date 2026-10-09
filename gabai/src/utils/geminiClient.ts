@@ -8,7 +8,7 @@ export const GEMINI_API_KEY =
 
 import { buildMultilingualSystemPrompt, ChatHistoryTurn } from './multilingualCoPilot'
 
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
 
 export interface GeminiRouteAdvice {
   confidence: number

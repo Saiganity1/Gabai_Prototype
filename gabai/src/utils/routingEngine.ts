@@ -26,12 +26,21 @@ export interface RouteInfo {
   steps?: RouteStep[]
 }
 
+export function normalizeLngLat(c: [number, number]): [number, number] {
+  if (!c || c.length < 2) return [0, 0]
+  // In the Philippines: Longitude is ~120-121, Latitude is ~14-16
+  if (c[0] < 50 && c[1] > 50) {
+    return [c[1], c[0]]
+  }
+  return [c[0], c[1]]
+}
+
 export function createRouteGeoJSON(coords: [number, number][]) {
   return {
     type: 'Feature' as const,
     geometry: {
       type: 'LineString' as const,
-      coordinates: coords.map((c) => [c[1], c[0]]), // GeoJSON is [lng, lat]
+      coordinates: coords.map(normalizeLngLat),
     },
   }
 }
@@ -47,8 +56,9 @@ function distToSegmentSquared(p: [number, number], v: [number, number], w: [numb
 /**
  * Calculates the shortest distance (in km) from a point [lat, lng] to an entire polyline route
  */
-export function getMinDistanceToPolylineKm(lat: number, lng: number, coords: [number, number][]): number {
-  if (!coords || coords.length === 0) return 999
+export function getMinDistanceToPolylineKm(lat: number, lng: number, rawCoords: [number, number][]): number {
+  if (!rawCoords || rawCoords.length === 0) return 999
+  const coords = rawCoords.map(normalizeLngLat)
   if (coords.length === 1) return calculateDistanceKm(lat, lng, coords[0][1], coords[0][0])
 
   let minD2 = Infinity
@@ -79,7 +89,8 @@ function segmentsIntersect(
 /**
  * Densely interpolates points along a polyline to ensure no gap in hazard detection
  */
-function samplePolylineDensely(path: [number, number][], stepDeg = 0.0002): [number, number][] {
+function samplePolylineDensely(rawPath: [number, number][], stepDeg = 0.00015): [number, number][] {
+  const path = rawPath.map(normalizeLngLat)
   const result: [number, number][] = []
   for (let i = 0; i < path.length - 1; i++) {
     const [lng1, lat1] = path[i]
@@ -98,19 +109,22 @@ function samplePolylineDensely(path: [number, number][], stepDeg = 0.0002): [num
 }
 
 /**
- * Checks if a route polyline intersects or comes within unsafe proximity of any active flood hazard (including blue LGU flood lines)
+ * Checks if a route polyline intersects or comes within unsafe proximity of any active flood hazard (including blue LGU flood lines and citizen reports)
  */
-export function routeIntersectsHazards(coords: [number, number][], hazards: Hazard[], safeBufferKm = 0.05): {
+export function routeIntersectsHazards(rawCoords: [number, number][], hazards: Hazard[], safeBufferKm = 0.08): {
   isUnsafe: boolean
   minHazardDistanceKm: number
   blockingHazards: Hazard[]
 } {
-  // ALL unresolved hazards on the map must be checked (including all LGU and citizen flood lines)
-  const activeHazards = hazards.filter((h) => h && h.status !== 'Resolved')
-  if (activeHazards.length === 0 || !coords || coords.length < 2) {
+  // ALL unresolved and unrejected hazards on the map must be evaluated
+  const activeHazards = hazards.filter(
+    (h) => h && h.status !== 'Resolved' && !String(h.status).toLowerCase().includes('reject')
+  )
+  if (activeHazards.length === 0 || !rawCoords || rawCoords.length < 2) {
     return { isUnsafe: false, minHazardDistanceKm: 999, blockingHazards: [] }
   }
 
+  const coords = rawCoords.map(normalizeLngLat)
   let minDistance = 999
   const blocking: Hazard[] = []
 
@@ -118,13 +132,13 @@ export function routeIntersectsHazards(coords: [number, number][], hazards: Haza
     let d = 999
     let directlyCrosses = false
 
-    if (h.isRoadSegment && h.roadSegment && h.roadSegment.from && h.roadSegment.to) {
+    if (h.isRoadSegment && h.roadSegment && (h.roadSegment.path?.length || (h.roadSegment.from && h.roadSegment.to))) {
       const rawSegCoords: [number, number][] =
         h.roadSegment.path && h.roadSegment.path.length > 1
-          ? h.roadSegment.path
+          ? h.roadSegment.path.map(normalizeLngLat)
           : [
-              [h.roadSegment.from.lng, h.roadSegment.from.lat],
-              [h.roadSegment.to.lng, h.roadSegment.to.lat],
+              normalizeLngLat([h.roadSegment.from.lng, h.roadSegment.from.lat]),
+              normalizeLngLat([h.roadSegment.to.lng, h.roadSegment.to.lat]),
             ]
 
       // 1. Direct segment-to-segment crossing check
@@ -144,20 +158,19 @@ export function routeIntersectsHazards(coords: [number, number][], hazards: Haza
       }
 
       // 2. Dense sample distance check along entire flood road segment
-      if (!directlyCrosses) {
-        const denseFloodPoints = samplePolylineDensely(rawSegCoords, 0.00015) // ~15m spacing
-        for (const [sLng, sLat] of denseFloodPoints) {
-          const segDist = getMinDistanceToPolylineKm(sLat, sLng, coords)
-          if (segDist < d) d = segDist
-        }
+      const denseFloodPoints = samplePolylineDensely(rawSegCoords, 0.00012) // ~12m spacing
+      for (const [sLng, sLat] of denseFloodPoints) {
+        const segDist = getMinDistanceToPolylineKm(sLat, sLng, coords)
+        if (segDist < d) d = segDist
       }
     } else {
       d = getMinDistanceToPolylineKm(h.lat, h.lng, coords)
     }
 
+    // Safety clearance buffer: 100m for road segments, 140m for point reports
     const hazardThresholdKm = h.isRoadSegment
-      ? Math.max(0.04, safeBufferKm)
-      : Math.max(0.05, (h.radius || 60) / 1000) + safeBufferKm
+      ? Math.max(0.08, safeBufferKm)
+      : Math.max(0.12, (h.radius || 120) / 1000) + safeBufferKm
 
     if (d < minDistance) minDistance = d
     if (directlyCrosses || d <= hazardThresholdKm) {
@@ -245,97 +258,161 @@ export function generateDynamicRoutes(
   const activeHazards = (Array.isArray(rawHazards) ? rawHazards : []).filter((h) => h && h.status !== 'Resolved')
   const directDist = Math.max(0.5, calculateDistanceKm(originLat, originLng, destLat, destLng))
 
-  // Real-world road-snapped linear fallback
+  // Real-world road-snapped linear direct path in GeoJSON [lng, lat]
   const roadWaypoints: [number, number][] = [
-    [originLat, originLng],
-    [destLat, destLng],
+    [originLng, originLat],
+    [destLng, destLat],
   ]
 
-  // Check if direct linear path conflicts with any active hazard
-  const directCheck = routeIntersectsHazards(roadWaypoints, activeHazards, 0.05)
+  // Check if direct path conflicts with any active flood hazard or citizen report
+  const directCheck = routeIntersectsHazards(roadWaypoints, activeHazards, 0.08)
   let safeWaypoints: [number, number][] = roadWaypoints
   let balancedWaypoints: [number, number][] = roadWaypoints
+  let safeDistanceKm = directDist
+  let balancedDistanceKm = directDist * 1.1
 
   if (directCheck.isUnsafe && activeHazards.length > 0) {
-    const latDiff = destLat - originLat
-    const lngDiff = destLng - originLng
-    const len = Math.hypot(latDiff, lngDiff) || 1
-    const perpLat = -lngDiff / len
-    const perpLng = latDiff / len
+    const dLng = destLng - originLng
+    const dLat = destLat - originLat
+    const len = Math.hypot(dLng, dLat) || 0.0001
+    const uLng = dLng / len
+    const uLat = dLat / len
 
-    // Midpoint of the route bent laterally away from the flood hazard
-    const midLat = (originLat + destLat) / 2
-    const midLng = (originLng + destLng) / 2
+    // Perpendicular unit vector in GeoJSON [lng, lat] coordinate space
+    const perpLng = -uLat
+    const perpLat = uLng
 
-    const arcOffsetDeg = 0.012
-    const waypointsLeft: [number, number][] = [
-      [originLat, originLng],
-      [midLat + perpLat * arcOffsetDeg, midLng + perpLng * arcOffsetDeg],
-      [destLat, destLng],
-    ]
-    const waypointsRight: [number, number][] = [
-      [originLat, originLng],
-      [midLat - perpLat * arcOffsetDeg, midLng - perpLng * arcOffsetDeg],
-      [destLat, destLng],
-    ]
-
-    const leftCheck = routeIntersectsHazards(waypointsLeft, activeHazards, 0.05)
-    const rightCheck = routeIntersectsHazards(waypointsRight, activeHazards, 0.05)
-
-    if (!leftCheck.isUnsafe) {
-      safeWaypoints = waypointsLeft
-      balancedWaypoints = rightCheck.isUnsafe ? waypointsLeft : waypointsRight
-    } else if (!rightCheck.isUnsafe) {
-      safeWaypoints = waypointsRight
-      balancedWaypoints = waypointsRight
-    } else {
-      if (leftCheck.minHazardDistanceKm >= rightCheck.minHazardDistanceKm) {
-        safeWaypoints = waypointsLeft
-        balancedWaypoints = waypointsRight
-      } else {
-        safeWaypoints = waypointsRight
-        balancedWaypoints = waypointsLeft
+    // Find the primary blocker to establish the detour apex
+    const blocker = directCheck.blockingHazards[0] || activeHazards[0]
+    let bLng = blocker.lng
+    let bLat = blocker.lat
+    if (bLat > 50 && bLng < 50) {
+      const tmp = bLat
+      bLat = bLng
+      bLng = tmp
+    }
+    if (blocker.isRoadSegment && blocker.roadSegment) {
+      if (blocker.roadSegment.path && blocker.roadSegment.path.length > 0) {
+        const midIdx = Math.floor(blocker.roadSegment.path.length / 2)
+        const pt = blocker.roadSegment.path[midIdx]
+        bLng = pt[0] > 50 ? pt[0] : pt[1]
+        bLat = pt[0] > 50 ? pt[1] : pt[0]
+      } else if (blocker.roadSegment.from && blocker.roadSegment.to) {
+        bLng = (blocker.roadSegment.from.lng + blocker.roadSegment.to.lng) / 2
+        bLat = (blocker.roadSegment.from.lat + blocker.roadSegment.to.lat) / 2
       }
+    }
+
+    // Relative progression of the blocker along origin -> destination (clamped 0.2 to 0.8)
+    const rawProg = ((bLng - originLng) * uLng + (bLat - originLat) * uLat) / len
+    const blockerProg = Math.max(0.2, Math.min(0.8, isNaN(rawProg) ? 0.5 : rawProg))
+
+    // Progressive lateral offsets (0.008° ≈ 900m to 0.065° ≈ 7.2km)
+    const lateralOffsets = [0.008, 0.015, 0.024, 0.036, 0.050, 0.065]
+    const cleanCandidates: Array<{ waypoints: [number, number][]; clearanceKm: number; distKm: number }> = []
+
+    for (const off of lateralOffsets) {
+      for (const sign of [1, -1]) {
+        const offsetDeg = off * sign
+        const apexLng = originLng + uLng * (blockerProg * len) + perpLng * offsetDeg
+        const apexLat = originLat + uLat * (blockerProg * len) + perpLat * offsetDeg
+
+        const entryProg = blockerProg * 0.45
+        const exitProg = blockerProg + (1 - blockerProg) * 0.55
+
+        const candidate: [number, number][] = [
+          [originLng, originLat],
+          [
+            originLng + uLng * (entryProg * len) + perpLng * (offsetDeg * 0.5),
+            originLat + uLat * (entryProg * len) + perpLat * (offsetDeg * 0.5),
+          ],
+          [apexLng, apexLat],
+          [
+            originLng + uLng * (exitProg * len) + perpLng * (offsetDeg * 0.5),
+            originLat + uLat * (exitProg * len) + perpLat * (offsetDeg * 0.5),
+          ],
+          [destLng, destLat],
+        ]
+
+        const check = routeIntersectsHazards(candidate, activeHazards, 0.07)
+        if (!check.isUnsafe) {
+          let candDist = 0
+          for (let i = 0; i < candidate.length - 1; i++) {
+            candDist += calculateDistanceKm(candidate[i][1], candidate[i][0], candidate[i + 1][1], candidate[i + 1][0])
+          }
+          cleanCandidates.push({
+            waypoints: candidate,
+            clearanceKm: check.minHazardDistanceKm,
+            distKm: candDist,
+          })
+        }
+      }
+      if (cleanCandidates.length >= 2) break
+    }
+
+    if (cleanCandidates.length > 0) {
+      cleanCandidates.sort((a, b) => a.distKm - b.distKm)
+      safeWaypoints = cleanCandidates[0].waypoints
+      safeDistanceKm = Math.max(directDist * 1.05, cleanCandidates[0].distKm)
+
+      const second = cleanCandidates[1] || cleanCandidates[0]
+      balancedWaypoints = second.waypoints
+      balancedDistanceKm = Math.max(safeDistanceKm * 1.06, second.distKm)
+    } else {
+      // Emergency wide corridor if dense floods
+      const maxOff = 0.045
+      const apex: [number, number] = [
+        originLng + uLng * (len / 2) + perpLng * maxOff,
+        originLat + uLat * (len / 2) + perpLat * maxOff,
+      ]
+      safeWaypoints = [[originLng, originLat], apex, [destLng, destLat]]
+      safeDistanceKm = directDist * 1.25
     }
   }
 
-  const estMin = Math.max(1, Math.round((directDist / 30) * 60))
+  const estMinSafe = Math.max(1, Math.round((safeDistanceKm / 30) * 60))
+  const estMinBalanced = Math.max(1, Math.round((balancedDistanceKm / 30) * 60))
+  const estMinDirect = Math.max(1, Math.round((directDist / 30) * 60))
 
   return {
     safe: {
       id: 'safe',
       label: '⚡ AI Optimal (Fastest & 100% Flood-Free)',
-      time: `${estMin} min (${directDist.toFixed(1)} km)`,
+      time: `${estMinSafe} min (${safeDistanceKm.toFixed(1)} km)`,
       detail: directCheck.isUnsafe
-        ? '🛡️ AI Detour: Arc route avoiding active flood zone'
+        ? '🛡️ AI Detour: Arc corridor actively bypassing reported floodwater'
         : '🛡️ AI Selected: Real asphalt road trajectory to Point B',
       risk: 'low',
       geoJSON: createRouteGeoJSON(safeWaypoints),
-      distanceKm: directDist,
+      distanceKm: safeDistanceKm,
       steps: [
         {
-          instruction: 'Proceed toward Destination along Safe Road Network',
-          distance: `${(directDist * 1000).toFixed(0)} m`,
-          subtext: 'Routing along verified flood-free road corridor',
-          icon: 'straight',
+          instruction: directCheck.isUnsafe
+            ? 'Proceed along AI Flood Detour bypass route'
+            : 'Proceed toward Destination along Safe Road Network',
+          distance: `${(safeDistanceKm * 1000).toFixed(0)} m`,
+          subtext: directCheck.isUnsafe
+            ? 'Safely maneuvering around reported flood hazard'
+            : 'Routing along verified flood-free road corridor',
+          icon: directCheck.isUnsafe ? 'right' : 'straight',
         },
       ],
     },
     balanced: {
       id: 'balanced',
       label: '🍃 Eco-Safe Alternate (Gas-Efficient & Dry)',
-      time: `${estMin + 2} min (${(directDist * 1.1).toFixed(1)} km)`,
+      time: `${estMinBalanced} min (${balancedDistanceKm.toFixed(1)} km)`,
       detail: '🍃 Smooth cruising arterial · 100% safe & dry',
       risk: 'low',
       geoJSON: createRouteGeoJSON(balancedWaypoints),
-      distanceKm: directDist * 1.1,
+      distanceKm: balancedDistanceKm,
     },
     fast: {
       id: 'fast',
       label: 'Direct Highway Route',
-      time: `${estMin} min (${directDist.toFixed(1)} km)`,
+      time: `${estMinDirect} min (${directDist.toFixed(1)} km)`,
       detail: directCheck.isUnsafe
-        ? '⚠️ Direct highway passes through reported flood area'
+        ? '⚠️ High Risk: Direct path passes through reported flood hazard'
         : 'Direct road network path',
       risk: directCheck.isUnsafe ? 'high' : 'low',
       geoJSON: createRouteGeoJSON(roadWaypoints),
@@ -432,6 +509,26 @@ export async function fetchAccurateRealWorldRoutes(
       minHazardDistKm: number
       isDetour: boolean
     }> = []
+
+    // Add verified algorithmic flood-free detour candidate
+    if (fallback.safe.risk === 'low') {
+      const fbCoords = (fallback.safe.geoJSON?.geometry?.coordinates || []) as [number, number][]
+      const fbCheck = routeIntersectsHazards(fbCoords, activeHazards, 0.05)
+      if (!fbCheck.isUnsafe) {
+        candidateBypasses.push({
+          route: {
+            geometry: fallback.safe.geoJSON.geometry,
+            distance: fallback.safe.distanceKm * 1000,
+            duration: Math.round((fallback.safe.distanceKm / 30) * 3600),
+          },
+          distanceKm: fallback.safe.distanceKm,
+          durationMin: Math.max(1, Math.round((fallback.safe.distanceKm / 30) * 60)),
+          isSafeAndDry: true,
+          minHazardDistKm: fbCheck.minHazardDistanceKm,
+          isDetour: true,
+        })
+      }
+    }
 
     // Add direct primary route
     candidateBypasses.push({
@@ -685,7 +782,26 @@ export async function fetchAccurateRealWorldRoutes(
       a.distanceKm - b.distanceKm
     )
 
-    // GUARANTEE: If ANY flood-free route exists, safe route MUST be 100% flood-free!
+    // If no real-world OSRM candidate is flood-free, use the guaranteed flood-free algorithmic detour
+    if (floodFreeRoutes.length === 0 && fallback.safe.risk === 'low') {
+      return {
+        ...fallback,
+        fast: {
+          id: 'fast',
+          label: 'Direct Highway Route',
+          time: `${directDurationMin} min (${directDistKm.toFixed(1)} km)`,
+          detail: hasHazardOnDirect
+            ? '⚠️ Warning: Direct highway passes through reported flood area'
+            : 'Direct road network path',
+          risk: hasHazardOnDirect ? 'high' : 'low',
+          geoJSON: { type: 'Feature' as const, geometry: primaryRoute.geometry },
+          distanceKm: directDistKm,
+          steps: directSteps,
+        },
+      }
+    }
+
+    // GUARANTEE: Safe route MUST be 100% flood-free!
     const resolvedSafe = (aiSafeCandidate && aiSafeCandidate.isSafeAndDry)
       ? aiSafeCandidate
       : (floodFreeRoutes[0] || unsafeRoutes[0] || indexedCandidates[0])

@@ -16,9 +16,15 @@ export class CreateReportDto {
   @IsString()
   emoji?: string;
 
-  @ApiProperty({ example: 'Water is knee-deep in front of the plaza.' })
+  @ApiPropertyOptional({ example: 'Water is knee-deep in front of the plaza.' })
+  @IsOptional()
   @IsString()
-  description: string;
+  description?: string;
+
+  @ApiPropertyOptional({ example: 'Water is knee-deep in front of the plaza.' })
+  @IsOptional()
+  @IsString()
+  desc?: string;
 
   @ApiProperty({ example: 14.585 })
   @IsNumber()
@@ -38,6 +44,11 @@ export class CreateReportDto {
   @IsString()
   citizenName?: string;
 
+  @ApiPropertyOptional({ example: 'Juan D. (Citizen)' })
+  @IsOptional()
+  @IsString()
+  citizen?: string;
+
   @ApiPropertyOptional({ example: 'Tondo, Manila' })
   @IsOptional()
   @IsString()
@@ -47,4 +58,22 @@ export class CreateReportDto {
   @IsOptional()
   @IsString()
   photoUrl?: string;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  isRoadSegment?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  roadSegment?: any;
+
+  @ApiPropertyOptional({ example: 'not_passable_light' })
+  @IsOptional()
+  @IsString()
+  passability?: string;
+
+  @ApiPropertyOptional({ example: 'Knee Deep (0.45m)' })
+  @IsOptional()
+  @IsString()
+  waterDepth?: string;
 }

@@ -15,6 +15,16 @@ export interface LocalHazard {
   status: string;
   reportsCount: number;
   verifiedCount: number;
+  isRoadSegment?: boolean;
+  roadSegment?: {
+    from?: { lat: number; lng: number; name?: string };
+    to?: { lat: number; lng: number; name?: string };
+    path?: [number, number][];
+    roadName?: string;
+  };
+  passability?: string;
+  waterDepth?: string;
+  isVerified?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,8 +33,39 @@ export interface LocalHazard {
 export class HazardsService {
   private readonly logger = new Logger(HazardsService.name);
 
-  // Accurate Real-World Pampanga Hazards Dataset
+  // Accurate Real-World Pampanga Hazards Dataset with Road Segment Polylines
   private inMemoryHazards: LocalHazard[] = [
+    {
+      id: 'haz-pamp-santamaria',
+      type: 'FLOOD',
+      emoji: '🌊',
+      label: 'Santa Maria - Mexico Road Flood Stretch',
+      lat: 15.0746,
+      lng: 120.7813,
+      severity: 'HIGH',
+      confidence: 90,
+      status: 'Not Passable to Light Vehicles',
+      reportsCount: 14,
+      verifiedCount: 1,
+      isRoadSegment: true,
+      roadSegment: {
+        from: { lat: 15.0722, lng: 120.7788, name: 'Santa Maria SW Entrance' },
+        to: { lat: 15.0772, lng: 120.7838, name: 'Santa Maria Elementary / Tramo' },
+        roadName: 'Mexico - San Luis Provincial Road',
+        path: [
+          [120.7788, 15.0722],
+          [120.7806, 15.0738],
+          [120.7813, 15.0746],
+          [120.782, 15.0755],
+          [120.7838, 15.0772],
+        ],
+      },
+      passability: 'not_passable_light',
+      waterDepth: 'Knee Deep (0.45m)',
+      isVerified: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
     {
       id: 'haz-1',
       type: 'FLOOD',
@@ -34,9 +75,25 @@ export class HazardsService {
       lng: 120.684,
       severity: 'HIGH',
       confidence: 96,
-      status: 'Impassable to Sedans',
+      status: 'Not Passable to Light Vehicles',
       reportsCount: 24,
       verifiedCount: 3,
+      isRoadSegment: true,
+      roadSegment: {
+        from: { lat: 15.035, lng: 120.681, name: 'San Fernando Junction' },
+        to: { lat: 15.044, lng: 120.688, name: 'Dolores Flyover Intersection' },
+        roadName: 'MacArthur Highway',
+        path: [
+          [120.681, 15.035],
+          [120.6828, 15.0375],
+          [120.684, 15.039],
+          [120.686, 15.0415],
+          [120.688, 15.044],
+        ],
+      },
+      passability: 'not_passable_light',
+      waterDepth: 'Knee Deep (0.50m)',
+      isVerified: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
@@ -52,6 +109,7 @@ export class HazardsService {
       status: 'Critical Alert · Water Level Rising',
       reportsCount: 38,
       verifiedCount: 5,
+      isVerified: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
@@ -67,6 +125,7 @@ export class HazardsService {
       status: 'Counterflow Traffic Enforced',
       reportsCount: 12,
       verifiedCount: 2,
+      isVerified: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
@@ -82,6 +141,7 @@ export class HazardsService {
       status: 'Waist-Deep in Low-Lying Streets',
       reportsCount: 29,
       verifiedCount: 4,
+      isVerified: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
@@ -89,14 +149,30 @@ export class HazardsService {
       id: 'haz-5',
       type: 'ROAD_BLOCK',
       emoji: '🚧',
-      label: 'Balibago Angeles City Submerged Intersection',
+      label: 'Balibago Angeles City Submerged Corridor',
       lat: 15.158,
       lng: 120.598,
       severity: 'HIGH',
       confidence: 92,
-      status: 'Impassable to Light Vehicles',
+      status: 'Closed to All Vehicles (Waist Deep)',
       reportsCount: 19,
       verifiedCount: 2,
+      isRoadSegment: true,
+      roadSegment: {
+        from: { lat: 15.155, lng: 120.594, name: 'Clark South Perimeter' },
+        to: { lat: 15.162, lng: 120.603, name: 'Balibago Crossing' },
+        roadName: 'Fields Avenue Corridor',
+        path: [
+          [120.594, 15.155],
+          [120.5962, 15.157],
+          [120.598, 15.158],
+          [120.601, 15.1605],
+          [120.603, 15.162],
+        ],
+      },
+      passability: 'not_passable_all',
+      waterDepth: 'Chest Deep (1.10m)',
+      isVerified: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
@@ -148,6 +224,11 @@ export class HazardsService {
       status: 'Active',
       reportsCount: 1,
       verifiedCount: 0,
+      isRoadSegment: dto.isRoadSegment,
+      roadSegment: dto.roadSegment,
+      passability: dto.passability,
+      waterDepth: dto.waterDepth,
+      isVerified: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

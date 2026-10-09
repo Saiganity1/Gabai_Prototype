@@ -138,13 +138,19 @@ export async function calculateDetourAroundHazard(
     }
   }
 
-  // If even 'safe' is slightly close, check if its min distance is better than 40m
-  if (!bestSafeRoute && computedRoutes.safe) {
-    const coords = computedRoutes.safe.geoJSON?.geometry?.coordinates as [number, number][]
-    if (coords) {
-      const intersection = routeIntersectsHazards(coords, [hazardToAvoid], 0.04)
-      if (!intersection.isUnsafe) {
-        bestSafeRoute = computedRoutes.safe
+  // If computed routes did not fully clear, generate guaranteed dynamic detour around the blocking hazard
+  if (!bestSafeRoute) {
+    const dynamicBypass = generateDynamicRoutes(
+      userCoords.lat,
+      userCoords.lng,
+      destination.lat,
+      destination.lng,
+      augmentedHazards
+    )
+    if (dynamicBypass.safe && dynamicBypass.safe.risk === 'low') {
+      const coords = dynamicBypass.safe.geoJSON?.geometry?.coordinates as [number, number][]
+      if (coords && !routeIntersectsHazards(coords, [hazardToAvoid], 0.05).isUnsafe) {
+        bestSafeRoute = dynamicBypass.safe
       }
     }
   }

@@ -28,7 +28,7 @@ export function evaluateHazardOnRoute(
   routeCoords: [number, number][],
   userCoords: { lat: number; lng: number },
   hazard: Hazard | CitizenReport,
-  maxBufferMeters = 40,
+  maxBufferMeters = 80,
   maxDistanceAheadKm = 5.0
 ): HazardOnRouteEvaluation {
   const fallbackResult: HazardOnRouteEvaluation = {
@@ -86,6 +86,12 @@ export function evaluateHazardOnRoute(
   // 2. Identify Hazard Geographic Center & Road Name
   let hazLat = hazard.lat
   let hazLng = hazard.lng
+  if (hazLat > 50 && hazLng < 50) {
+    const tmp = hazLat
+    hazLat = hazLng
+    hazLng = tmp
+  }
+
   let roadName =
     (hazard as any).roadSegment?.roadName ||
     (hazard as any).locationName ||
@@ -98,7 +104,11 @@ export function evaluateHazardOnRoute(
 
   if (roadSeg && roadSeg.path && roadSeg.path.length > 1) {
     // Check all coordinates along the flooded road segment
-    for (const [sLng, sLat] of roadSeg.path) {
+    for (const rawPoint of roadSeg.path) {
+      const p1 = rawPoint[0]
+      const p2 = rawPoint[1]
+      const sLng = p1 > 50 ? p1 : p2
+      const sLat = p1 > 50 ? p2 : p1
       try {
         const segPt = turf.point([sLng, sLat])
         const dKm = turf.pointToLineDistance(segPt, line, { units: 'kilometers' })

@@ -17,6 +17,10 @@ export interface LocalReport {
   citizenName: string;
   locationName?: string;
   photoUrl?: string;
+  isRoadSegment?: boolean;
+  roadSegment?: any;
+  passability?: string;
+  waterDepth?: string;
   createdAt: Date;
 }
 
@@ -120,15 +124,22 @@ export class ReportsService {
     const reportType = dto.type.toUpperCase();
     const emoji = dto.emoji || (reportType === 'FLOOD' ? '🌊' : reportType === 'FIRE' ? '🔥' : '🚧');
 
+    const reportDesc = dto.description || dto.desc || `${reportType} Hazard`;
+    const citizen = dto.citizenName || dto.citizen || 'Anonymous Citizen';
+
     let hazardId = dto.hazardId;
     if (!hazardId) {
       const hazard = await this.hazardsService.create({
         type: reportType,
         emoji,
-        label: dto.description.slice(0, 30) || `${reportType} Hazard`,
+        label: dto.locationName ? `${dto.locationName} Flooding` : reportDesc.slice(0, 30),
         lat: dto.lat,
         lng: dto.lng,
         severity: dto.severity || 'HIGH',
+        isRoadSegment: dto.isRoadSegment,
+        roadSegment: dto.roadSegment,
+        passability: dto.passability,
+        waterDepth: dto.waterDepth,
       });
       hazardId = hazard.id;
     }
@@ -138,14 +149,18 @@ export class ReportsService {
       hazardId,
       type: reportType,
       emoji,
-      description: dto.description,
+      description: reportDesc,
       lat: dto.lat,
       lng: dto.lng,
       severity: (dto.severity || 'HIGH').toUpperCase(),
       status: 'PENDING',
-      citizenName: dto.citizenName || 'Anonymous Citizen',
+      citizenName: citizen,
       locationName: dto.locationName || 'Live GPS',
       photoUrl: dto.photoUrl,
+      isRoadSegment: dto.isRoadSegment,
+      roadSegment: dto.roadSegment,
+      passability: dto.passability,
+      waterDepth: dto.waterDepth,
       createdAt: new Date(),
     };
 
