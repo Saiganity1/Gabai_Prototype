@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Link } from 'react-router-dom'
 import {
   Search, Sun, Moon, Mic, MicOff, Layers, Locate,
   ChevronUp, ChevronDown, X, Shield, ShieldAlert, Navigation,
@@ -1244,32 +1243,8 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
               </div>
             </div>
 
-            {/* Quick Action Controls (About, LGU, 3D, Theme Toggle) */}
+            {/* Quick Action Controls (3D, Theme Toggle) */}
             <div className="flex items-center gap-1 sm:gap-1.5 ml-1">
-              <button
-                type="button"
-                onClick={() => setActiveModal('about')}
-                className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                  darkMode
-                    ? 'bg-slate-800/80 hover:bg-slate-800 text-slate-200 border-slate-700/60'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
-                }`}
-              >
-                About
-              </button>
-
-              <Link
-                to="/lgu"
-                className={`px-3 py-1 rounded-xl text-xs font-black border transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shrink-0 ${
-                  darkMode
-                    ? 'bg-blue-600/25 hover:bg-blue-600/40 text-blue-300 hover:text-white border-blue-500/50 shadow-blue-950/40'
-                    : 'bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-900 border-blue-300 shadow-blue-100'
-                }`}
-                title="Open Official LGU Emergency Operations Center"
-              >
-                <span>🏢</span>
-                <span className="font-black tracking-wide">LGU</span>
-              </Link>
 
               <button
                 type="button"
