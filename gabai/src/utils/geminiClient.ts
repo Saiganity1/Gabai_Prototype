@@ -20,10 +20,7 @@ export const GEMINI_API_KEYS: string[] = [
   import.meta.env.VITE_GEMINI_API_KEY,
   (import.meta as any).env?.VITE_GEMINI_API_KEY_2,
   (import.meta as any).env?.VITE_GEMINI_API_KEY_3,
-  decodeKey('QVEuQWI4Uk42TG80ejY5ajFENExOSERvRVNaaGJYOTlCdEhNQ0ZmNHlGX05YTUZhSEhqOXc='),
-  decodeKey('QVEuQWI4Uk42TGMtUDdRY0VDbW5tUGtELVpjRXVuUDgwMFhxc3JmdUxIU2FsdmNkaGZjM2c='),
-  decodeKey('QVEuQWI4Uk42S1NmT09xUTMyZ0NyUUtCNEVDV2ZfN1VMaWRmemJTNmp1ZE1vMlRTbWItelE='),
-].filter((k): k is string => typeof k === 'string' && k.trim().length > 15)
+].filter((k): k is string => typeof k === 'string' && k.trim().length > 15 && !k.startsWith('AQ.'))
 
 export const GEMINI_API_KEY = GEMINI_API_KEYS[0] || ''
 
@@ -41,13 +38,13 @@ export function rotateGeminiKey(): string {
 }
 
 /**
- * Resilient Gemini GenerateContent Caller with automatic API key rotation on HTTP 429/403/errors
+ * Resilient Gemini GenerateContent Caller with automatic API key rotation on HTTP 401/429/403/errors
  */
 export async function callGeminiGenerateContent(
   payload: any,
   options: { timeoutMs?: number; model?: string } = {}
 ): Promise<any | null> {
-  const model = options.model || 'gemini-3.8-flash'
+  const model = options.model || 'gemini-1.5-flash'
   const timeoutMs = options.timeoutMs || 6000
   const maxAttempts = Math.max(1, GEMINI_API_KEYS.length)
 
@@ -69,15 +66,13 @@ export async function callGeminiGenerateContent(
         return data
       }
 
-      // On rate limit (429), quota exhaustion (403), or transient server error, rotate key & retry
-      if (res.status === 429 || res.status === 403 || res.status === 404 || res.status >= 500) {
-        console.warn(`Gemini key ${key.slice(0, 10)}... returned HTTP ${res.status}. Rotating key pool...`)
+      // On unauthorized (401), rate limit (429), quota exhaustion (403), or transient server error, rotate key & retry
+      if (res.status === 401 || res.status === 429 || res.status === 403 || res.status === 404 || res.status >= 500) {
         rotateGeminiKey()
         continue
       }
       return null
-    } catch (err: any) {
-      console.warn(`Gemini request timeout/network error with key ${key.slice(0, 10)}...:`, err?.message || err)
+    } catch {
       rotateGeminiKey()
     }
   }

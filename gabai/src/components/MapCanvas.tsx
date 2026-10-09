@@ -113,7 +113,7 @@ const MAPTILER_KEY = 'nTk681BgoYKH6JYBCUgo'
 const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   {
     darkMode,
-    isSatellite = true,
+    isSatellite = false,
     selectedHazard,
     showRoutes,
     selectedRoute,

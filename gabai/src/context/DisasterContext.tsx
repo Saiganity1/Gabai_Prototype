@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { Hazard, RoadSegment, PassabilityType } from '../components/MapCanvas'
-import { useUserLocation, UserCoordinates } from '../hooks/useUserLocation'
+import { useUserLocation, UserCoordinates, calculateDistanceKm } from '../hooks/useUserLocation'
 import { getContextualHazards, getContextualEvacCenters } from '../utils/geoHazards'
 import { generateDynamicRoutes, fetchAccurateRealWorldRoutes, RouteInfo } from '../utils/routingEngine'
 
@@ -602,10 +602,15 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     if (typeof window === 'undefined') return
 
+    let isCloudReachable = true
+
     // Catch up recent cloud history on app startup
     const catchupCloudHistory = async () => {
+      if (!isCloudReachable) return
       try {
-        const res = await fetch(`${CLOUD_SYNC_URL}/json?poll=1&since=24h`)
+        const res = await fetch(`${CLOUD_SYNC_URL}/json?poll=1&since=24h`, {
+          signal: AbortSignal.timeout(4000),
+        })
         if (res.ok) {
           const text = await res.text()
           const lines = text.trim().split('\n')
@@ -619,8 +624,9 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             } catch {}
           }
         }
-      } catch (err) {
-        console.log('Cloud history catchup skipped:', err)
+      } catch {
+        // Mark unreachable to prevent recurring network timeout errors in console
+        isCloudReachable = false
       }
     }
 
@@ -639,17 +645,20 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         } catch {}
       }
-    } catch (err) {
-      console.log('Cloud SSE connection error:', err)
+      eventSource.onerror = () => {
+        if (eventSource) {
+          eventSource.close()
+          eventSource = null
+        }
+      }
+    } catch {
+      if (eventSource) {
+        eventSource.close()
+        eventSource = null
+      }
     }
 
-    // Background 3-second heartbeat poll for bulletproof sync across mobile browsers
-    const pollInterval = setInterval(() => {
-      catchupCloudHistory()
-    }, 3000)
-
     return () => {
-      clearInterval(pollInterval)
       if (eventSource) eventSource.close()
     }
   }, [applyCloudEvent])

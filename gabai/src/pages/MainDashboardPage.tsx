@@ -194,7 +194,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
   // Map Layer & Perspective Controls
   const [is3D, setIs3D] = useState(false);
-  const [isSatellite, setIsSatellite] = useState(true);
+  const [isSatellite, setIsSatellite] = useState(false);
   const [show3DBuildings, setShow3DBuildings] = useState(true);
   const [showDangerZones, setShowDangerZones] = useState(true);
   const [showRoadLines, setShowRoadLines] = useState(true);
@@ -2195,42 +2195,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             )}
           </div>
 
-          {/* Right Live Weather & Atmospheric Conditions */}
-          <div
-            className={`flex items-center gap-2.5 sm:gap-3 text-xs font-semibold shrink-0 ml-auto ${
-              darkMode ? "text-slate-300" : "text-slate-700"
-            }`}
-          >
-            <div className="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
-              <CloudRain className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden sm:inline">100% rain</span>
-            </div>
-            <span
-              className={
-                darkMode ? "text-slate-700 hidden sm:inline" : "text-slate-300 hidden sm:inline"
-              }
-            >
-              |
-            </span>
-            <div
-              className={`flex items-center gap-1.5 hidden md:flex ${darkMode ? "text-slate-300" : "text-slate-600"}`}
-            >
-              <Radio
-                className={`w-3.5 h-3.5 shrink-0 ${darkMode ? "text-slate-400" : "text-slate-500"}`}
-              />
-              <span>22 km/h</span>
-            </div>
-            <span
-              className={
-                darkMode ? "text-slate-700 hidden lg:inline" : "text-slate-300 hidden lg:inline"
-              }
-            >
-              |
-            </span>
-            <span className={`hidden lg:inline ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
-              Partly cloudy
-            </span>
-          </div>
+
         </div>
       </header>
 
@@ -2269,25 +2234,6 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between py-1 cursor-pointer hover:text-blue-500 transition-colors">
-                <div
-                  className={`flex items-center gap-2 text-xs font-semibold ${darkMode ? "text-slate-200" : "text-slate-800"}`}
-                >
-                  <ChevronRight
-                    className={`w-3.5 h-3.5 ${darkMode ? "text-slate-400" : "text-slate-500"}`}
-                  />
-                  <span>River levels</span>
-                </div>
-                <span
-                  className={`text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded border ${
-                    darkMode
-                      ? "text-slate-400 bg-slate-800/80 border-slate-700/50"
-                      : "text-slate-500 bg-slate-100 border-slate-200"
-                  }`}
-                >
-                  SENSOR
-                </span>
-              </div>
 
               <div className="py-1">
                 <div
