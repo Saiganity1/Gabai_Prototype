@@ -577,10 +577,20 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
       )}
 
       {/* ── Main Command Sidebar Panel ───────────────────────── */}
-      <div className="absolute top-[148px] bottom-4 left-4 z-20 w-full sm:w-[450px] max-w-[calc(100vw-32px)] pointer-events-none transition-all duration-300">
-        <div className="h-full bg-slate-900/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] border border-slate-700/60 overflow-hidden flex flex-col pointer-events-auto">
+      <div
+        className={`absolute top-[148px] ${
+          isPanelMinimized ? 'h-auto' : 'bottom-4'
+        } left-4 z-20 w-full sm:w-[450px] max-w-[calc(100vw-32px)] pointer-events-none transition-all duration-300 ease-in-out`}
+      >
+        <div
+          className={`${
+            isPanelMinimized
+              ? 'h-auto rounded-2xl shadow-xl'
+              : 'h-full rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.9)]'
+          } bg-slate-900/95 backdrop-blur-2xl border border-slate-700/60 overflow-hidden flex flex-col pointer-events-auto transition-all duration-300 ease-in-out`}
+        >
           {/* AI Pattern Alert Pill */}
-          {aiPatternInsight && !isAiInsightDismissed && (
+          {aiPatternInsight && !isAiInsightDismissed && !isPanelMinimized && (
             <div className="bg-amber-500/10 border-b border-amber-500/20 p-2.5 px-3 flex items-center justify-between gap-2 text-xs anim-slide-down">
               <div className="flex items-center gap-2 min-w-0">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -598,14 +608,23 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
           )}
 
           {/* Tabs Navigation */}
-          <div className="p-2 bg-slate-950/80 border-b border-slate-800 flex items-center gap-1">
+          <div
+            className={`p-2 bg-slate-950/80 ${
+              isPanelMinimized ? '' : 'border-b border-slate-800'
+            } flex items-center gap-1`}
+          >
             <button
               type="button"
               onClick={() => setIsPanelMinimized(!isPanelMinimized)}
-              className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800/60 transition-colors cursor-pointer"
-              title={isPanelMinimized ? 'Expand Control Panel' : 'Minimize Control Panel'}
+              className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800/80 active:scale-95 transition-all cursor-pointer flex items-center justify-center shrink-0 border border-transparent hover:border-slate-700/60"
+              title={isPanelMinimized ? 'Expand Control Panel' : 'Minimize Control Panel (Show Map)'}
+              aria-expanded={!isPanelMinimized}
             >
-              {isPanelMinimized ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              <ChevronDown
+                className={`w-4 h-4 transition-transform duration-300 ${
+                  isPanelMinimized ? 'rotate-0' : 'rotate-180'
+                }`}
+              />
             </button>
 
             <div className="grid grid-cols-5 flex-1 gap-1">
@@ -620,12 +639,18 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                   key={t.id}
                   type="button"
                   onClick={() => {
-                    setActiveTab(t.id as any)
-                    setIsPanelMinimized(false)
+                    if (activeTab === t.id && !isPanelMinimized) {
+                      setIsPanelMinimized(true)
+                    } else {
+                      setActiveTab(t.id as any)
+                      setIsPanelMinimized(false)
+                    }
                   }}
                   className={`py-1.5 px-1 rounded-xl text-[11px] font-extrabold capitalize transition-all relative flex flex-col items-center justify-center cursor-pointer ${
-                    activeTab === t.id && !isPanelMinimized
-                      ? 'bg-blue-600 text-white shadow-md border border-blue-400/40'
+                    activeTab === t.id
+                      ? isPanelMinimized
+                        ? 'bg-blue-600/20 text-blue-300 border border-blue-500/40'
+                        : 'bg-blue-600 text-white shadow-md border border-blue-400/40'
                       : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
                   }`}
                 >
@@ -633,8 +658,10 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                   {t.count !== undefined && (
                     <span
                       className={`text-[8px] px-1.5 py-0.2 rounded-full font-black mt-0.5 ${
-                        activeTab === t.id && !isPanelMinimized
-                          ? 'bg-white text-blue-900'
+                        activeTab === t.id
+                          ? isPanelMinimized
+                            ? 'bg-blue-500/30 text-blue-200'
+                            : 'bg-white text-blue-900'
                           : t.count > 0 && t.id === 'triage'
                           ? 'bg-red-500 text-white'
                           : 'bg-slate-800 text-slate-400'
