@@ -1260,15 +1260,15 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
               <Link
                 to="/lgu"
-                className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3 py-1 rounded-xl text-xs font-black border transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shrink-0 ${
                   darkMode
-                    ? 'bg-slate-800/80 hover:bg-blue-900/40 text-slate-200 hover:text-white border-slate-700/60'
-                    : 'bg-slate-100 hover:bg-blue-50 text-slate-800 hover:text-blue-900 border-slate-200'
+                    ? 'bg-blue-600/25 hover:bg-blue-600/40 text-blue-300 hover:text-white border-blue-500/50 shadow-blue-950/40'
+                    : 'bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-900 border-blue-300 shadow-blue-100'
                 }`}
                 title="Open Official LGU Emergency Operations Center"
               >
                 <span>🏢</span>
-                <span className="hidden xs:inline">LGU</span>
+                <span className="font-black tracking-wide">LGU</span>
               </Link>
 
               <button
