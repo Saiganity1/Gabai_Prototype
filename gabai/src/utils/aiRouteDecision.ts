@@ -12,9 +12,7 @@
  *   - Detour overhead (longer route but potentially better flow)
  */
 
-import { GEMINI_API_KEY } from './geminiClient'
-
-const GEMINI_DECISION_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
+import { callGeminiGenerateContent, GEMINI_API_KEYS } from './geminiClient'
 
 export interface CandidateRouteData {
   id: string
@@ -173,7 +171,7 @@ export async function geminiDecideRoute(
 ): Promise<AIDecisionResult> {
   const algorithmicResult = computeAlgorithmicDecision(candidates)
 
-  if (!GEMINI_API_KEY || candidates.length === 0) {
+  if (GEMINI_API_KEYS.length === 0 || candidates.length === 0) {
     return algorithmicResult
   }
 
@@ -247,18 +245,15 @@ Respond ONLY with valid JSON:
   "aiExplanation": "1-2 sentence Filipino/Taglish explanation for the driver about why this route saves gas and avoids floods"
 }`
 
-    const res = await fetch(GEMINI_DECISION_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(4000),
-      body: JSON.stringify({
+    const data = await callGeminiGenerateContent(
+      {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { responseMimeType: 'application/json', temperature: 0.1 },
-      }),
-    })
+      },
+      { timeoutMs: 4000 }
+    )
 
-    if (!res.ok) return algorithmicResult
-    const data = await res.json()
+    if (!data) return algorithmicResult
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text
     if (!rawText) return algorithmicResult
 
