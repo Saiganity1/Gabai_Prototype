@@ -1292,9 +1292,9 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
       {/* ── Top Header Navigation Bar (Unified Whole Bar) ── */}
       <header className={`absolute left-0 right-0 z-30 transition-all duration-300 pointer-events-auto ${appState === 'emergency' ? 'top-10' : 'top-0'}`}>
-        <div className={`w-full backdrop-blur-2xl border-b px-3 sm:px-5 py-2 sm:py-2.5 flex items-center justify-between gap-2.5 sm:gap-4 transition-colors ${
+        <div className={`w-full backdrop-blur-2xl border-b px-3 sm:px-5 py-2 sm:py-2.5 flex items-center justify-between gap-2.5 sm:gap-4 shadow-lg transition-colors ${
           darkMode
-            ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 text-white border-white/20 shadow-xl shadow-blue-600/30'
+            ? 'bg-[#0f172a]/95 border-slate-800/80 text-white shadow-slate-950/40'
             : 'bg-white/95 border-slate-200/90 text-slate-900 shadow-slate-200/60'
         }`}>
           {/* Left Brand Badge & Quick Navigation Controls */}
@@ -1317,7 +1317,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                 onClick={toggle3DMode}
                 className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                   darkMode
-                    ? 'bg-white/15 text-white border-white/25 hover:bg-white/25 shadow-sm'
+                    ? 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:text-white'
                     : 'bg-slate-100 text-slate-700 border-slate-200 hover:text-slate-900'
                 }`}
                 title="Toggle 3D Buildings View"
@@ -1330,7 +1330,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                 onClick={toggleDark}
                 className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
                   darkMode
-                    ? 'bg-white/15 border-white/25 text-amber-300 hover:bg-white/25 hover:text-amber-200 shadow-sm'
+                    ? 'bg-slate-800/80 border-slate-700/60 text-amber-400 hover:text-amber-300'
                     : 'bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900'
                 }`}
                 aria-label="Toggle theme"
@@ -1344,17 +1344,17 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
           <div className="relative flex-1 max-w-xs sm:max-w-sm md:max-w-md mx-auto">
             <form
               onSubmit={handleSearchSubmit}
-              className={`w-full flex items-center gap-2.5 rounded-xl border px-3 py-1.5 transition-all ${
+              className={`w-full flex items-center gap-2.5 rounded-xl border px-3 py-1.5 transition-all focus-within:border-blue-500/60 focus-within:ring-1 focus-within:ring-blue-500/30 ${
                 darkMode
-                  ? 'bg-white/15 border-white/25 text-white focus-within:bg-white/25 focus-within:border-white/50 focus-within:ring-2 focus-within:ring-white/30 backdrop-blur-md'
-                  : 'bg-slate-100/90 border-slate-200 text-slate-900 focus-within:border-blue-500/60 focus-within:ring-1 focus-within:ring-blue-500/30'
+                  ? 'bg-slate-900/80 border-slate-800 text-slate-100'
+                  : 'bg-slate-100/90 border-slate-200 text-slate-900'
               }`}
             >
               <button
                 type="button"
                 onClick={() => setActiveModal('routes')}
                 className={`transition-colors shrink-0 cursor-pointer p-0.5 ${
-                  darkMode ? 'text-white/80 hover:text-white' : 'text-slate-500 hover:text-blue-600'
+                  darkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-500 hover:text-blue-600'
                 }`}
                 title="Open Safe Route Planner"
               >
@@ -1367,17 +1367,17 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                 placeholder="Plan a route..."
                 onFocus={() => setSearchFocused(true)}
                 className={`flex-1 bg-transparent text-xs font-medium outline-none truncate ${
-                  darkMode ? 'text-white placeholder-blue-100/70' : 'text-slate-900 placeholder-slate-400'
+                  darkMode ? 'text-slate-100 placeholder-slate-400' : 'text-slate-900 placeholder-slate-400'
                 }`}
               />
               {isSearching && (
-                <Loader2 className={`w-3.5 h-3.5 animate-spin shrink-0 ${darkMode ? 'text-white' : 'text-blue-500'}`} />
+                <Loader2 className={`w-3.5 h-3.5 animate-spin shrink-0 ${darkMode ? 'text-blue-400' : 'text-blue-500'}`} />
               )}
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => { setSearchQuery(''); setSearchResults([]) }}
-                  className={`p-0.5 shrink-0 ${darkMode ? 'text-white/70 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
+                  className={`p-0.5 shrink-0 ${darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -1386,7 +1386,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                 type="button"
                 onClick={() => setActiveModal('routes')}
                 className={`p-1 rounded-lg transition-all cursor-pointer shrink-0 ${
-                  darkMode ? 'hover:bg-white/20 text-white/80 hover:text-white' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-900'
+                  darkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-900'
                 }`}
                 title="Select Evacuation Route"
               >
@@ -1398,12 +1398,12 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
             {searchFocused && searchResults.length > 0 && (
               <div className={`absolute top-full left-0 right-0 mt-2 backdrop-blur-2xl rounded-2xl border overflow-hidden z-50 shadow-2xl anim-slide-up max-h-72 overflow-y-auto ${
                 darkMode
-                  ? 'bg-slate-900/98 border-slate-700/80 text-white'
+                  ? 'bg-[#0f172a]/98 border-slate-800 text-white'
                   : 'bg-white/98 border-slate-200 text-slate-900'
               }`}>
                 <div className={`px-3 py-2 border-b text-[10px] font-bold uppercase tracking-wider ${
                   darkMode
-                    ? 'bg-slate-800/80 border-slate-700/80 text-slate-300'
+                    ? 'bg-slate-900/80 border-slate-800 text-slate-400'
                     : 'bg-slate-100 border-slate-200 text-slate-500'
                 }`}>
                   Locations & Landmarks
@@ -1414,7 +1414,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
                     onMouseDown={() => handleSelectSearchResult(res)}
                     className={`w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 transition-colors border-b last:border-0 ${
                       darkMode
-                        ? 'hover:bg-slate-800/80 border-slate-800 text-white'
+                        ? 'hover:bg-slate-800/60 border-slate-800/40 text-white'
                         : 'hover:bg-slate-100 border-slate-200/60 text-slate-900'
                     }`}
                   >
@@ -1432,19 +1432,19 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
           {/* Right Live Weather & Atmospheric Conditions */}
           <div className={`flex items-center gap-2.5 sm:gap-3 text-xs font-semibold shrink-0 ml-auto ${
-            darkMode ? 'text-white drop-shadow-sm' : 'text-slate-700'
+            darkMode ? 'text-slate-300' : 'text-slate-700'
           }`}>
-            <div className={`flex items-center gap-1.5 ${darkMode ? 'text-cyan-200' : 'text-cyan-600'}`}>
+            <div className="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
               <CloudRain className="w-3.5 h-3.5 shrink-0" />
               <span className="hidden sm:inline">100% rain</span>
             </div>
-            <span className={darkMode ? 'text-white/30 hidden sm:inline' : 'text-slate-300 hidden sm:inline'}>|</span>
-            <div className={`flex items-center gap-1.5 hidden md:flex ${darkMode ? 'text-white/90' : 'text-slate-600'}`}>
-              <Radio className={`w-3.5 h-3.5 shrink-0 ${darkMode ? 'text-cyan-200' : 'text-slate-500'}`} />
+            <span className={darkMode ? 'text-slate-700 hidden sm:inline' : 'text-slate-300 hidden sm:inline'}>|</span>
+            <div className={`flex items-center gap-1.5 hidden md:flex ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+              <Radio className={`w-3.5 h-3.5 shrink-0 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`} />
               <span>22 km/h</span>
             </div>
-            <span className={darkMode ? 'text-white/30 hidden lg:inline' : 'text-slate-300 hidden lg:inline'}>|</span>
-            <span className={`hidden lg:inline ${darkMode ? 'text-white/90' : 'text-slate-500'}`}>Partly cloudy</span>
+            <span className={darkMode ? 'text-slate-700 hidden lg:inline' : 'text-slate-300 hidden lg:inline'}>|</span>
+            <span className={`hidden lg:inline ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Partly cloudy</span>
           </div>
         </div>
       </header>
@@ -1695,21 +1695,29 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
         <button
           onClick={handleMicPress}
           title="Press to speak to GABAI"
-          className="h-12 px-4 rounded-2xl relative flex items-center gap-2.5 transition-all duration-300 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-xl shadow-blue-600/30 border border-white/20 hover:scale-105 active:scale-95 cursor-pointer text-xs font-extrabold shrink-0 group"
+          className={`h-12 px-4 rounded-2xl relative flex items-center gap-2.5 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer text-xs font-extrabold shrink-0 group ${
+            darkMode
+              ? 'bg-[#0f172a]/95 hover:bg-slate-800/90 text-white border border-slate-700/80 shadow-2xl shadow-slate-950/60 backdrop-blur-xl'
+              : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-xl shadow-blue-600/30 border border-white/20'
+          }`}
         >
           <GabaiLogo size="xs" transparent />
           <span className="tracking-wide drop-shadow-md">
             GABAI AI
           </span>
-          <Sparkles className="w-3.5 h-3.5 text-cyan-200 drop-shadow-md animate-pulse" />
+          <Sparkles className="w-3.5 h-3.5 text-cyan-400 drop-shadow-md animate-pulse" />
         </button>
 
         {/* Primary Report Flood Button */}
         <button
           onClick={handleOpenReportModal}
-          className="h-12 px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs flex items-center gap-2 shadow-xl shadow-blue-600/40 transition-all hover:scale-105 active:scale-95 cursor-pointer border border-blue-400/30 shrink-0"
+          className={`h-12 px-5 rounded-2xl font-extrabold text-xs flex items-center gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0 ${
+            darkMode
+              ? 'bg-[#0f172a]/95 hover:bg-slate-800/90 text-white border border-slate-700/80 shadow-2xl shadow-slate-950/60 backdrop-blur-xl'
+              : 'bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-600/40 border border-blue-400/30'
+          }`}
         >
-          <span className="text-base font-normal">+</span>
+          <span className={`text-base font-normal ${darkMode ? 'text-blue-400' : 'text-white'}`}>+</span>
           <span>Report flood</span>
         </button>
       </div>
