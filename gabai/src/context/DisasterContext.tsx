@@ -43,6 +43,7 @@ export interface CitizenReport {
   passability?: PassabilityType;
   waterDepth?: string;
   isMine?: boolean;
+  imageUrl?: string;
 }
 
 export interface AIPatternInsight {
@@ -90,6 +91,7 @@ interface DisasterContextType {
     roadSegment?: RoadSegment;
     passability?: PassabilityType;
     waterDepth?: string;
+    imageUrl?: string;
   }) => { report: CitizenReport; hazard: Hazard };
   verifyReport: (reportId: number | string) => Promise<void>;
   rejectReport: (reportId: number | string) => Promise<void>;
@@ -813,6 +815,7 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       roadSegment,
       passability,
       waterDepth,
+      imageUrl,
     }: {
       type: string;
       description?: string;
@@ -824,6 +827,7 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       roadSegment?: any;
       passability?: string;
       waterDepth?: string;
+      imageUrl?: string;
     }) => {
       let effectiveLat = lat;
       let effectiveLng = lng;
@@ -910,6 +914,7 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         waterDepth: waterDepth || "Flood on Road",
         isVerified: false,
         isMine: true,
+        imageUrl: imageUrl || undefined,
       };
 
       const newReport: CitizenReport = {
@@ -930,6 +935,7 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         passability: passability || "not_passable_light",
         waterDepth: waterDepth || "Flood on Road",
         isMine: true,
+        imageUrl: imageUrl || undefined,
       };
 
       // Record in local reporting ID list and update anti-spam rate-limit timestamp
@@ -1235,6 +1241,7 @@ export const DisasterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           waterDepth: r.waterDepth,
           status: r.status,
           verified: r.status === "verified" ? 1 : 0,
+          imageUrl: r.imageUrl,
         } as Hazard);
       }
     });

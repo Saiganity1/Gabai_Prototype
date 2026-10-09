@@ -41,6 +41,7 @@ export interface Hazard {
   passability?: PassabilityType;
   waterDepth?: string;
   isVerified?: boolean;
+  imageUrl?: string;
 }
 
 export interface MapCanvasHandle {
@@ -1303,6 +1304,16 @@ const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
                   </div>
                 </div>
               </div>
+              {selectedHazard.imageUrl && (
+                <div className="my-2 rounded-xl overflow-hidden border border-slate-200 shadow-sm max-h-32 bg-slate-100">
+                  <img
+                    src={selectedHazard.imageUrl}
+                    alt="Citizen Flood Evidence"
+                    className="w-full h-28 object-cover"
+                  />
+                </div>
+              )}
+
               <div className="text-xs text-slate-600 my-2 bg-slate-100 p-2 rounded-xl">
                 Status: <span className="font-bold text-red-600">{selectedHazard.status}</span> ·{" "}
                 {selectedHazard.distance}

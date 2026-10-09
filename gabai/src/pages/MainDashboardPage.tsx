@@ -1693,7 +1693,37 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
 
     const reader = new FileReader();
     reader.onload = async () => {
-      const base64 = reader.result as string;
+      const rawBase64 = reader.result as string;
+
+      // Optimize & compress image so it persists reliably and transmits smoothly
+      const processImage = (base64Data: string) => {
+        return new Promise<string>((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const MAX_WIDTH = 900;
+            let width = img.width;
+            let height = img.height;
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL("image/jpeg", 0.75));
+            } else {
+              resolve(base64Data);
+            }
+          };
+          img.onerror = () => resolve(base64Data);
+          img.src = base64Data;
+        });
+      };
+
+      const base64 = await processImage(rawBase64);
       setPhotoPreview(base64);
       setIsAnalyzingPhoto(true);
 
@@ -1816,6 +1846,7 @@ export default function MainApp({ darkMode, toggleDark }: Props) {
               : undefined,
           passability: floodPassability,
           waterDepth: floodWaterDepth,
+          imageUrl: photoPreview || undefined,
         });
         setReportStep("done");
         setReportCooldownSec(120);

@@ -30,6 +30,8 @@ import {
   Printer,
   Filter,
   MapPin,
+  Camera,
+  Image,
   X,
 } from "lucide-react";
 import MapCanvas, { Hazard, MapCanvasHandle } from "../components/MapCanvas";
@@ -96,6 +98,7 @@ export default function LGUDashboardPage({ darkMode = true, toggleDark = () => {
   const [isAiInsightDismissed, setIsAiInsightDismissed] = useState(false);
   const [is3D, setIs3D] = useState(false);
   const [isSatellite, setIsSatellite] = useState(false);
+  const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
 
   const [showDispatchModal, setShowDispatchModal] = useState(false);
   const [dispatchTargetReport, setDispatchTargetReport] = useState<any>(null);
@@ -798,6 +801,35 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
 
                       {/* Flood Details */}
                       <div className="my-2 space-y-2">
+                        {/* Citizen Uploaded Flood Photo Proof */}
+                        {report.imageUrl && (
+                          <div className="relative rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950/80 shadow-md group">
+                            <img
+                              src={report.imageUrl}
+                              alt="Citizen Flood Report Evidence"
+                              className="w-full h-36 object-cover cursor-pointer hover:scale-105 transition-all duration-300"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEnlargedImage(report.imageUrl || null);
+                              }}
+                            />
+                            <div className="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-md text-[10px] text-cyan-300 font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1.5 border border-cyan-500/30 shadow-lg">
+                              <Camera className="w-3 h-3 text-cyan-400" />
+                              <span>Citizen Photo Evidence</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEnlargedImage(report.imageUrl || null);
+                              }}
+                              className="absolute bottom-2 right-2 bg-slate-900/90 hover:bg-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg backdrop-blur-md border border-white/20 transition-all flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>Enlarge Photo</span>
+                            </button>
+                          </div>
+                        )}
+
                         <div className="text-xs text-slate-200 leading-relaxed font-medium">
                           "{report.desc}"
                         </div>
@@ -928,6 +960,22 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
                     🌊 Water Depth: {selectedHazard.waterDepth}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Citizen Flood Photo Evidence on Map Selection */}
+            {selectedHazard.imageUrl && (
+              <div className="relative rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 my-2 shadow-inner group">
+                <img
+                  src={selectedHazard.imageUrl}
+                  alt="Flood Photo Evidence"
+                  className="w-full h-28 object-cover cursor-pointer hover:scale-105 transition-all duration-300"
+                  onClick={() => setEnlargedImage(selectedHazard.imageUrl || null)}
+                />
+                <div className="absolute top-1.5 left-1.5 bg-slate-950/80 backdrop-blur-md text-[9px] text-cyan-300 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border border-cyan-500/30">
+                  <Camera className="w-2.5 h-2.5 text-cyan-400" />
+                  <span>Photo Proof</span>
+                </div>
               </div>
             )}
 
@@ -1232,6 +1280,56 @@ ${mutualAidRequests.map((m) => `- **[${m.agency}]** ${m.resource} — Status: ${
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* ── High-Resolution Photo Evidence Lightbox Modal ── */}
+      {enlargedImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 anim-fade-in"
+          onClick={() => setEnlargedImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-slate-900 rounded-3xl border border-slate-700 overflow-hidden shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-3.5 px-4 bg-slate-950 flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-xl bg-cyan-500/20 text-cyan-400">
+                  <Camera className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-white">Citizen Flood Photo Evidence</h4>
+                  <p className="text-[10px] text-slate-400">
+                    Captured on-scene by motorist/resident
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEnlargedImage(null)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-2 flex items-center justify-center overflow-auto max-h-[75vh] bg-slate-950/60">
+              <img
+                src={enlargedImage}
+                alt="Enlarged Flood Evidence"
+                className="max-w-full max-h-[72vh] object-contain rounded-2xl shadow-2xl"
+              />
+            </div>
+            <div className="p-3 bg-slate-950 flex justify-end gap-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setEnlargedImage(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl cursor-pointer"
+              >
+                Close Inspection
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
